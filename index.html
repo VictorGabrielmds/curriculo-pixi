@@ -14,10 +14,15 @@
       #pontos i.on { opacity: 1; transform: scale(1.5); }
       #dica { position: fixed; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 14px; color: #c9cdf5; padding: 0 16px; pointer-events: none; transition: opacity .6s; }
       #dica.some { opacity: 0; }
-      #painel { position: fixed; left: 50%; top: 50px; width: min(640px, calc(100vw - 28px)); box-sizing: border-box; transform: translate(-50%, -14px); opacity: 0; pointer-events: none;
-        background: rgba(18, 23, 58, .88); border: 2px solid var(--c, #7c5cff); border-left-width: 6px; border-radius: 18px; padding: 18px 24px 20px; backdrop-filter: blur(6px);
+      #painel { position: fixed; left: 50%; bottom: 46px; width: min(640px, calc(100vw - 28px)); box-sizing: border-box; transform: translate(-50%, 14px); opacity: 0; pointer-events: none;
+        background: rgba(18, 23, 58, .9); border: 2px solid var(--c, #7c5cff); border-left-width: 6px; border-radius: 18px; padding: 16px 22px 18px; backdrop-filter: blur(6px);
         transition: opacity .25s, transform .25s; }
       #painel.on { opacity: 1; transform: translate(-50%, 0); }
+      /* tela larga: o painel fica na lateral, sem cobrir o planeta nem o personagem */
+      @media (min-width: 900px) {
+        #painel { left: 36px; bottom: auto; top: 50%; width: 360px; transform: translate(-14px, -50%); }
+        #painel.on { transform: translate(0, -50%); }
+      }
       #painel h2 { margin: 0 0 10px; font-size: 26px; font-weight: 800; }
       #painel p { margin: 0 0 10px; font-size: 16px; line-height: 1.45; color: #dfe2ff; }
       #painel p:last-child { margin-bottom: 0; }

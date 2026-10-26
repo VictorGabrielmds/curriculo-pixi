@@ -14,7 +14,7 @@ export const zonas = [
     titulo: 'Olá, eu sou o Victor!',
     linhas: [
       'Desenvolvedor front-end que gosta de transformar problemas do dia a dia em ferramentas úteis.',
-      'Ande com ← → (ou A / D), pule com ESPAÇO e explore o mundo.',
+      'Ande com as setas (ou WASD) pelo planeta, pule com ESPAÇO e visite cada estação.',
     ],
   },
   {

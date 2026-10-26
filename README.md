@@ -4,7 +4,7 @@ Um planetinha estilo "Pequeno Príncipe": o planeta inteiro aparece pequeno na t
 e o planeta gira sob os pés dele enquanto ele anda em qualquer direção (norte, sul, leste, oeste). Ao chegar perto
 de uma estação (início, experiência, projetos, habilidades, contato), abre um painel com uma parte do currículo.
 Árvores, pedras e estações são sólidas: não dá para atravessar (pedras dá para pular). Feito com [Three.js](https://threejs.org) + Vite, sem arquivos de modelo ou imagem:
-planeta, árvores, estações e personagem são gerados em código.
+planeta, árvores, estações e o personagem 2D (desenhado em canvas, com 4 direções) são gerados em código.
 
 > A versão 2D em PixiJS continua na branch `main`; esta é a branch `3d`.
 
