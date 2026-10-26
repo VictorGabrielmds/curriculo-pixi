@@ -3,12 +3,18 @@ import { perfil, zonas } from './data.js';
 
 // ---------- constantes ----------
 const R = 6.5; // raio do planeta
-const ESPACO = 0.85; // ângulo (rad) entre estações
-const INICIO = 0.8; // ângulo da primeira estação
-const phi = (i) => INICIO + i * ESPACO;
-const THETA_MAX = phi(zonas.length - 1) + 0.7;
-const VEL = 0.65; // rad/s caminhando (≈ 4 unidades/s)
-const ALCANCE = 0.27; // rad para abrir o painel
+const VEL = 0.55; // rad/s caminhando (≈ 3,5 unidades/s)
+const ALCANCE = 0.42; // rad (do personagem até a estação) para abrir o painel
+const RAIO_ESTACAO = 0.27; // rad que o personagem não consegue atravessar
+const CIMA = new THREE.Vector3(0, 1, 0); // onde o personagem pisa (topo do planeta)
+
+// onde cada estação fica no planeta: [leste-oeste, norte-sul] em radianos; norte = para o fundo da tela
+const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.1, 0.95], [-1.45, 0.45], [-1.0, -0.6]];
+function posicaoZona(i) {
+  const [lon, lat] = POSICOES[i] ?? [i * 2.4, (((i * 0.37) % 1) - 0.5) * 1.6]; // zonas extras: espalha em espiral
+  return new THREE.Vector3(Math.sin(lon) * Math.cos(lat), Math.cos(lon) * Math.cos(lat), -Math.sin(lat));
+}
+const dirsZonas = zonas.map((_, i) => posicaoZona(i));
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -41,11 +47,13 @@ function ruido(x, y, z) {
   return r;
 }
 function altura(p) {
-  // p: ponto na esfera unitária; a faixa da estrada (z≈0) é sempre terra
+  // p: ponto na esfera unitária; o ponto de partida e as estações ficam sempre em terra firme
   const n = ruido(p.x * 2.4 + 5, p.y * 2.4 + 5, p.z * 2.4 + 5) * 0.6
     + ruido(p.x * 5 + 9, p.y * 5 + 9, p.z * 5 + 9) * 0.28
     + ruido(p.x * 11, p.y * 11, p.z * 11) * 0.12;
-  return n + 0.6 * Math.max(0, 1 - Math.abs(p.z) / 0.32);
+  let bonus = Math.max(0, 1 - p.angleTo(CIMA) / 0.5);
+  for (const d of dirsZonas) bonus = Math.max(bonus, 1 - p.angleTo(d) / 0.5);
+  return n + 0.6 * Math.max(0, bonus);
 }
 const NIVEL_MAR = 0.56;
 
@@ -64,10 +72,10 @@ const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 scene.add(new THREE.HemisphereLight(0xbcd0ff, 0x241c4d, 1.15));
 const sol = new THREE.DirectionalLight(0xfff0d4, 2.6);
 sol.position.set(7, R + 9, 9);
-sol.target.position.set(0, R, 0);
+sol.target.position.set(0, 2, 0);
 sol.castShadow = true;
 sol.shadow.mapSize.set(2048, 2048);
-Object.assign(sol.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
+Object.assign(sol.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 50 });
 sol.shadow.bias = -0.0004;
 scene.add(sol, sol.target);
 
@@ -129,31 +137,6 @@ scene.add(planeta);
   scene.add(atm);
 }
 
-// estrada em volta do planeta (faixa colada na esfera)
-{
-  const seg = 240, linhas = 6, larg = 0.4;
-  const pos = [], idx = [];
-  for (let i = 0; i <= seg; i++) {
-    const ang = (i / seg) * Math.PI * 2;
-    for (let j = 0; j < linhas; j++) {
-      const beta = ((j / (linhas - 1)) * 2 - 1) * (larg / R);
-      const r = R + 0.03;
-      pos.push(Math.sin(ang) * Math.cos(beta) * r, Math.cos(ang) * Math.cos(beta) * r, Math.sin(beta) * r);
-    }
-  }
-  for (let i = 0; i < seg; i++) for (let j = 0; j < linhas - 1; j++) {
-    const p = i * linhas + j, q = (i + 1) * linhas + j;
-    idx.push(p, p + 1, q, q, p + 1, q + 1);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  const estrada = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xe6cf9a, roughness: 1, side: THREE.DoubleSide }));
-  estrada.receiveShadow = true;
-  planeta.add(estrada);
-}
-
 // coloca um filho "em pé" sobre a superfície, na direção dir (unitária)
 function fincar(obj, dir, giro = 0) {
   const piv = new THREE.Group();
@@ -170,6 +153,9 @@ function sombrear(g) {
   return g;
 }
 
+// obstáculos que o personagem não atravessa (direção no referencial do planeta + raio em rad)
+const obstaculos = [];
+
 // árvores, pedras e nuvens
 {
   const rnd = semente(77);
@@ -177,18 +163,18 @@ function sombrear(g) {
   const sorteio = () => {
     for (let t = 0; t < 40; t++) {
       dir.set(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
-      if (Math.abs(dir.z) < 0.22) continue; // longe da estrada
-      if (dir.z > 0 && dir.y > 0.45) continue; // não tapar o personagem
+      if (dir.angleTo(CIMA) < 0.3) continue; // deixa livre a área de partida
+      if (dirsZonas.some((d) => dir.angleTo(d) < 0.38)) continue; // e o entorno das estações
       if (altura(dir) < NIVEL_MAR + 0.05) continue; // só em terra
       return dir.clone();
     }
     return null;
   };
-  for (let i = 0; i < 110; i++) {
+  for (let i = 0; i < 90; i++) {
     const d = sorteio();
     if (!d) continue;
     const t = new THREE.Group();
-    const s = 0.7 + rnd() * 0.7;
+    const s = 0.5 + rnd() * 0.45;
     const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 6), mat(0x7a4a2b));
     tronco.position.y = 0.3;
     const copa = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 7), mat(rnd() > 0.5 ? 0x2f9e5c : 0x258a4e));
@@ -198,6 +184,7 @@ function sombrear(g) {
     t.add(tronco, copa, copa2);
     t.scale.setScalar(s);
     fincar(sombrear(t), d, rnd() * 6);
+    obstaculos.push({ d, r: 0.05 * s + 0.02 });
   }
   for (let i = 0; i < 45; i++) {
     const d = sorteio();
@@ -207,18 +194,20 @@ function sombrear(g) {
     const g = new THREE.Group();
     g.add(p);
     fincar(sombrear(g), d, rnd() * 6);
+    obstaculos.push({ d, r: 0.045, baixo: true });
   }
 }
 
+// nuvens ficam no céu (não giram com o planeta), só atrás dele, balançando devagar
 const nuvens = new THREE.Group();
-planeta.add(nuvens);
-// nuvens com altura variável, mas sempre acima das árvores
+scene.add(nuvens);
 {
   const rnd = semente(5);
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: 0.95 });
   for (let i = 0; i < 10; i++) {
     const d = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
-    d.z = -Math.abs(d.z) - 0.25; // só atrás do planeta, para não tapar o personagem
+    d.z = -Math.abs(d.z) - 0.6; // só atrás do planeta, para não tapar o personagem
+    d.y = Math.abs(d.y);
     d.normalize();
     const n = new THREE.Group();
     for (let k = 0; k < 4; k++) {
@@ -226,7 +215,7 @@ planeta.add(nuvens);
       b.position.set((k - 1.5) * 0.6, rnd() * 0.25, (rnd() - 0.5) * 0.5);
       n.add(b);
     }
-    n.position.y = R + 3.6 + rnd() * 1.6;
+    n.position.y = R + 5 + rnd() * 2;
     const piv = new THREE.Group();
     piv.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
     piv.add(n);
@@ -248,7 +237,7 @@ function rotulo(texto) {
   x.fillText(texto, 256, 64);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); // com teste de profundidade: o planeta esconde os rótulos do outro lado
   s.scale.set(3.2, 0.8, 1);
   s.renderOrder = 10;
   return s;
@@ -339,12 +328,8 @@ const estacoes = zonas.map((z, i) => {
   raiz.add(base, anel, icone, rot);
   sombrear(raiz);
   base.castShadow = false;
-  // a estação fica na direção phi(i), recuada (z<0) para o personagem passar na frente
-  const beta = 2.9 / R;
-  const lado = phi(i) + 0.3; // um pouco à frente: o personagem para ao lado dela
-  const dir = new THREE.Vector3(Math.sin(lado) * Math.cos(beta), Math.cos(lado) * Math.cos(beta), -Math.sin(beta));
-  raiz.scale.setScalar(0.95);
-  fincar(raiz, dir, 0);
+  raiz.scale.setScalar(0.8);
+  fincar(raiz, dirsZonas[i], 0);
   return { raiz, anel, icone, rot, gira: icone.getObjectByName('gira') };
 });
 
@@ -377,7 +362,7 @@ const corpo = new THREE.Group();
   const boca = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 6, 12, Math.PI), mat(0x8a3b3b)); boca.position.set(0.485, 2.25, 0); boca.rotation.set(0, Math.PI / 2, Math.PI);
   corpo.add(pernaE, pernaD, bracoE, bracoD, tronco, mochila, cabeca, cab, olhoE, olhoD, boca);
   boneco.add(corpo);
-  boneco.scale.setScalar(1.05);
+  boneco.scale.setScalar(0.7);
   sombrear(boneco);
   boneco.position.y = R;
   scene.add(boneco);
@@ -417,21 +402,39 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => teclas.delete(e.code));
 window.addEventListener('blur', () => teclas.clear());
 
-const toque = { dir: 0, pulo: false };
+// arrastar o dedo anda (joystick virtual); toque rápido pula
+const toque = { x: 0, y: 0, pulo: false };
 const ponteiros = new Map();
 function atualizarToque() {
-  const w = window.innerWidth;
-  let dir = 0, pulo = false;
-  for (const x of ponteiros.values()) {
-    if (x < w * 0.33) dir = -1; else if (x > w * 0.67) dir = 1; else pulo = true;
+  toque.x = 0; toque.y = 0;
+  const p = ponteiros.values().next().value;
+  if (!p) return;
+  const dx = p.x - p.ox, dy = p.y - p.oy, len = Math.hypot(dx, dy);
+  if (len > 14) {
+    const k = Math.min(len, 70) / 70 / len;
+    toque.x = dx * k;
+    toque.y = -dy * k;
   }
-  toque.dir = dir; toque.pulo = pulo;
 }
 const cv = renderer.domElement;
-cv.addEventListener('pointerdown', (e) => { ponteiros.set(e.pointerId, e.clientX); atualizarToque(); });
-cv.addEventListener('pointermove', (e) => { if (ponteiros.has(e.pointerId)) { ponteiros.set(e.pointerId, e.clientX); atualizarToque(); } });
+cv.addEventListener('pointerdown', (e) => {
+  ponteiros.set(e.pointerId, { ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now() });
+  atualizarToque();
+});
+cv.addEventListener('pointermove', (e) => {
+  const p = ponteiros.get(e.pointerId);
+  if (p) { p.x = e.clientX; p.y = e.clientY; atualizarToque(); }
+});
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
-  cv.addEventListener(ev, (e) => { ponteiros.delete(e.pointerId); atualizarToque(); });
+  cv.addEventListener(ev, (e) => {
+    const p = ponteiros.get(e.pointerId);
+    if (p && ev === 'pointerup' && performance.now() - p.t0 < 220 && Math.hypot(p.x - p.ox, p.y - p.oy) < 14) {
+      toque.pulo = true;
+      setTimeout(() => { toque.pulo = false; }, 120);
+    }
+    ponteiros.delete(e.pointerId);
+    atualizarToque();
+  });
 }
 
 // ---------- câmera ----------
@@ -439,39 +442,69 @@ function ajustar() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h);
   camera.aspect = w / h;
-  // em tela estreita afasta a câmera para o personagem continuar inteiro
-  camera.userData.afasta = 1 / clamp(camera.aspect / 1.3, 0.55, 1);
+  // em tela estreita afasta a câmera para o planeta continuar inteiro
+  camera.userData.afasta = 1 / clamp(camera.aspect / 1.1, 0.5, 1);
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', ajustar);
 ajustar();
 
 // ---------- estado ----------
+// o personagem fica parado no topo do planeta; quem se mexe é o planeta (orientação q)
+const q = planeta.quaternion;
 // ?zona=2 abre direto na estação 2 (link para compartilhar uma parte do currículo)
 const zonaParam = new URLSearchParams(location.search).get('zona');
-let theta = zonaParam === null ? 0 : phi(clamp(Math.round(Number(zonaParam)) || 0, 0, zonas.length - 1)) - 0.05;
-let vTheta = 0, alturaPulo = 0, vPulo = 0, noChao = true;
-let yaw = -Math.PI / 2, yawAlvo = -Math.PI / 2, passo = 0, andou = false, tempo = 0;
+if (zonaParam !== null) {
+  const i = clamp(Math.round(Number(zonaParam)) || 0, 0, zonas.length - 1);
+  q.setFromUnitVectors(dirsZonas[i], new THREE.Vector3(0.25, 1, -0.2).normalize());
+}
+let vLeste = 0, vNorte = 0, alturaPulo = 0, vPulo = 0, noChao = true;
+let yaw = -Math.PI / 2, passo = 0, andou = false, tempo = 0;
+const eixo = new THREE.Vector3(), dq = new THREE.Quaternion(), w = new THREE.Vector3();
+const angulo = (d) => Math.acos(clamp(w.copy(d).applyQuaternion(q).y, -1, 1)); // distância (rad) de d até o personagem
+const volta = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// empurra o planeta para o personagem não atravessar o obstáculo
+function empurrar(d, r) {
+  w.copy(d).applyQuaternion(q);
+  if (w.y < 0.8) return;
+  const a = Math.acos(Math.min(1, w.y));
+  if (a >= r) return;
+  eixo.crossVectors(CIMA, w);
+  if (eixo.lengthSq() < 1e-10) eixo.set(0, 0, 1);
+  eixo.normalize();
+  dq.setFromAxisAngle(eixo, r - a);
+  q.premultiply(dq);
+}
 
 const relogio = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(relogio.getDelta(), 0.05);
   tempo += dt;
 
-  // movimento: o planeta gira sob os pés do personagem
-  const esq = teclas.has('ArrowLeft') || teclas.has('KeyA');
-  const dir = teclas.has('ArrowRight') || teclas.has('KeyD');
-  const dirIn = (dir ? 1 : 0) - (esq ? 1 : 0) || toque.dir;
-  const querPular = teclas.has('Space') || teclas.has('ArrowUp') || teclas.has('KeyW') || toque.pulo;
-  vTheta = damp(vTheta, dirIn * VEL, 9, dt);
-  if (Math.abs(vTheta) < 0.002) vTheta = 0;
-  theta = clamp(theta + vTheta * dt, -0.15, THETA_MAX);
-  if (theta <= -0.15 || theta >= THETA_MAX) vTheta = 0;
-  planeta.rotation.z = theta;
-  if (Math.abs(vTheta) > 0.05) andou = true;
+  // entrada: ← → leste-oeste, ↑ ↓ norte-sul
+  const k = (a, b) => (teclas.has(a) || teclas.has(b) ? 1 : 0);
+  let ix = k('ArrowRight', 'KeyD') - k('ArrowLeft', 'KeyA') || toque.x;
+  let iy = k('ArrowUp', 'KeyW') - k('ArrowDown', 'KeyS') || toque.y;
+  const tam = Math.hypot(ix, iy);
+  if (tam > 1) { ix /= tam; iy /= tam; }
+  vLeste = damp(vLeste, ix, 9, dt);
+  vNorte = damp(vNorte, iy, 9, dt);
+  const vel = Math.hypot(vLeste, vNorte);
+  if (vel > 0.003) {
+    // andar para a direita = girar o planeta em Z; andar para o fundo da tela = girar em X
+    eixo.set(vNorte, 0, vLeste).normalize();
+    dq.setFromAxisAngle(eixo, vel * VEL * dt);
+    q.premultiply(dq);
+    andou = true;
+  }
+  for (const d of dirsZonas) empurrar(d, RAIO_ESTACAO);
+  for (const o of obstaculos) if (!(o.baixo && alturaPulo > 0.5)) empurrar(o.d, o.r);
+  q.normalize();
   if (andou) $('#dica').classList.add('some');
 
   // pulo
+  const querPular = teclas.has('Space') || toque.pulo;
   if (querPular && noChao) { vPulo = 7.2; noChao = false; }
   if (!noChao) {
     vPulo -= 20 * dt;
@@ -481,7 +514,7 @@ renderer.setAnimationLoop(() => {
   boneco.position.y = R + alturaPulo;
 
   // pose e caminhada
-  const mov = Math.abs(vTheta) / VEL;
+  const mov = Math.min(1, vel);
   passo += mov * dt * 9;
   const bal = noChao ? Math.sin(passo) * mov : 0.7;
   pernaE.rotation.z = bal * 0.85;
@@ -489,22 +522,31 @@ renderer.setAnimationLoop(() => {
   bracoE.rotation.z = -bal * 0.7 + (noChao ? 0 : -1.2);
   bracoD.rotation.z = bal * 0.7 + (noChao ? 0 : -1.2);
   corpo.position.y = noChao ? Math.abs(Math.sin(passo)) * 0.1 * mov + Math.sin(tempo * 2) * 0.012 * (1 - mov) : 0;
-  corpo.rotation.z = lerp(corpo.rotation.z, -Math.sign(vTheta) * 0.08 * mov, 0.2);
-  yawAlvo = vTheta > 0.05 ? -0.62 : vTheta < -0.05 ? -2.52 : yawAlvo;
-  if (mov < 0.02 && noChao) yawAlvo = damp(yawAlvo, -Math.PI / 2, 1.2, dt); // parado: volta a olhar para a câmera
-  yaw = damp(yaw, yawAlvo, 10, dt);
+  // olha para onde anda (de lado fica meio virado para a câmera); parado, olha para a câmera
+  let yawAlvo = -Math.PI / 2;
+  if (vel > 0.08) {
+    const fx = vLeste / vel;
+    let fz = -vNorte / vel;
+    fz += 0.5 * (1 - Math.abs(fz));
+    yawAlvo = Math.atan2(-fz, fx);
+  }
+  yaw += volta(yawAlvo - yaw) * (1 - Math.exp(-10 * dt));
   boneco.rotation.y = yaw;
 
-  // câmera: parada, com leve balanço
+  // câmera: afastada, vendo o planeta inteiro de cima e de frente
   const af = camera.userData.afasta;
-  camera.position.set(Math.sin(tempo * 0.4) * 0.25, R + 2.7 * af + Math.sin(tempo * 0.6) * 0.05, 8.6 * af);
-  camera.lookAt(0, R + 1.35, 0);
+  const dist = 24 * af;
+  const el = 0.9; // câmera bem de cima: o personagem fica no meio do disco do planeta
+  const alvoY = 2.6;
+  camera.position.set(0, alvoY + Math.sin(el) * dist, Math.cos(el) * dist);
+  camera.lookAt(0, alvoY, 0);
+  nuvens.rotation.y = Math.sin(tempo * 0.1) * 0.4;
 
   // estações
   let ativa = -1, menor = ALCANCE;
-  zonas.forEach((_, i) => {
-    const d = Math.abs(theta - phi(i));
-    if (d < menor) { menor = d; ativa = i; }
+  dirsZonas.forEach((d, i) => {
+    const a = angulo(d);
+    if (a < menor) { menor = a; ativa = i; }
   });
   estacoes.forEach((e, i) => {
     const on = i === ativa;
