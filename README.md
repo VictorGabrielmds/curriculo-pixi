@@ -1,8 +1,11 @@
-# Currículo jogável (PixiJS)
+# Currículo jogável em 3D (Three.js)
 
-Currículo interativo: um personagem anda por um mundo 2D e cada estação revela uma parte da trajetória
-(início, experiência, projetos, habilidades, contato). Feito com [PixiJS 8](https://pixijs.com) + Vite, sem imagens:
-todo o cenário é desenhado em código.
+Um planetinha estilo "Pequeno Príncipe": o personagem fica grande no centro da tela e o planeta gira sob os pés dele
+enquanto ele anda. Cada estação no caminho (início, experiência, projetos, habilidades, contato) abre um painel
+com uma parte do currículo. Feito com [Three.js](https://threejs.org) + Vite, sem arquivos de modelo ou imagem:
+planeta, árvores, estações e personagem são gerados em código.
+
+> A versão 2D em PixiJS continua na branch `main`; esta é a branch `3d`.
 
 ## Rodar
 
@@ -17,12 +20,11 @@ Link direto para uma estação: `?zona=2` (0 a 4).
 ## Personalizar
 
 Todo o conteúdo está em [`src/data.js`](src/data.js): nome, título e as zonas (título, texto, cor e ícone:
-`casa`, `predio`, `foguete`, `estrela`, `carta`). Adicionar uma zona nova estica o mundo automaticamente.
+`casa`, `predio`, `foguete`, `estrela`, `carta`). Ajuste `ESPACO` e `INICIO` no topo de `src/main.js`
+se adicionar zonas, para elas não se sobreporem no planeta.
 
-## Publicar no GitHub Pages
+## Publicar
 
 ```bash
 npm run build   # gera dist/ (base relativa, funciona em qualquer nome de repositório)
 ```
-
-Publique a pasta `dist/` (por exemplo com o workflow oficial de Pages ou o pacote `gh-pages`).

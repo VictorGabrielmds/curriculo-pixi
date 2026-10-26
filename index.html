@@ -4,13 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Victor Gabriel — Currículo jogável</title>
-    <meta name="description" content="Currículo interativo em PixiJS: ande pelo mundo e descubra minha trajetória." />
+    <meta name="description" content="Currículo interativo em 3D: ande pelo meu planeta e descubra minha trajetória." />
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1026; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1026; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
       canvas { display: block; touch-action: none; }
+      #nome { position: fixed; left: 18px; top: 14px; font-size: 15px; font-weight: 600; opacity: .85; pointer-events: none; }
+      #pontos { position: fixed; right: 18px; top: 18px; display: flex; gap: 10px; pointer-events: none; }
+      #pontos i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); opacity: .3; transition: opacity .25s, transform .25s; }
+      #pontos i.on { opacity: 1; transform: scale(1.5); }
+      #dica { position: fixed; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 14px; color: #c9cdf5; padding: 0 16px; pointer-events: none; transition: opacity .6s; }
+      #dica.some { opacity: 0; }
+      #painel { position: fixed; left: 50%; top: 50px; width: min(640px, calc(100vw - 28px)); box-sizing: border-box; transform: translate(-50%, -14px); opacity: 0; pointer-events: none;
+        background: rgba(18, 23, 58, .88); border: 2px solid var(--c, #7c5cff); border-left-width: 6px; border-radius: 18px; padding: 18px 24px 20px; backdrop-filter: blur(6px);
+        transition: opacity .25s, transform .25s; }
+      #painel.on { opacity: 1; transform: translate(-50%, 0); }
+      #painel h2 { margin: 0 0 10px; font-size: 26px; font-weight: 800; }
+      #painel p { margin: 0 0 10px; font-size: 16px; line-height: 1.45; color: #dfe2ff; }
+      #painel p:last-child { margin-bottom: 0; }
     </style>
   </head>
   <body>
+    <div id="nome"></div>
+    <div id="pontos"></div>
+    <div id="painel"><h2></h2><div id="texto"></div></div>
+    <div id="dica">← → ou A D para andar · ESPAÇO para pular · toque nas laterais no celular</div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
