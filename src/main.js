@@ -47,14 +47,19 @@ function ruido(x, y, z) {
   }
   return r;
 }
+const COS_BONUS = Math.cos(0.5);
 function altura(p) {
   // p: ponto na esfera unitária; o ponto de partida e as estações ficam sempre em terra firme
   const n = ruido(p.x * 2.2 + 5, p.y * 2.2 + 5, p.z * 2.2 + 5) * 0.68
     + ruido(p.x * 4.3 + 9, p.y * 4.3 + 9, p.z * 4.3 + 9) * 0.26
     + ruido(p.x * 8.1, p.y * 8.1, p.z * 8.1) * 0.06;
-  let bonus = Math.max(0, 1 - p.angleTo(CIMA) / 0.5);
-  for (const d of dirsZonas) bonus = Math.max(bonus, 1 - p.angleTo(d) / 0.5);
-  return n + 0.6 * Math.max(0, bonus);
+  let bonus = 0;
+  if (p.y > COS_BONUS) bonus = 1 - Math.acos(Math.min(1, p.y)) / 0.5;
+  for (const d of dirsZonas) {
+    const c = p.dot(d);
+    if (c > COS_BONUS) bonus = Math.max(bonus, 1 - Math.acos(Math.min(1, c)) / 0.5);
+  }
+  return n + 0.6 * bonus;
 }
 const NIVEL_MAR = 0.5; // menor = mais terra
 
@@ -104,34 +109,85 @@ const planeta = new THREE.Group();
 scene.add(planeta);
 
 {
-  const geo = new THREE.IcosahedronGeometry(R, 32);
-  const pos = geo.attributes.position;
-  const normais = new Float32Array(pos.count * 3);
-  const cores = new Float32Array(pos.count * 3);
+  // a altura do terreno vai para uma textura (cubo desdobrado em 6 faces) e o shader a lê por pixel:
+  // o litoral fica nítido em qualquer zoom, sem depender da quantidade de triângulos
+  const N = 320, P = 2, M = N + 2 * P; // N texels por face + borda de P para não aparecer emenda
+  const dados = new Uint16Array(3 * M * 2 * M * 4);
+  const FACES = [(u, v) => [1, v, -u], (u, v) => [-1, v, u], (u, v) => [u, 1, -v], (u, v) => [u, -1, v], (u, v) => [u, v, 1], (u, v) => [-u, v, -1]];
   const p = new THREE.Vector3();
-  const cor = new THREE.Color();
-  // degradê contínuo: [altura, cor]
-  const paleta = [
-    [NIVEL_MAR - 0.3, 0x1745a6], [NIVEL_MAR - 0.12, 0x2873d4], [NIVEL_MAR - 0.015, 0x52bdee],
-    [NIVEL_MAR + 0.005, 0xf3dda3], [NIVEL_MAR + 0.04, 0x79c96a], [NIVEL_MAR + 0.1, 0x48b45e],
-    [0.85, 0x37995a], [1.0, 0x2c7f4f],
-  ].map(([h, hex]) => [h, new THREE.Color(hex)]);
-  for (let i = 0; i < pos.count; i++) {
-    p.fromBufferAttribute(pos, i).normalize();
-    normais.set([p.x, p.y, p.z], i * 3);
-    const h = altura(p);
-    let k = 0;
-    while (k < paleta.length - 2 && h > paleta[k + 1][0]) k++;
-    const [h0, a] = paleta[k], [h1, b] = paleta[k + 1];
-    const t = clamp((h - h0) / (h1 - h0), 0, 1);
-    cor.copy(a).lerp(b, t * t * (3 - 2 * t));
-    // manchas suaves de claro/escuro para o planeta não parecer chapado
-    cor.offsetHSL(0, 0, (ruido(p.x * 7, p.y * 7, p.z * 7) - 0.5) * 0.07);
-    cores.set([cor.r, cor.g, cor.b], i * 3);
+  const um = THREE.DataUtils.toHalfFloat(1);
+  for (let f = 0; f < 6; f++) {
+    const cx = (f % 3) * M, cy = Math.floor(f / 3) * M;
+    for (let j = 0; j < M; j++) {
+      const v = ((j + 0.5 - P) / N) * 2 - 1;
+      for (let i = 0; i < M; i++) {
+        const u = ((i + 0.5 - P) / N) * 2 - 1;
+        const [x, y, z] = FACES[f](u, v);
+        p.set(x, y, z).normalize();
+        const idx = ((cy + j) * 3 * M + cx + i) * 4;
+        dados[idx] = THREE.DataUtils.toHalfFloat(altura(p));
+        dados[idx + 3] = um;
+      }
+    }
   }
-  geo.setAttribute('normal', new THREE.BufferAttribute(normais, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
+  const tex = new THREE.DataTexture(dados, 3 * M, 2 * M, THREE.RGBAFormat, THREE.HalfFloatType);
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+
+  const material = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+  material.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, {
+      uAltura: { value: tex }, uN: { value: N }, uP: { value: P }, uM: { value: M }, uNivel: { value: NIVEL_MAR },
+      uMarRaso: { value: new THREE.Color(0x56c2ee) }, uMarMedio: { value: new THREE.Color(0x2f7fdc) }, uMarFundo: { value: new THREE.Color(0x1d56b8) }, uEspuma: { value: new THREE.Color(0xd4f1fc) },
+      uAreia: { value: new THREE.Color(0xf3dda3) }, uGrama0: { value: new THREE.Color(0x6fcf6a) }, uGrama1: { value: new THREE.Color(0x4cb760) }, uGrama2: { value: new THREE.Color(0x2f9055) },
+    });
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vObj;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vObj;
+        uniform sampler2D uAltura; uniform float uN, uP, uM, uNivel;
+        uniform vec3 uMarRaso, uMarMedio, uMarFundo, uEspuma, uAreia, uGrama0, uGrama1, uGrama2;
+        float hash31(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float vnoise(vec3 x) {
+          vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(mix(hash31(i), hash31(i + vec3(1, 0, 0)), f.x), mix(hash31(i + vec3(0, 1, 0)), hash31(i + vec3(1, 1, 0)), f.x), f.y),
+                     mix(mix(hash31(i + vec3(0, 0, 1)), hash31(i + vec3(1, 0, 1)), f.x), mix(hash31(i + vec3(0, 1, 1)), hash31(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+        }
+        float alturaTex(vec3 d) {
+          vec3 a = abs(d); float m, u, v, face;
+          if (a.x >= a.y && a.x >= a.z) { m = a.x; if (d.x > 0.0) { face = 0.0; u = -d.z; v = d.y; } else { face = 1.0; u = d.z; v = d.y; } }
+          else if (a.y >= a.z) { m = a.y; if (d.y > 0.0) { face = 2.0; u = d.x; v = -d.z; } else { face = 3.0; u = d.x; v = d.z; } }
+          else { m = a.z; if (d.z > 0.0) { face = 4.0; u = d.x; v = d.y; } else { face = 5.0; u = -d.x; v = d.y; } }
+          vec2 px = (vec2(u, v) / m * 0.5 + 0.5) * uN + uP;
+          vec2 cel = vec2(mod(face, 3.0), floor(face / 3.0));
+          return texture2D(uAltura, (cel * uM + px) / vec2(3.0 * uM, 2.0 * uM)).r;
+        }
+        // degrau com borda de 1 pixel (sem serrilhado)
+        float degrau(float x, float w) { return smoothstep(-w, w, x); }
+        vec3 corTerreno(vec3 d) {
+          // detalhe fino do litoral calculado por pixel: a costa fica recortada em qualquer zoom
+          float h = alturaTex(d) + (vnoise(d * 26.0) - 0.5) * 0.04 + (vnoise(d * 60.0) - 0.5) * 0.016;
+          float c = h - uNivel;
+          float w = fwidth(h) * 0.9 + 1e-5;
+          // água em faixas (fundo, médio, raso) e espuma na beira
+          vec3 agua = mix(uMarFundo, uMarMedio, degrau(c + 0.2, w));
+          agua = mix(agua, uMarRaso, degrau(c + 0.07, w));
+          agua = mix(agua, uEspuma, degrau(c + 0.014, w * 0.6));
+          // terra: areia, grama em duas tonalidades (manchas) e mata mais escura nas partes altas
+          float mancha = degrau(vnoise(d * 11.0) + 0.4 * vnoise(d * 29.0) - 0.7, w * 6.0);
+          vec3 grama = mix(uGrama0, uGrama1, mancha);
+          grama = mix(grama, uGrama2, degrau(c - 0.5, w * 2.0));
+          vec3 terra = mix(uAreia, grama, degrau(c - 0.03, w));
+          vec3 col = mix(agua, terra, degrau(c, w));
+          float fino = vnoise(d * 120.0);
+          return col * (0.95 + 0.1 * fino);
+        }`)
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = corTerreno(normalize(vObj));');
+  };
+  const m = new THREE.Mesh(new THREE.SphereGeometry(R, 128, 96), material);
   m.receiveShadow = true;
   planeta.add(m);
 
@@ -339,98 +395,60 @@ const estacoes = zonas.map((z, i) => {
   return { raiz, anel, icone, rot, gira: icone.getObjectByName('gira') };
 });
 
-// ---------- personagem (2D) ----------
-// desenhado em canvas: 4 direções x 4 quadros de caminhada, sempre virado para a câmera (sprite)
-const DIRECOES = ['baixo', 'cima', 'dir', 'esq'];
-function desenharBoneco(dir, fase) {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 384;
-  const x = c.getContext('2d');
-  x.scale(2, 2);
-  x.lineJoin = 'round'; x.lineCap = 'round';
-  const TRACO = '#1b1f3b', PELE = '#f5c9a0', CAMISA = '#7c5cff', CALCA = '#252a63', CABELO = '#2b1d3a', MOCHILA = '#ffd23f';
-  const s = [0, 1, 0, -1][fase]; // balanço da caminhada
-  const rr = (px, py, w, h, r, cor) => {
-    x.beginPath(); x.roundRect(px, py, w, h, r);
-    x.fillStyle = cor; x.fill(); x.lineWidth = 3; x.strokeStyle = TRACO; x.stroke();
-  };
-  const bola = (cx, cy, r, cor) => {
-    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2);
-    x.fillStyle = cor; x.fill(); x.lineWidth = 3; x.strokeStyle = TRACO; x.stroke();
-  };
-  const lado = dir === 'dir' || dir === 'esq';
-  x.save();
-  x.translate(64, 0);
-  if (dir === 'esq') x.scale(-1, 1); // esquerda = direita espelhada
+// ---------- personagem ----------
+const boneco = new THREE.Group();
+const pernaE = new THREE.Group(), pernaD = new THREE.Group(), bracoE = new THREE.Group(), bracoD = new THREE.Group();
+const corpo = new THREE.Group();
+{
+  const pele = mat(0xf5c9a0), camisa = mat(0x7c5cff), calca = mat(0x1f2350), cabelo = mat(0x2b1d3a), amarelo = mat(0xffd23f);
+  const cap = (r, h, m) => new THREE.Mesh(new THREE.CapsuleGeometry(r, h, 4, 10), m);
 
-  const pernas = () => {
-    if (lado) {
-      rr(-8 - s * 11, 140 - Math.max(0, -s) * 7, 16, 40 + Math.max(0, -s) * 7, 7, CALCA);
-      rr(-8 + s * 11, 140 - Math.max(0, s) * 7, 16, 40 + Math.max(0, s) * 7, 7, CALCA);
-    } else {
-      rr(-24, 140 - Math.max(0, s) * 8, 18, 40 + Math.max(0, s) * 8, 7, CALCA);
-      rr(6, 140 - Math.max(0, -s) * 8, 18, 40 + Math.max(0, -s) * 8, 7, CALCA);
-    }
-  };
-  const bracos = () => {
-    if (lado) { rr(-7 + s * 12, 92, 14, 40, 7, CAMISA); bola(s * 12, 134, 7, PELE); } else {
-      rr(-42, 92 + s * 5, 15, 40, 7, CAMISA); bola(-34.5, 134 + s * 5, 7, PELE);
-      rr(27, 92 - s * 5, 15, 40, 7, CAMISA); bola(34.5, 134 - s * 5, 7, PELE);
-    }
-  };
-  const cabeca = () => {
-    bola(0, 56, 34, PELE);
-    // cabelo
-    x.beginPath();
-    if (dir === 'cima') x.arc(0, 56, 34, 0, Math.PI * 2);
-    else if (lado) { x.arc(0, 56, 34, Math.PI * 0.5, Math.PI * 1.9); x.lineTo(14, 42); x.closePath(); }
-    else { x.arc(0, 56, 34, Math.PI, Math.PI * 2); x.quadraticCurveTo(10, 40, -4, 44); x.quadraticCurveTo(-18, 46, -34, 56); }
-    x.fillStyle = CABELO; x.fill(); x.lineWidth = 3; x.strokeStyle = TRACO; x.stroke();
-    // rosto
-    x.fillStyle = TRACO;
-    if (dir === 'baixo') {
-      x.beginPath(); x.ellipse(-12, 62, 4.5, 6, 0, 0, Math.PI * 2); x.ellipse(12, 62, 4.5, 6, 0, 0, Math.PI * 2); x.fill();
-      x.beginPath(); x.arc(0, 70, 8, 0.2, Math.PI - 0.2); x.lineWidth = 3; x.strokeStyle = '#8a3b3b'; x.stroke();
-    } else if (lado) {
-      x.beginPath(); x.ellipse(16, 62, 4.5, 6, 0, 0, Math.PI * 2); x.fill();
-      x.beginPath(); x.arc(14, 71, 6, 0.3, Math.PI - 0.6); x.lineWidth = 3; x.strokeStyle = '#8a3b3b'; x.stroke();
-    }
-  };
-
-  if (dir === 'cima') { pernas(); rr(-26, 84, 52, 62, 18, CAMISA); rr(-18, 92, 36, 40, 8, MOCHILA); bracos(); cabeca(); }
-  else if (lado) { pernas(); rr(-30, 90, 14, 40, 6, MOCHILA); rr(-24, 84, 48, 62, 18, CAMISA); bracos(); cabeca(); }
-  else { pernas(); rr(-26, 84, 52, 62, 18, CAMISA); bracos(); cabeca(); }
-  x.restore();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return new THREE.SpriteMaterial({ map: tex, transparent: true });
+  for (const [p, z] of [[pernaE, -0.2], [pernaD, 0.2]]) {
+    const m = cap(0.17, 0.55, calca); m.position.y = -0.47;
+    const sapato = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.17, 0.3), mat(0xf4f4ff)); sapato.position.set(0.1, -0.9, 0);
+    p.add(m, sapato); p.position.set(0, 0.95, z);
+  }
+  for (const [p, z] of [[bracoE, -0.5], [bracoD, 0.5]]) {
+    const m = cap(0.13, 0.5, camisa); m.position.y = -0.38;
+    const mao = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), pele); mao.position.y = -0.8;
+    p.add(m, mao); p.position.set(0, 1.78, z);
+  }
+  const tronco = cap(0.38, 0.5, camisa); tronco.position.y = 1.45;
+  const mochila = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.75, 0.55), amarelo); mochila.position.set(-0.42, 1.5, 0);
+  const cabeca = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), pele); cabeca.position.y = 2.4;
+  // cabelo cacheado: várias bolinhas (cachos) em volta do topo e da nuca, deixando o rosto livre
+  const cacheado = mat(0x3a2418);
+  const cab = new THREE.Group();
+  const pontosCachos = 46;
+  for (let i = 0; i < pontosCachos; i++) {
+    const y = 1 - (i / (pontosCachos - 1)) * 1.25; // do topo até um pouco abaixo da linha da testa
+    const raio = Math.sqrt(Math.max(0, 1 - y * y));
+    const ang = i * 2.399963; // ângulo áureo: espalha sem formar fileiras
+    const dx = Math.cos(ang) * raio, dz = Math.sin(ang) * raio;
+    if (dx > 0.35 && y < 0.55) continue; // rosto (frente = +x)
+    const cacho = new THREE.Mesh(new THREE.SphereGeometry(0.15 + ((i * 7) % 5) * 0.012, 10, 8), cacheado);
+    cacho.position.set(dx * 0.5, 2.4 + y * 0.5, dz * 0.5);
+    cab.add(cacho);
+  }
+  const topo = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), cacheado);
+  topo.position.set(-0.05, 2.62, 0);
+  cab.add(topo);
+  for (let i = 0; i < 6; i++) { // franja de cachos na testa
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), cacheado);
+    f.position.set(0.36, 2.74 - Math.abs(i - 2.5) * 0.04, (i - 2.5) * 0.17);
+    cab.add(f);
+  }
+  const olhoMat = new THREE.MeshStandardMaterial({ color: 0x151833, roughness: 0.4 });
+  const olhoE = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), olhoMat); olhoE.position.set(0.47, 2.43, -0.17);
+  const olhoD = olhoE.clone(); olhoD.position.z = 0.17;
+  const boca = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 6, 12, Math.PI), mat(0x8a3b3b)); boca.position.set(0.485, 2.25, 0); boca.rotation.set(0, Math.PI / 2, Math.PI);
+  corpo.add(pernaE, pernaD, bracoE, bracoD, tronco, mochila, cabeca, cab, olhoE, olhoD, boca);
+  boneco.add(corpo);
+  boneco.scale.setScalar(0.75);
+  sombrear(boneco);
+  boneco.position.y = R;
+  scene.add(boneco);
 }
-// sombra macia: mancha escura que some nas bordas
-function gradienteSombra() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(32, 32, 2, 32, 32, 30);
-  g.addColorStop(0, 'rgba(0,0,0,0.9)');
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  x.fillStyle = g;
-  x.fillRect(0, 0, 64, 64);
-  return new THREE.CanvasTexture(c);
-}
-const quadros = Object.fromEntries(DIRECOES.map((d) => [d, [0, 1, 2, 3].map((f) => desenharBoneco(d, f))]));
-const boneco = new THREE.Sprite(quadros.baixo[0]);
-boneco.center.set(0.5, 0.04); // pés na base
-boneco.scale.set(1.5, 2.25, 1);
-boneco.position.y = R;
-scene.add(boneco);
-const sombraBoneco = new THREE.Mesh(
-  new THREE.PlaneGeometry(1.5, 1.5),
-  new THREE.MeshBasicMaterial({ map: gradienteSombra(), transparent: true, opacity: 0.6, depthWrite: false }),
-);
-sombraBoneco.rotation.x = -Math.PI / 2;
-sombraBoneco.position.y = R + 0.05;
-scene.add(sombraBoneco);
 
 // ---------- interface (DOM) ----------
 const $ = (s) => document.querySelector(s);
@@ -523,8 +541,9 @@ if (zonaParam !== null) {
   q.setFromUnitVectors(dirsZonas[i], new THREE.Vector3(0.25, 1, -0.2).normalize());
 }
 let vLeste = 0, vNorte = 0, alturaPulo = 0, vPulo = 0, noChao = true;
-let passo = 0, andou = false, tempo = 0, olhando = 'baixo';
+let yaw = -Math.PI / 2, passo = 0, andou = false, tempo = 0;
 const eixo = new THREE.Vector3(), dq = new THREE.Quaternion(), w = new THREE.Vector3();
+const volta = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const angulo = (d) => Math.acos(clamp(w.copy(d).applyQuaternion(q).y, -1, 1)); // distância (rad) de d até o personagem
 
 // empurra o planeta para o personagem não atravessar o obstáculo
@@ -575,15 +594,26 @@ renderer.setAnimationLoop(() => {
     if (alturaPulo <= 0) { alturaPulo = 0; vPulo = 0; noChao = true; }
   }
 
-  // quadro do sprite: direção predominante + ciclo de caminhada
+  // pose e caminhada
   const mov = Math.min(1, vel);
-  if (vel > 0.08) olhando = Math.abs(vLeste) > Math.abs(vNorte) ? (vLeste > 0 ? 'dir' : 'esq') : (vNorte > 0 ? 'cima' : 'baixo');
   passo += mov * dt * 9;
-  const fase = vel > 0.08 && noChao ? Math.floor(passo) % 4 : 0;
-  boneco.material = quadros[olhando][fase];
-  boneco.position.y = R + alturaPulo + (noChao ? Math.abs(Math.sin(passo * Math.PI / 2)) * 0.07 * mov : 0);
-  sombraBoneco.scale.setScalar(1 - Math.min(alturaPulo, 1.4) * 0.25);
-  sombraBoneco.material.opacity = 0.6 - Math.min(alturaPulo, 1.4) * 0.2;
+  const bal = noChao ? Math.sin(passo) * mov : 0.7;
+  pernaE.rotation.z = bal * 0.85;
+  pernaD.rotation.z = -bal * 0.85;
+  bracoE.rotation.z = -bal * 0.7 + (noChao ? 0 : -1.2);
+  bracoD.rotation.z = bal * 0.7 + (noChao ? 0 : -1.2);
+  corpo.position.y = noChao ? Math.abs(Math.sin(passo)) * 0.1 * mov + Math.sin(tempo * 2) * 0.012 * (1 - mov) : 0;
+  // olha para onde anda (de lado fica meio virado para a câmera); parado, olha para a câmera
+  let yawAlvo = -Math.PI / 2;
+  if (vel > 0.08) {
+    const fx = vLeste / vel;
+    let fz = -vNorte / vel;
+    fz += 0.5 * (1 - Math.abs(fz));
+    yawAlvo = Math.atan2(-fz, fx);
+  }
+  yaw += volta(yawAlvo - yaw) * (1 - Math.exp(-10 * dt));
+  boneco.rotation.y = yaw;
+  boneco.position.y = R + alturaPulo;
 
   // câmera: afastada, vendo o planeta inteiro de cima e de frente
   const af = camera.userData.afasta;
