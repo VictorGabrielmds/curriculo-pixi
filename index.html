@@ -12,7 +12,7 @@
       #pontos { position: fixed; right: 18px; top: 18px; display: flex; gap: 10px; pointer-events: none; }
       #pontos i { width: 12px; height: 12px; border-radius: 0; box-shadow: 0 0 0 2px #070a1a; background: var(--c); opacity: .3; transition: opacity .25s, transform .25s; }
       #pontos i.on { opacity: 1; transform: scale(1.5); }
-      #dica { position: fixed; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 15px; color: #e6e8ff; padding: 0 16px; pointer-events: none; transition: opacity .6s; text-shadow: 2px 0 #070a1a, -2px 0 #070a1a, 0 2px #070a1a, 0 -2px #070a1a, 2px 2px #070a1a, -2px -2px #070a1a, 2px -2px #070a1a, -2px 2px #070a1a; }
+      #dica { position: fixed; left: 0; right: 0; bottom: 28px; text-align: center; font-size: 15px; color: #e6e8ff; padding: 0 16px; pointer-events: none; transition: opacity .6s; text-shadow: 2px 0 #070a1a, -2px 0 #070a1a, 0 2px #070a1a, 0 -2px #070a1a, 2px 2px #070a1a, -2px -2px #070a1a, 2px -2px #070a1a, -2px 2px #070a1a; }
       #dica.some { opacity: 0; }
       #fichas-hud { position: fixed; right: 18px; top: 42px; display: flex; align-items: center; gap: 8px; font-size: 17px; pointer-events: none;
         text-shadow: 2px 0 #070a1a, -2px 0 #070a1a, 0 2px #070a1a, 0 -2px #070a1a, 2px 2px #070a1a, -2px -2px #070a1a, 2px -2px #070a1a, -2px 2px #070a1a; }
@@ -88,6 +88,12 @@
       #rotulos { z-index: 2; }
       #painel button#acao:not([hidden]) { display: block; }
       #pontos i.vis { opacity: .65; }
+      #som { position: fixed; right: 18px; top: 70px; font: inherit; font-size: 12px; letter-spacing: 1px; color: #fff; background: #2a3470; border: 3px solid #070a1a; padding: 3px 8px; cursor: pointer; z-index: 2;
+        box-shadow: inset -2px -2px 0 rgba(0, 0, 0, .3), inset 2px 2px 0 rgba(255, 255, 255, .18); }
+      #som:hover { background: #38449a; }
+      #som.mudo { opacity: .6; text-decoration: line-through; }
+      #creditos { position: fixed; right: 12px; bottom: 7px; z-index: 1; font-size: 11px; color: #aab3e8; text-shadow: 1px 1px 0 #070a1a, -1px -1px 0 #070a1a, 1px -1px 0 #070a1a, -1px 1px 0 #070a1a; }
+      #creditos a { color: #fff; }
     </style>
   </head>
   <body>
@@ -95,7 +101,9 @@
     <div id="pontos"></div>
     <div id="fichas-hud" title="Suas fichas do cassino"><i class="moeda"></i><b>0</b></div>
     <div id="painel"><h2></h2><div id="texto"></div><button id="acao" hidden>JOGAR [E]</button></div>
+    <button id="som" title="Ligar ou desligar o som e a música">♪ SOM</button>
     <div id="dica">← ↑ ↓ → (ou WASD) para andar pelo planeta · SHIFT corre · ESPAÇO pula · no celular, arraste o dedo</div>
+    <div id="creditos">♪ Todas as músicas foram criadas no <a href="https://www.beepbox.co" target="_blank" rel="noopener noreferrer">BeepBox</a></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -4,6 +4,8 @@ import { skinPorId } from './skins.js';
 import { iniciarCassino } from './cassino.js';
 import { iniciarArcade } from './arcade.js';
 import { montarPainel } from './painel.js';
+import { iniciarMusicaAmbiente } from './musica.js';
+import { criarJasmim, criarMazzy, soltarCoracoes, lerCarinhos, guardarCarinhos } from './carinhos.js';
 
 // ---------- constantes ----------
 const R = 5; // raio do planeta
@@ -14,12 +16,15 @@ const CIMA = new THREE.Vector3(0, 1, 0); // onde o personagem pisa (topo do plan
 // onde cada estação fica no planeta: [distância angular do ponto de partida (rad), direção em graus: 0 = leste, 90 = norte (fundo da tela)]
 // bem espalhadas: quatro num anel perto da partida e três no anel de trás, todas a mais de 1,3 rad umas das outras
 const POSICOES = [[0.95, 30], [1.1, 120], [1.1, 210], [1.1, 300], [2.15, 75], [2.15, 195], [2.15, 315]];
-function posicaoZona(i) {
-  const [pol, graus] = POSICOES[i] ?? [1.2 + (i % 3) * 0.5, i * 137.5]; // zonas extras: espalha em espiral
+function dirPolar(pol, graus) {
   const az = (graus * Math.PI) / 180;
   return new THREE.Vector3(Math.sin(pol) * Math.cos(az), Math.cos(pol), -Math.sin(pol) * Math.sin(az));
 }
+const posicaoZona = (i) => dirPolar(...(POSICOES[i] ?? [1.2 + (i % 3) * 0.5, i * 137.5])); // zonas extras: espalha em espiral
 const dirsZonas = zonas.map((_, i) => posicaoZona(i));
+// dois cantinhos de carinho perto do ponto de partida (em terra firme): a flor de jasmim e a gatinha Mazzy
+const dirsSitios = { jasmim: dirPolar(0.4, 180), mazzy: dirPolar(0.5, 295) };
+const pertoDeSitio = (dir, folga) => Object.values(dirsSitios).some((d) => dir.angleTo(d) < folga);
 // estações pequenas: o tamanho vem da zona (z.escala) ou é este; o personagem não atravessa a plataforma e o painel abre um pouco antes
 const ESCALA_ESTACAO = 0.6;
 const escalaZona = (z) => z.escala ?? ESCALA_ESTACAO;
@@ -240,6 +245,7 @@ const obstaculos = [];
       dir.set(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
       if (dir.angleTo(CIMA) < 0.3 * K) continue; // deixa livre a área de partida
       if (dirsZonas.some((d, k) => dir.angleTo(d) < raioBloqueio[k] + 0.2)) continue; // e o entorno das estações
+      if (pertoDeSitio(dir, 0.2)) continue; // e dos cantinhos da Jasmim e da Mazzy
       if (altura(dir) < NIVEL_MAR + 0.05) continue; // só em terra
       return dir.clone();
     }
@@ -483,6 +489,12 @@ const estacoes = zonas.map((z, i) => {
   return { raiz, anel, icone, topo, gira, giraY: gira ? gira.position.y : 0 };
 });
 
+// ---------- Jasmim e Mazzy ----------
+const jasmim = criarJasmim(mat), mazzy = criarMazzy();
+fincar(jasmim.raiz, dirsSitios.jasmim, 0.4);
+fincar(mazzy.raiz, dirsSitios.mazzy, 0);
+obstaculos.push({ d: dirsSitios.jasmim, r: 0.035 * K }, { d: dirsSitios.mazzy, r: 0.055 * K });
+
 // ---------- personagem (sprite 2D, 4 direções) ----------
 // quadros em public/avatar/<animação>-<direção>-<n>.png (84x182, pés na linha y=168)
 const FRAMES = { parado: 4, andar: 5, correr: 5, pular: 5 };
@@ -593,6 +605,7 @@ window.addEventListener('keydown', (e) => {
     abrirJogo(zonas[estacaoAtiva].jogo);
     return;
   }
+  if ((e.code === 'KeyE' || e.code === 'Enter') && alvoCarinho) { fazerCarinho(alvoCarinho); return; }
   teclas.add(e.code);
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
 });
@@ -754,6 +767,56 @@ function atualizarRotulos(ativa) {
   });
 }
 
+// ---------- carinho na Jasmim e na Mazzy: chegue perto, aperte E (ou toque no botão) e saem corações ----------
+const ALCANCE_CARINHO = 0.2; // rad
+const carinhos = lerCarinhos();
+const nota = (f, d, tipo = 'triangle', v = 0.05, atraso = 0) => cassino.bip(f, d, tipo, v, atraso);
+const sitios = [
+  { id: 'jasmim', nome: 'jasmim', frase: 'dar carinho na Jasmim', d: dirsSitios.jasmim, modelo: jasmim, livre: 0, // sininho
+    som: () => { nota(1047, 0.12, 'sine'); nota(1319, 0.12, 'sine', 0.05, 0.09); nota(1568, 0.28, 'sine', 0.05, 0.18); } },
+  { id: 'mazzy', nome: 'mazzy', frase: 'fazer carinho na Mazzy', d: dirsSitios.mazzy, modelo: mazzy, livre: 0, // miau
+    som: () => { nota(680, 0.09); nota(930, 0.1, 'triangle', 0.05, 0.07); nota(620, 0.2, 'triangle', 0.045, 0.15); } },
+];
+const carinhoBtn = document.createElement('button');
+carinhoBtn.id = 'carinho'; carinhoBtn.hidden = true;
+document.body.append(carinhoBtn);
+const rotulosSitio = sitios.map(() => { const e = document.createElement('div'); e.className = 'rotulo pet'; rotulosEl.append(e); return e; });
+let alvoCarinho = null, textoCarinho = '';
+const pontoSitio = new THREE.Vector3();
+function fazerCarinho(s) {
+  if (tempo < s.livre) return;
+  s.livre = tempo + 0.5;
+  s.modelo.carinho();
+  carinhos[s.id] += 1;
+  guardarCarinhos(carinhos);
+  s.modelo.cabeca.getWorldPosition(pontoSitio).project(camera);
+  soltarCoracoes((pontoSitio.x * 0.5 + 0.5) * window.innerWidth, (-pontoSitio.y * 0.5 + 0.5) * window.innerHeight, 5);
+  s.som();
+}
+carinhoBtn.addEventListener('click', () => { if (alvoCarinho) fazerCarinho(alvoCarinho); carinhoBtn.blur(); });
+function atualizarSitios(dt, pausado) {
+  let melhor = null, menor = Infinity;
+  for (const s of sitios) {
+    const a = angulo(s.d);
+    if (a < ALCANCE_CARINHO && a < menor) { menor = a; melhor = s; }
+  }
+  alvoCarinho = pausado ? null : melhor;
+  const texto = alvoCarinho ? `♥ ${alvoCarinho.frase} [E]` : '';
+  if (texto !== textoCarinho) { textoCarinho = texto; carinhoBtn.textContent = texto.toUpperCase(); carinhoBtn.hidden = !texto; }
+  const ppu = ALTURA_BONECO / FRAME_H; // unidades do mundo por pixel da tela interna
+  jasmim.atualizar(tempo, dt);
+  mazzy.atualizar(tempo, dt, ppu);
+  sitios.forEach((s, i) => { // nome (e quantos carinhos já ganhou) em cima de cada um
+    const e = rotulosSitio[i];
+    w.copy(s.d).applyQuaternion(q);
+    if (s === alvoCarinho || w.dot(camDir) < 0.2) { e.style.opacity = '0'; return; } // perto, o botão já diz quem é
+    s.modelo.topo.getWorldPosition(pontoSitio).project(camera);
+    e.textContent = carinhos[s.id] ? `${s.nome} ♥ ${carinhos[s.id]}` : s.nome;
+    e.style.transform = `translate(${Math.round((pontoSitio.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoSitio.y * 0.5 + 0.5) * window.innerHeight)}px) translate(-50%, -100%)`;
+    e.style.opacity = '1';
+  });
+}
+
 // skins do cassino: trocam as cores do planeta, das árvores e do céu
 const CORES_TERRENO = { marRaso: 'uMarRaso', marMedio: 'uMarMedio', marFundo: 'uMarFundo', espuma: 'uEspuma', areia: 'uAreia', grama0: 'uGrama0', grama1: 'uGrama1', grama2: 'uGrama2' };
 function aplicarSkins(equipadas) {
@@ -773,6 +836,10 @@ function aplicarSkins(equipadas) {
 }
 const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins, aoMudarFichas: (n) => { fichasHudEl.textContent = String(n); } });
 const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a), somAtivo: () => cassino.somAtivo() });
+const musica = iniciarMusicaAmbiente({ somAtivo: () => cassino.somAtivo() });
+const somBtn = $('#som');
+let somMostrado = null;
+somBtn.addEventListener('click', () => { cassino.alternarSom(); somBtn.blur(); });
 function abrirJogo(jogo) { if (jogo === 'arcade') arcade.abrir(); else cassino.abrir(jogo); }
 acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) { teclas.clear(); abrirJogo(zonas[estacaoAtiva].jogo); } });
 
@@ -788,7 +855,7 @@ function posicionarMoeda(moeda) {
     dir.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
     if (altura(dir) < NIVEL_MAR + 0.06) continue; // só em terra
     if (pontoMundo.copy(dir).applyQuaternion(q).angleTo(CIMA) < 0.45 * K) continue; // não nasce em cima do personagem
-    if (dirsZonas.some((z, k) => dir.angleTo(z) < raioBloqueio[k] + 0.2)) continue; // longe das estações
+    if (dirsZonas.some((z, k) => dir.angleTo(z) < raioBloqueio[k] + 0.2) || pertoDeSitio(dir, 0.25)) continue; // longe das estações e dos cantinhos de carinho
     if (obstaculos.some((o) => dir.angleTo(o.d) < o.r + 0.09 * K)) continue; // e de árvores e pedras
     if (moedas.some((o) => o !== moeda && o.ativa && o.d.angleTo(dir) < 0.25)) continue;
     moeda.d.copy(dir);
@@ -945,6 +1012,9 @@ renderer.setAnimationLoop(() => {
   mostrarPainel(ativa);
   atualizarRotulos(ativa);
   atualizarMoedas(dt);
+  atualizarSitios(dt, pausado);
+  musica.atualizar(dt, pausado);
+  if (cassino.somAtivo() !== somMostrado) { somMostrado = cassino.somAtivo(); somBtn.classList.toggle('mudo', !somMostrado); }
 
   renderer.setRenderTarget(alvoRender);
   renderer.render(scene, camera);

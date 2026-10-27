@@ -336,7 +336,7 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
   }
   tabela.append(el('div', 'cas-linha par', `linha do meio · 2 iguais = ${PREMIO_PAR} · a cada ${GIROS_ATE_GARANTIA + 1} giros sem trio, o próximo é garantido`));
 
-  maq.append(fechar, letreiro, tela, painel, alavanca, bandeja, tabela, el('p', 'cas-nota', 'de brincadeira: fichas virtuais, sem dinheiro de verdade'));
+  maq.append(fechar, letreiro, tela, painel, alavanca, bandeja, tabela, el('p', 'cas-nota', 'ganhe skins para o planeta, as árvores e o céu'));
 
   // --- coleção de skins (cartão separado) ---
   const colBox = el('div', 'cas-colecao-caixa'); colBox.hidden = true;
@@ -584,5 +584,6 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     adicionarFichas: (n) => { estado.fichas += n; salvar(); atualizar(); }, // fichas do mapa
     bip: (...a) => bip(estado, ...a),
     somAtivo: () => estado.som,
+    alternarSom: () => { estado.som = !estado.som; salvar(); atualizar(); if (estado.som) bip(estado, 660, 0.06); return estado.som; },
   };
 }
