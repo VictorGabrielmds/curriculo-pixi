@@ -1,0 +1,59 @@
+/* Jogo de nave: tela de fliperama com visual retrô */
+#arcade {
+  position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+  background: rgba(5, 7, 20, 0.82); padding: 10px; box-sizing: border-box;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "Lucida Console", "Courier New", monospace; font-weight: 700; color: #fff;
+}
+#arcade.aberto { display: flex; }
+#arcade * { box-sizing: border-box; }
+#arcade [hidden] { display: none !important; }
+
+.arc-caixa {
+  width: min(960px, calc(100vw - 20px)); padding: 10px 12px 8px;
+  background: #1a1033; border: 4px solid #8a5cff; box-shadow: 0 0 0 4px #070a1a, 8px 8px 0 4px rgba(0, 0, 0, 0.55);
+}
+.arc-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.arc-topo h2 { margin: 0; font-size: 16px; letter-spacing: 3px; color: #8bd3ff; text-shadow: 2px 2px 0 #070a1a; white-space: nowrap; }
+.arc-hud { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 14px; font-size: 13px; }
+.arc-vidas { display: flex; gap: 3px; }
+.arc-vidas i { width: 10px; height: 10px; background: #ff3b4a; box-shadow: 0 0 0 2px #070a1a; }
+.arc-vidas i.vazia { background: #3a2c50; }
+.arc-xp { width: 90px; height: 10px; background: #0b1026; box-shadow: 0 0 0 2px #070a1a; }
+.arc-xp i { display: block; height: 100%; width: 0; background: #ffe14a; }
+.arc-x { width: 26px; height: 26px; cursor: pointer; font: inherit; font-size: 12px; color: #fff; background: #3a2c70; border: 3px solid #070a1a; }
+.arc-x:hover { background: #4d3b94; }
+
+/* tela 16:9 que cabe na janela */
+.arc-tela { position: relative; width: min(100%, calc((100vh - 120px) * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: #0b1026; border: 4px solid #070a1a; overflow: hidden; }
+.arc-tela canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.arc-tela::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.16) 2px 3px); } /* linhas de tubo de TV */
+
+.arc-sobre { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.arc-painel {
+  z-index: 3; max-width: 86%; padding: 14px 18px; text-align: center; background: rgba(18, 23, 58, 0.94);
+  border: 4px solid #8a5cff; box-shadow: 0 0 0 4px #070a1a;
+}
+.arc-painel h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: 2px; color: #8bd3ff; }
+.arc-painel p { margin: 0 0 8px; font-size: 14px; line-height: 1.4; color: #e6e8ff; }
+.arc-painel p.dica { font-size: 11px; color: #8f96c9; }
+.arc-painel p.ganhou { font-size: 20px; color: #ffe14a; text-shadow: 2px 2px 0 #070a1a; }
+.arc-btn { margin: 4px 4px 0; padding: 8px 14px; cursor: pointer; font: inherit; font-size: 13px; letter-spacing: 1px; color: #fff; background: #d6293e; border: 4px solid #070a1a; box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.3), inset 3px 3px 0 rgba(255, 255, 255, 0.2); }
+.arc-btn.sec { background: #3a2c70; }
+.arc-btn:hover { filter: brightness(1.15); }
+.arc-btn:active { transform: translate(2px, 2px); }
+.arc-btn:focus-visible, .arc-carta:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+
+.arc-cartas { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+.arc-carta { display: flex; flex-direction: column; gap: 4px; width: 150px; padding: 8px; cursor: pointer; font: inherit; text-align: left; color: #fff; background: #12173a; border: 4px solid #4aa8ff; }
+.arc-carta:hover { background: #1c2552; border-color: #ffe14a; }
+.arc-carta small { color: #8f96c9; font-size: 11px; }
+.arc-carta b { font-size: 14px; color: #ffe14a; }
+.arc-carta span { font-size: 12px; line-height: 1.3; }
+.arc-carta em { font-size: 10px; font-style: normal; color: #7dff9a; }
+.arc-nota { margin: 6px 0 0; text-align: center; font-size: 10px; color: #8f96c9; }
+
+@media (max-width: 560px) {
+  .arc-topo h2 { display: none; }
+  .arc-carta { width: 100%; }
+  .arc-painel p { font-size: 12px; }
+}

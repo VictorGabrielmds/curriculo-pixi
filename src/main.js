@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { perfil, zonas } from './data.js';
 import { skinPorId } from './skins.js';
 import { iniciarCassino } from './cassino.js';
+import { iniciarArcade } from './arcade.js';
 
 // ---------- constantes ----------
 const R = 5; // raio do planeta
@@ -12,7 +13,7 @@ const RAIO_ESTACAO = 0.27 * K; // rad que o personagem não consegue atravessar
 const CIMA = new THREE.Vector3(0, 1, 0); // onde o personagem pisa (topo do planeta)
 
 // onde cada estação fica no planeta: [leste-oeste, norte-sul] em radianos; norte = para o fundo da tela
-const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6], [0.1, -0.95]];
+const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6], [0.1, -0.95], [1.15, -0.8]];
 function posicaoZona(i) {
   const [lon, lat] = POSICOES[i] ?? [i * 2.4, (((i * 0.37) % 1) - 0.5) * 1.6]; // zonas extras: espalha em espiral
   return new THREE.Vector3(Math.sin(lon) * Math.cos(lat), Math.cos(lon) * Math.cos(lat), -Math.sin(lat));
@@ -363,6 +364,22 @@ function modelo(tipo, cor) {
       add(new THREE.SphereGeometry(0.2, 12, 12), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.5 }), 1.05, 2.65, 0);
       break;
     }
+    case 'arcade': {
+      const verde = mat(0x7dff9a, { emissive: 0x7dff9a, emissiveIntensity: 0.8 });
+      add(new THREE.BoxGeometry(2.0, 0.3, 1.5), escuro, 0, 0.15); // base
+      add(new THREE.BoxGeometry(1.7, 3.0, 1.2), claro, 0, 1.8); // corpo
+      add(new THREE.BoxGeometry(1.9, 0.45, 1.3), escuro, 0, 3.4); // letreiro
+      add(new THREE.BoxGeometry(1.4, 0.2, 0.06), luz, 0, 3.4, 0.68);
+      add(new THREE.BoxGeometry(1.35, 1.2, 0.1), mat(0x0b1026), 0, 2.5, 0.62); // tela
+      [[-0.4, 2.8], [0, 2.8], [0.4, 2.8], [-0.2, 2.5], [0.2, 2.5], [0, 2.2]].forEach(([px, py]) => add(new THREE.BoxGeometry(0.18, 0.14, 0.06), verde, px, py, 0.69)); // monstrinhos
+      add(new THREE.BoxGeometry(0.2, 0.14, 0.06), mat(0x4aa8ff, { emissive: 0x4aa8ff, emissiveIntensity: 0.8 }), 0, 1.98, 0.69); // nave
+      add(new THREE.BoxGeometry(1.6, 0.14, 0.6), escuro, 0, 1.4, 0.82).rotation.x = -0.35; // painel de controle
+      add(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8), mat(0xc9cdd8), -0.4, 1.6, 0.9);
+      add(new THREE.SphereGeometry(0.1, 10, 10), mat(0xff3b4a), -0.4, 1.78, 0.9); // manche
+      add(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 10), mat(0xffe14a), 0.25, 1.5, 0.86);
+      add(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 10), mat(0x4aa8ff), 0.5, 1.5, 0.86); // botões
+      break;
+    }
     case 'carta':
       add(new THREE.CylinderGeometry(0.1, 0.14, 1.1, 8), escuro, 0, 0.55);
       add(new THREE.BoxGeometry(2.2, 1.4, 0.35), claro, 0, 1.75);
@@ -454,6 +471,7 @@ const sombraBoneco = (() => {
 const $ = (s) => document.querySelector(s);
 $('#nome').textContent = `${perfil.nome} · ${perfil.titulo}`;
 const pontosEl = $('#pontos');
+const fichasHudEl = $('#fichas-hud b');
 zonas.forEach((z) => {
   const i = document.createElement('i');
   i.style.setProperty('--c', '#' + z.cor.toString(16).padStart(6, '0'));
@@ -481,10 +499,10 @@ function mostrarPainel(i) {
 // ---------- entrada ----------
 const teclas = new Set();
 window.addEventListener('keydown', (e) => {
-  if (cassino.estaAberto()) return; // com o cassino aberto, as teclas são dele
+  if (cassino.estaAberto() || arcade.estaAberto()) return; // com um jogo aberto, as teclas são dele
   if ((e.code === 'KeyE' || e.code === 'Enter') && estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) {
     teclas.clear();
-    cassino.abrir(zonas[estacaoAtiva].jogo);
+    abrirJogo(zonas[estacaoAtiva].jogo);
     return;
   }
   teclas.add(e.code);
@@ -665,8 +683,77 @@ function aplicarSkins(equipadas) {
     materialNuvens.color.set(ce.nuvens);
   }
 }
-const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins });
-acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) { teclas.clear(); cassino.abrir(zonas[estacaoAtiva].jogo); } });
+const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins, aoMudarFichas: (n) => { fichasHudEl.textContent = String(n); } });
+const arcade = iniciarArcade({ adicionarFichas: (n) => cassino.adicionarFichas(n), bip: (...a) => cassino.bip(...a) });
+function abrirJogo(jogo) { if (jogo === 'arcade') arcade.abrir(); else cassino.abrir(jogo); }
+acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) { teclas.clear(); abrirJogo(zonas[estacaoAtiva].jogo); } });
+
+// ---------- moedas espalhadas pelo planeta: é só andar por cima para pegar; viram fichas do cassino ----------
+const NUM_MOEDAS = 9, VALOR_MOEDA = 5, RAIO_COLETA = 0.2 * K;
+const matMoeda = new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0xc98a10, emissiveIntensity: 0.6, roughness: 0.4, flatShading: true });
+const matMoedaMiolo = new THREE.MeshStandardMaterial({ color: 0xd99a1a, roughness: 0.6, flatShading: true });
+const moedas = [];
+const pontoMundo = new THREE.Vector3();
+function posicionarMoeda(moeda) {
+  const dir = new THREE.Vector3();
+  for (let tentativa = 0; tentativa < 80; tentativa++) {
+    dir.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    if (altura(dir) < NIVEL_MAR + 0.06) continue; // só em terra
+    if (pontoMundo.copy(dir).applyQuaternion(q).angleTo(CIMA) < 0.45 * K) continue; // não nasce em cima do personagem
+    if (dirsZonas.some((z) => dir.angleTo(z) < 0.36 * K)) continue; // longe das estações
+    if (obstaculos.some((o) => dir.angleTo(o.d) < o.r + 0.09 * K)) continue; // e de árvores e pedras
+    if (moedas.some((o) => o !== moeda && o.ativa && o.d.angleTo(dir) < 0.25)) continue;
+    moeda.d.copy(dir);
+    moeda.raiz.quaternion.setFromUnitVectors(CIMA, dir);
+    moeda.raiz.visible = true;
+    moeda.ativa = true;
+    return;
+  }
+  moeda.ativa = false; // não achou lugar: tenta de novo daqui a pouco
+  moeda.volta = tempo + 2;
+}
+for (let i = 0; i < NUM_MOEDAS; i++) {
+  const raiz = new THREE.Group(), giro = new THREE.Group();
+  const disco = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 12), matMoeda);
+  const miolo = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 12), matMoedaMiolo);
+  disco.rotation.z = miolo.rotation.z = Math.PI / 2; // moeda "em pé", girando
+  giro.add(disco, miolo);
+  giro.position.y = R + 0.7;
+  raiz.add(giro);
+  sombrear(raiz);
+  planeta.add(raiz);
+  const moeda = { d: new THREE.Vector3(), raiz, giro, ativa: false, volta: 0, fase: i * 1.3 };
+  moedas.push(moeda);
+  posicionarMoeda(moeda);
+}
+const pontoPopup = new THREE.Vector3();
+function popup(texto) {
+  boneco.getWorldPosition(pontoPopup);
+  pontoPopup.project(camera);
+  const e = document.createElement('div');
+  e.className = 'popup';
+  e.textContent = texto;
+  e.style.left = Math.round((pontoPopup.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+  e.style.top = Math.round((-pontoPopup.y * 0.5 + 0.5) * window.innerHeight - 70) + 'px';
+  document.body.append(e);
+  setTimeout(() => e.remove(), 1000);
+}
+function atualizarMoedas(dt) {
+  for (const moeda of moedas) {
+    if (!moeda.ativa) { if (tempo >= moeda.volta) posicionarMoeda(moeda); continue; }
+    moeda.giro.rotation.y += dt * 3.2;
+    moeda.giro.position.y = R + 0.7 + Math.sin(tempo * 3 + moeda.fase) * 0.08;
+    if (angulo(moeda.d) < RAIO_COLETA) {
+      moeda.ativa = false;
+      moeda.raiz.visible = false;
+      moeda.volta = tempo + 3 + Math.random() * 4; // reaparece em outro lugar
+      cassino.adicionarFichas(VALOR_MOEDA);
+      popup('+' + VALOR_MOEDA);
+      cassino.bip(988, 0.06, 'square', 0.04);
+      cassino.bip(1319, 0.1, 'square', 0.04, 0.07);
+    }
+  }
+}
 
 let ultimoQuadro = performance.now();
 renderer.setAnimationLoop(() => {
@@ -677,7 +764,7 @@ renderer.setAnimationLoop(() => {
 
   // entrada: ← → leste-oeste, ↑ ↓ norte-sul
   const k = (a, b) => (teclas.has(a) || teclas.has(b) ? 1 : 0);
-  const pausado = cassino.estaAberto();
+  const pausado = cassino.estaAberto() || arcade.estaAberto();
   let ix = pausado ? 0 : k('ArrowRight', 'KeyD') - k('ArrowLeft', 'KeyA') || toque.x;
   let iy = pausado ? 0 : k('ArrowUp', 'KeyW') - k('ArrowDown', 'KeyS') || toque.y;
   const tam = Math.hypot(ix, iy);
@@ -762,6 +849,7 @@ renderer.setAnimationLoop(() => {
   estacaoAtiva = ativa;
   mostrarPainel(ativa);
   atualizarRotulos(ativa);
+  atualizarMoedas(dt);
 
   renderer.setRenderTarget(alvoRender);
   renderer.render(scene, camera);

@@ -16,6 +16,10 @@ A cena 3D é desenhada numa tela interna de ~640 px de altura e ampliada sem sua
 
 A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botão **JOGAR**): só fichas virtuais, guardadas no navegador, sem dinheiro de verdade. Os rolos giram para baixo mostrando 3 símbolos de cada vez; vale a linha do meio. Três símbolos iguais dão fichas e uma **skin** para uma parte do mundo (planeta, árvores ou céu); a cada 10 giros sem trio, o próximo é garantido. A **Coleção** permite equipar as skins, e a escolha fica salva. As skins estão definidas em `src/skins.js` e a lógica em `src/cassino.js`.
 
+### Moedas e Nave Arcade
+
+Moedas aparecem em lugares aleatórios do planeta (e reaparecem em outro ponto depois de pegas): é só andar por cima para ganhar fichas do cassino. A estação **Nave Arcade** abre um jogo estilo fliperama: a nave fica no meio atirando sozinha, monstrinhos chegam pelos lados, cada um dá XP e, a cada nível, você escolhe uma melhoria (cadência, dano, projétil extra, perfuração, tiro veloz, reparo). No fim da partida você ganha algumas fichas (até 30). Lógica em `src/arcade.js`.
+
 ## Rodar
 
 ```bash

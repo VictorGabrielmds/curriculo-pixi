@@ -67,6 +67,19 @@ export const zonas = [
     linhas: [
       'Um caça-níquel de brincadeira: só fichas virtuais, sem dinheiro de verdade.',
       'Ganhe skins para o planeta, as árvores e o céu e deixe o mundo do seu jeito.',
+      'Dica: pegue as moedas espalhadas pelo planeta para ganhar fichas.',
+    ],
+  },
+  {
+    id: 'arcade',
+    icone: 'arcade',
+    cor: 0x8a5cff,
+    jogo: 'arcade', // abre o jogo de nave (tecla E ou botão do painel)
+    escala: 0.6,
+    titulo: 'Nave Arcade',
+    linhas: [
+      'A nave atira sozinha no meio da tela enquanto monstrinhos chegam pelos lados.',
+      'Cada monstro dá XP e, a cada nível, você escolhe uma melhoria: cadência, dano, projétil extra e mais.',
     ],
   },
 ];

@@ -195,7 +195,7 @@ function sortear(estado) {
 }
 
 // ---------- interface: uma maquininha compacta ----------
-export function iniciarCassino({ aoMudarSkins }) {
+export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
   const estado = carregar();
   const salvar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch { /* ignora */ } };
   const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
@@ -271,6 +271,7 @@ export function iniciarCassino({ aoMudarSkins }) {
   const mostrarRolo = (i, tres) => desenharFita(i, tres, 0);
   function atualizar() {
     fichasTxt.textContent = String(estado.fichas);
+    aoMudarFichas?.(estado.fichas);
     const semFicha = estado.fichas < CUSTO;
     btnGirar.disabled = girando || semFicha;
     alavanca.disabled = girando || semFicha;
@@ -448,5 +449,9 @@ export function iniciarCassino({ aoMudarSkins }) {
   atualizar();
   aoMudarSkins({ ...estado.equipadas });
 
-  return { abrir, fechar: fecharJanela, estaAberto: () => aberto };
+  return {
+    abrir, fechar: fecharJanela, estaAberto: () => aberto,
+    adicionarFichas: (n) => { estado.fichas += n; salvar(); atualizar(); }, // moedas do mapa, prêmio do arcade
+    bip: (...a) => bip(estado, ...a),
+  };
 }
