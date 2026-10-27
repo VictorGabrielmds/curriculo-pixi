@@ -4,7 +4,8 @@
 import './arcade.css';
 import { novoSprite, silhuetaBranca } from './pixelArt.js';
 import { criarFundo } from './arcadeFundo.js';
-import { VARIANTES, criarMonstros, criarChefe, criarAlien, criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js';
+import { criarAlien, criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js';
+import { TEMAS } from './arcadeTemas.js';
 
 const L = 320, A = 180; // resolução lógica da tela (ampliada sem suavização)
 const CX = L / 2, CY = A / 2;
@@ -128,8 +129,8 @@ export function iniciarArcade({ bip }) {
   const rochasSpr = criarRochas(), itensSpr = criarItens(), alienSpr = criarAlien();
   const cacheSkin = new Map();
   const skin = (v) => {
-    const k = ((v % VARIANTES.length) + VARIANTES.length) % VARIANTES.length;
-    if (!cacheSkin.has(k)) cacheSkin.set(k, { m: criarMonstros(k), chefe: criarChefe(k) });
+    const k = ((v % TEMAS.length) + TEMAS.length) % TEMAS.length;
+    if (!cacheSkin.has(k)) cacheSkin.set(k, TEMAS[k].criar());
     return cacheSkin.get(k);
   };
   const fundo = criarFundo(L, A);
@@ -236,6 +237,8 @@ export function iniciarArcade({ bip }) {
     const ic = icone.getContext('2d'); ic.clearRect(0, 0, 20, 20); ic.drawImage(naveSpr.c, 0, 0);
   }
 
+  const nomeTema = () => TEMAS[(((S.fase - 1 + S.skinBase) % TEMAS.length) + TEMAS.length) % TEMAS.length].nome;
+
   function novoJogo() {
     const of = dados.oficina;
     S = {
@@ -303,7 +306,7 @@ export function iniciarArcade({ bip }) {
     S.tremor = 0.3;
     S.proxOnda = S.t + Math.max(20, 32 - S.onda * 1.5);
     const novaFase = 1 + Math.floor(S.onda / 3); // a cada 3 ondas começa uma nova fase, com os monstros em outra "skin"
-    if (novaFase > S.fase) { S.fase = novaFase; mostrarAviso(`!! FASE ${S.fase} !!`, 3.2); bip(330, 0.15, 'square', 0.05); bip(440, 0.15, 'square', 0.05, 0.15); bip(660, 0.3, 'square', 0.05, 0.3); }
+    if (novaFase > S.fase) { S.fase = novaFase; mostrarAviso(`!! FASE ${S.fase}: ${nomeTema()} !!`, 3.2); bip(330, 0.15, 'square', 0.05); bip(440, 0.15, 'square', 0.05, 0.15); bip(660, 0.3, 'square', 0.05, 0.3); }
     else { mostrarAviso('!! ONDA DE MONSTROS !!'); bip(140, 0.3, 'sawtooth', 0.05); bip(110, 0.4, 'sawtooth', 0.05, 0.25); }
   }
 
@@ -1069,7 +1072,7 @@ export function iniciarArcade({ bip }) {
     const tempo = Math.floor(S.t);
     const novoRecorde = tempo > dados.tempo || S.kills > dados.kills;
     dados.tempo = Math.max(dados.tempo, tempo); dados.kills = Math.max(dados.kills, S.kills);
-    dados.skin = (dados.skin + 1 + Math.floor(Math.random() * (VARIANTES.length - 1))) % VARIANTES.length; // próxima partida: monstros com outra skin
+    dados.skin = (dados.skin + 1 + Math.floor(Math.random() * (TEMAS.length - 1))) % TEMAS.length; // próxima partida: outro tema de monstros
     dados.moedas += bonus;
     salvarDados();
     bip(220, 0.25, 'sawtooth', 0.05); bip(165, 0.35, 'sawtooth', 0.05, 0.25);
@@ -1302,6 +1305,7 @@ export function iniciarArcade({ bip }) {
     painelInicio.hidden = true; painelFim.hidden = true; painelEscolha.hidden = true; painelPausa.hidden = true; painelOficina.hidden = true;
     modo = 'jogando';
     ultimo = performance.now();
+    mostrarAviso(`MONSTROS: ${nomeTema()}`, 2.6);
     bip(523, 0.08, 'square', 0.05); bip(784, 0.12, 'square', 0.05, 0.08);
   }
   function pausar(ligar) {
