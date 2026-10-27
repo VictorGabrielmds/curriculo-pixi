@@ -24,6 +24,7 @@ const MELHORIAS = [
   { id: 'projetil', nome: 'Projétil extra', desc: '+1 projétil por disparo', max: 5, aplicar: (s) => { s.projeteis += 1; } },
   { id: 'perfurar', nome: 'Perfuração', desc: 'Os tiros atravessam +1 monstro', max: 4, aplicar: (s) => { s.perfura += 1; } },
   { id: 'velTiro', nome: 'Tiro veloz', desc: '+30% de velocidade do projétil', max: 5, aplicar: (s) => { s.velTiro *= 1.3; } },
+  { id: 'ima', nome: 'Ímã de cristais', desc: 'Atrai os cristais de XP de mais longe', max: 5, aplicar: (s) => { s.raioIma *= 1.5; } },
   { id: 'motor', nome: 'Propulsores', desc: '+20% de velocidade da nave', max: 5, aplicar: (s) => { s.velNave *= 1.2; } },
   { id: 'reparo', nome: 'Reparo', desc: '+1 vida máxima e cura 2', max: 5, aplicar: (s) => { s.maxHp += 1; s.hp = Math.min(s.maxHp, s.hp + 2); } },
 ];
@@ -72,10 +73,23 @@ function criarSprites() {
     s.retangulo(6, 9, 3, 2, '#1b1020');
     return s.contorno('#0b1026').c;
   });
+  const cristal = (corA, corB, brilho) => {
+    const s = novoSprite(7, 9);
+    s.poligono([[3.5, 0.5], [6.5, 3.5], [3.5, 8.5], [0.5, 3.5]], corA);
+    s.poligono([[3.5, 0.5], [6.5, 3.5], [3.5, 4.5]], corB);
+    s.pixel(2, 3, brilho); s.pixel(2, 2, brilho);
+    return s.contorno('#0b1026').c;
+  };
+  const cristais = {
+    1: cristal('#38c8ff', '#8be6ff', '#ffffff'),
+    2: cristal('#3fd96a', '#9bffb4', '#ffffff'),
+    3: cristal('#a56bff', '#d1b0ff', '#ffffff'),
+    6: cristal('#ffc83d', '#fff0a0', '#ffffff'),
+  };
   const brancos = {
     slime: slime.map(silhuetaBranca), morcego: morcego.map(silhuetaBranca), ogro: ogro.map(silhuetaBranca), fantasma: fantasma.map(silhuetaBranca),
   };
-  return { nave, quadros: { slime, morcego, ogro, fantasma }, brancos, naveBranca: silhuetaBranca(nave.c) };
+  return { nave, quadros: { slime, morcego, ogro, fantasma }, brancos, cristais, naveBranca: silhuetaBranca(nave.c) };
 }
 
 export function iniciarArcade({ adicionarFichas, bip }) {
@@ -109,9 +123,9 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   const sobre = el('div', 'arc-sobre'); // camada de textos/menus por cima da tela
   const painelInicio = el('div', 'arc-painel');
   painelInicio.append(el('h3', null, 'NAVE ARCADE'),
-    el('p', null, 'A nave atira sozinha. Mova-a com as SETAS (ou WASD, ou arraste o dedo) e fuja dos monstrinhos que chegam pelos lados. Cada um dá XP para escolher melhorias.'),
+    el('p', null, 'A nave atira sozinha. Mova-a com as SETAS (ou WASD, ou arraste o dedo) e fuja dos monstrinhos que chegam pelos lados. Cada um solta um CRISTAL de XP: só sobe de nível quem pegar o cristal com a nave!'),
     el('p', null, 'Cuidado com as ONDAS DE MONSTROS: de tempos em tempos vem um monte de uma vez!'),
-    el('p', 'dica', 'Cadência · Dano · Projétil extra · Perfuração · Tiro veloz · Propulsores · Reparo'));
+    el('p', 'dica', 'Cadência · Dano · Projétil extra · Perfuração · Tiro veloz · Propulsores · Ímã · Reparo'));
   const btnComecar = el('button', 'arc-btn', 'COMEÇAR [ESPAÇO]');
   painelInicio.append(btnComecar);
 
@@ -139,7 +153,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   function novoJogo() {
     estrelas = Array.from({ length: 60 }, (_, i) => ({ x: Math.random() * L, y: Math.random() * A, v: 3 + (i % 3) * 5, c: i % 3 }));
     S = {
-      t: 0, nx: CX, ny: CY, velNave: 75, onda: 0, proxOnda: 25, fila: 0, filaTaxa: 0, filaAcc: 0, aviso: 0, hp: 6, maxHp: 6, nivel: 1, xp: 0, xpProx: 5, kills: 0,
+      t: 0, nx: CX, ny: CY, velNave: 75, cristais: [], raioIma: 26, raioPegar: 8, onda: 0, proxOnda: 25, fila: 0, filaTaxa: 0, filaAcc: 0, aviso: 0, hp: 6, maxHp: 6, nivel: 1, xp: 0, xpProx: 5, kills: 0,
       dano: 1, cadencia: 2, projeteis: 1, perfura: 0, velTiro: 160,
       inimigos: [], tiros: [], parts: [], spawnAcc: 0, recarga: 0.3, invul: 0, mira: 0, tremor: 0, niveis: {},
     };
@@ -190,10 +204,17 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     bip(520 + Math.random() * 60, 0.04, 'square', 0.012);
   }
 
+  function soltarCristal(x, y, v) {
+    const ang = Math.random() * Math.PI * 2, vel = 16 + Math.random() * 22;
+    const novo = { x, y, v, vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel, fase: Math.random() * 6 };
+    S.cristais.push(novo);
+    if (S.cristais.length > 220) novo.v += S.cristais.shift().v; // muitos na tela: o mais antigo se funde neste (sem perder XP)
+  }
+
   function matar(m) {
     const tp = TIPOS[m.tipo];
     S.kills += 1;
-    S.xp += tp.xp;
+    soltarCristal(m.x, m.y, tp.xp); // o XP só vem ao pegar o cristal
     particulas(m.x, m.y, 8, ['#ffe14a', '#ffffff', '#ff7a59'], 60);
     bip(200 + tp.xp * 40, 0.05, 'triangle', 0.03);
     S.inimigos.splice(S.inimigos.indexOf(m), 1);
@@ -272,6 +293,24 @@ export function iniciarArcade({ adicionarFichas, bip }) {
           S.hp -= tp.dano; S.invul = 0.7; S.tremor = 0.2;
           bip(110, 0.18, 'sawtooth', 0.05);
         }
+      }
+    }
+
+    // cristais de XP: o impulso da morte some rápido; perto da nave eles são atraídos; ao tocar, viram XP
+    for (let i = S.cristais.length - 1; i >= 0; i--) {
+      const c = S.cristais[i];
+      c.x = Math.max(4, Math.min(L - 4, c.x + c.vx * dt)); c.y = Math.max(4, Math.min(A - 4, c.y + c.vy * dt));
+      const freio = Math.pow(0.05, dt); c.vx *= freio; c.vy *= freio;
+      const dx = S.nx - c.x, dy = S.ny - c.y, d = Math.hypot(dx, dy) || 1;
+      if (d < S.raioIma) {
+        const puxa = 70 + (S.raioIma - d) * 4;
+        c.x += (dx / d) * puxa * dt; c.y += (dy / d) * puxa * dt;
+      }
+      if (d < RAIO_NAVE + S.raioPegar) {
+        S.xp += c.v;
+        S.cristais.splice(i, 1);
+        particulas(c.x, c.y, 4, ['#8be6ff', '#ffffff'], 35);
+        bip(740 + Math.min(c.v, 6) * 60, 0.05, 'square', 0.03);
       }
     }
 
@@ -354,6 +393,11 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     for (const r of [30, 62]) { g.beginPath(); g.arc(Math.round(ox), Math.round(oy), r, 0, Math.PI * 2); g.stroke(); }
     if (!S) { g.restore(); return; }
 
+    // cristais de XP (balançam de leve para chamar atenção)
+    for (const c of S.cristais) {
+      const spr = c.v >= 6 ? sprites.cristais[6] : c.v >= 3 ? sprites.cristais[3] : c.v >= 2 ? sprites.cristais[2] : sprites.cristais[1];
+      g.drawImage(spr, Math.round(c.x - 3.5), Math.round(c.y - 4.5 + Math.sin(S.t * 4 + c.fase)));
+    }
     // monstros
     for (const m of S.inimigos) {
       const f = Math.floor(S.t * 6 + m.fase) % 2;
@@ -469,13 +513,15 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   // gancho só do modo dev: avança a simulação sem depender do relógio do navegador (usado nos testes)
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
+      mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x; ponteiro.y = y; } },
+      cristais: () => S.cristais.map((c) => ({ x: Math.round(c.x), y: Math.round(c.y), v: c.v })),
       avancar(seg, auto = true) {
         for (let t = 0; t < seg; t += 0.05) {
           if (modo === 'escolha' && auto) escolher(0);
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny), onda: S && S.onda, fila: S && S.fila, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, inimigos: S && S.inimigos.length, tiros: S && S.tiros.length, projeteis: S && S.projeteis, dano: S && S.dano, cadencia: S && S.cadencia };
+        return { cristais: S && S.cristais.length, xp: S && S.xp, xpProx: S && S.xpProx, modo, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny), onda: S && S.onda, fila: S && S.fila, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, inimigos: S && S.inimigos.length, tiros: S && S.tiros.length, projeteis: S && S.projeteis, dano: S && S.dano, cadencia: S && S.cadencia };
       },
     };
   }

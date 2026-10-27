@@ -18,7 +18,7 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 
 ### Moedas e Nave Arcade
 
-Moedas aparecem em lugares aleatórios do planeta (e reaparecem em outro ponto depois de pegas): é só andar por cima para ganhar fichas do cassino. A estação **Nave Arcade** abre um jogo estilo fliperama: a nave atira sozinha e você a move com as setas (ou WASD, ou arrastando o dedo), monstrinhos chegam pelos lados (cada vez mais, e em **ondas de monstros** de tempos em tempos), cada um dá XP e, a cada nível, você escolhe uma melhoria (cadência, dano, projétil extra, perfuração, tiro veloz, reparo). No fim da partida você ganha algumas fichas (até 30). Lógica em `src/arcade.js`.
+Moedas aparecem em lugares aleatórios do planeta (e reaparecem em outro ponto depois de pegas): é só andar por cima para ganhar fichas do cassino. A estação **Nave Arcade** abre um jogo estilo fliperama: a nave atira sozinha e você a move com as setas (ou WASD, ou arrastando o dedo), monstrinhos chegam pelos lados (cada vez mais, e em **ondas de monstros** de tempos em tempos), cada um solta um **cristal de XP** que a nave precisa pegar para subir de nível (a melhoria "ímã" os atrai de mais longe); a cada nível você escolhe uma melhoria (cadência, dano, projétil extra, perfuração, tiro veloz, propulsores, ímã, reparo). No fim da partida você ganha algumas fichas (até 30). Lógica em `src/arcade.js`.
 
 ## Rodar
 
