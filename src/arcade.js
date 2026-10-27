@@ -66,6 +66,7 @@ const MELHORIAS = [
   { id: 'recarga_geral', grupo: 'ARSENAL', raridade: 'INCOMUM', icone: '↻', cor: '#7dff9a', nome: 'Sincronizador de recarga', desc: '+12% de cadência e recarga para TODAS as armas.', max: 4, peso: 2.2, aplicar: (s) => { s.recargaGlobal *= 1.12; } },
   { id: 'cadencia_canhao', grupo: 'CANHÃO [1]', raridade: 'INCOMUM', icone: '↻', cor: '#ffe14a', nome: 'Alimentador rápido', desc: '+13% de cadência exclusiva do canhão.', max: 5, peso: 2.4, aplicar: (s) => { s.cadencia *= 1.13; } },
   { id: 'perfurar', grupo: 'CANHÃO [1]', raridade: 'COMUM', icone: '»', cor: '#c9cdf5', nome: 'Munição perfurante', desc: 'Os tiros do canhão atravessam +1 inimigo.', max: 3, peso: 2.5, aplicar: (s) => { s.perfura += 1; } },
+  { id: 'proj_canhao', grupo: 'CANHÃO [1]', raridade: 'RARO', icone: '⁝', cor: '#ffe14a', nome: 'Cano adicional', desc: '+1 projétil por disparo do canhão (até 3 vezes).', max: 3, peso: 2.6, aplicar: (s) => { s.projeteis += 1; } },
   { id: 'vel_tiro', grupo: 'CANHÃO [1]', raridade: 'COMUM', icone: '›', cor: '#c9cdf5', nome: 'Pólvora estável', desc: '+10% de velocidade dos projéteis. É útil, mas não faz milagres.', max: 5, peso: 3.2, aplicar: (s) => { s.velTiro *= 1.1; } },
   { id: 'critico', grupo: 'CANHÃO [1]', raridade: 'INCOMUM', icone: '✹', cor: '#ff9a3a', nome: 'Mira oportunista', desc: '+4% de chance de um tiro causar dano dobrado.', max: 4, peso: 1.8, aplicar: (s) => { s.critico += 0.04; } },
   { id: 'ima', grupo: 'SISTEMA', raridade: 'COMUM', icone: '⌁', cor: '#6fe8ff', nome: 'Ímã de cristais', desc: '+45% de alcance para atrair cristais de XP.', max: 4, peso: 1.7, aplicar: (s) => { s.raioIma *= 1.45; } },
@@ -673,9 +674,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.invul = 2; S.proxBuraco = S.t + 60 + Math.random() * 40; S.flash = 0.4;
     if (vitoria) {
       S.aliensVencidos += 1;
-      S.imaT = Math.max(S.imaT, 3); texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); // derrotar um alienígena dá o ímã: puxa todos os cristais
-      if (S.aliensVencidos <= 3) { S.projeteis += 1; texto(S.nx, S.ny - 22, '+1 PROJÉTIL', '#ffe14a'); } // e, nos três primeiros, +1 projétil para o canhão
-      for (let k = 0; k < 6; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 40, S.ny + (Math.random() - 0.5) * 40, 6);
+      S.imaT = Math.max(S.imaT, 3); texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); // derrotar um alienígena dá o ímã: puxa todos os cristais      for (let k = 0; k < 6; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 40, S.ny + (Math.random() - 0.5) * 40, 6);
       const livres = Object.keys(NOMES_PODER).filter((id) => !S.poderes[id]);
       if (livres.length && S.slots.includes(null)) darPoder(S, livres[Math.floor(Math.random() * livres.length)]);
       else {
@@ -1868,6 +1867,7 @@ export function iniciarArcade({ bip, somAtivo }) {
         onda: () => { S.proxOnda = 0; },
         fase: (n) => { S.onda = (n - 1) * 3; S.ondaEstado = 'calma'; S.proxOnda = 0; },
         regiao: (n) => { S.regiaoForcada = n; },
+        subirNivel: () => { S.xp = S.xpProx; },
         completar: () => { if (S.ondaEstado !== 'calma') terminarOnda(); },
         hp: (n) => { S.hp = n; },
         tempo: (n) => { S.t = n; S.proxBuraco = n + 999; },
