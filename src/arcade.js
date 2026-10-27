@@ -3,6 +3,7 @@
 // No fim da partida rende algumas fichas virtuais para o cassino.
 import './arcade.css';
 import { novoSprite, silhuetaBranca } from './pixelArt.js';
+import { criarFundo } from './arcadeFundo.js';
 
 const L = 320, A = 180; // resolução lógica da tela (ampliada sem suavização)
 const CX = L / 2, CY = A / 2;
@@ -95,6 +96,7 @@ function criarSprites() {
 export function iniciarArcade({ adicionarFichas, bip }) {
   const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
   const sprites = criarSprites();
+  const fundo = criarFundo(L, A); // estrelas, nebulosas, planetas e estrelas cadentes
   let recorde = { tempo: 0, kills: 0 };
   try { const j = JSON.parse(localStorage.getItem(CHAVE)); if (j) recorde = { tempo: j.tempo | 0, kills: j.kills | 0 }; } catch { /* sem armazenamento */ }
 
@@ -123,7 +125,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   const sobre = el('div', 'arc-sobre'); // camada de textos/menus por cima da tela
   const painelInicio = el('div', 'arc-painel');
   painelInicio.append(el('h3', null, 'NAVE ARCADE'),
-    el('p', null, 'A nave atira sozinha. Mova-a com as SETAS (ou WASD, ou arraste o dedo) e fuja dos monstrinhos que chegam pelos lados. Cada um solta um CRISTAL de XP: só sobe de nível quem pegar o cristal com a nave!'),
+    el('p', null, 'A nave atira sozinha. Mova-a com as SETAS (ou WASD, ou arraste o dedo) e explore o espaço, que não tem limites, enfrentando os monstrinhos que chegam pelos lados. Cada um solta um CRISTAL de XP: só sobe de nível quem pegar o cristal com a nave! Se ele estiver fora da tela, um brilho na borda mostra onde está.'),
     el('p', null, 'Cuidado com as ONDAS DE MONSTROS: de tempos em tempos vem um monte de uma vez!'),
     el('p', 'dica', 'Cadência · Dano · Projétil extra · Perfuração · Tiro veloz · Propulsores · Ímã · Reparo'));
   const btnComecar = el('button', 'arc-btn', 'COMEÇAR [ESPAÇO]');
@@ -148,12 +150,10 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   const teclas = new Set(); // setas/WASD pressionadas
   const ponteiro = { ativo: false, x: CX, y: CY }; // dedo/mouse arrastando: a nave vai até lá
   const TECLAS_MOVER = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS'];
-  let estrelas = [];
 
   function novoJogo() {
-    estrelas = Array.from({ length: 60 }, (_, i) => ({ x: Math.random() * L, y: Math.random() * A, v: 3 + (i % 3) * 5, c: i % 3 }));
     S = {
-      t: 0, nx: CX, ny: CY, velNave: 75, cristais: [], raioIma: 26, raioPegar: 8, onda: 0, proxOnda: 25, fila: 0, filaTaxa: 0, filaAcc: 0, aviso: 0, hp: 6, maxHp: 6, nivel: 1, xp: 0, xpProx: 5, kills: 0,
+      t: 0, nx: CX, ny: CY, cx: CX, cy: CY, velNave: 75, cristais: [], raioIma: 26, raioPegar: 8, onda: 0, proxOnda: 25, fila: 0, filaTaxa: 0, filaAcc: 0, aviso: 0, hp: 6, maxHp: 6, nivel: 1, xp: 0, xpProx: 5, kills: 0,
       dano: 1, cadencia: 2, projeteis: 1, perfura: 0, velTiro: 160,
       inimigos: [], tiros: [], parts: [], spawnAcc: 0, recarga: 0.3, invul: 0, mira: 0, tremor: 0, niveis: {},
     };
@@ -172,7 +172,9 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     const base = TIPOS[tipo];
     const lado = Math.random() < 0.5 ? -1 : 1;
     const hp = Math.ceil(base.hp * (1 + t / 35)); // a vida dos monstros cresce com o tempo
-    S.inimigos.push({ tipo, x: lado < 0 ? -10 : L + 10, y: 12 + Math.random() * (A - 24), hp, vel: base.vel * (0.9 + Math.random() * 0.3), fase: Math.random() * 6, piscar: 0 });
+    const esquerda = S.cx - L / 2, topo = S.cy - A / 2; // borda da tela no mundo
+    const vel = base.vel * (0.9 + Math.random() * 0.3) * (1 + Math.min(1, t / 240)); // com o tempo ficam mais velozes
+    S.inimigos.push({ tipo, x: lado < 0 ? esquerda - 12 : esquerda + L + 12, y: topo + 12 + Math.random() * (A - 24), hp, vel, fase: Math.random() * 6, piscar: 0 });
   }
 
   function particulas(x, y, n, cores, vel = 50) {
@@ -229,14 +231,16 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     let mx = (teclas.has('ArrowRight') || teclas.has('KeyD') ? 1 : 0) - (teclas.has('ArrowLeft') || teclas.has('KeyA') ? 1 : 0);
     let my = (teclas.has('ArrowDown') || teclas.has('KeyS') ? 1 : 0) - (teclas.has('ArrowUp') || teclas.has('KeyW') ? 1 : 0);
     if (!mx && !my && ponteiro.ativo) {
-      const dx = ponteiro.x - S.nx, dy = ponteiro.y - S.ny, d = Math.hypot(dx, dy);
+      const dx = ponteiro.x - (S.nx - S.cx + L / 2), dy = ponteiro.y - (S.ny - S.cy + A / 2), d = Math.hypot(dx, dy); // o ponteiro está em coordenadas da tela
       if (d > 3) { mx = dx / d; my = dy / d; }
     }
     const tam = Math.hypot(mx, my);
     if (tam > 0) {
-      S.nx = Math.max(10, Math.min(L - 10, S.nx + (mx / tam) * S.velNave * dt));
-      S.ny = Math.max(10, Math.min(A - 10, S.ny + (my / tam) * S.velNave * dt));
+      S.nx += (mx / tam) * S.velNave * dt; // o espaço não tem limites
+      S.ny += (my / tam) * S.velNave * dt;
     }
+    const seg = Math.min(1, dt * 5); // a câmera acompanha a nave suavemente
+    S.cx += (S.nx - S.cx) * seg; S.cy += (S.ny - S.cy) * seg;
 
     S.spawnAcc += dt * (0.6 + Math.min(14, S.t * 0.035)); // e chegam cada vez mais rápido
     while (S.spawnAcc >= 1) { S.spawnAcc -= 1; spawn(); }
@@ -257,12 +261,13 @@ export function iniciarArcade({ adicionarFichas, bip }) {
       m.x += vx * dt; m.y += vy * dt;
       m.piscar = Math.max(0, m.piscar - dt);
     }
+    if (S.inimigos.length) S.inimigos = S.inimigos.filter((m) => Math.hypot(m.x - S.nx, m.y - S.ny) < 520); // quem ficou muito para trás some
 
     // tiro automático no monstro mais próximo
     S.recarga -= dt;
     if (S.recarga <= 0) {
       let alvo = null, menor = Infinity;
-      for (const m of S.inimigos) { const d = Math.hypot(m.x - S.nx, m.y - S.ny); if (d < menor && m.x > -2 && m.x < L + 2) { menor = d; alvo = m; } }
+      for (const m of S.inimigos) { const d = Math.hypot(m.x - S.nx, m.y - S.ny); if (d < menor && Math.abs(m.x - S.cx) < L / 2 + 4 && Math.abs(m.y - S.cy) < A / 2 + 4) { menor = d; alvo = m; } } // só mira em quem está na tela
       if (alvo) { atirar(alvo); S.recarga = 1 / S.cadencia; } else S.recarga = 0.05;
     }
 
@@ -270,7 +275,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     for (let i = S.tiros.length - 1; i >= 0; i--) {
       const b = S.tiros[i];
       b.x += b.vx * dt; b.y += b.vy * dt;
-      if (b.x < -6 || b.x > L + 6 || b.y < -6 || b.y > A + 6) { S.tiros.splice(i, 1); continue; }
+      if (Math.hypot(b.x - S.nx, b.y - S.ny) > 260) { S.tiros.splice(i, 1); continue; }
       for (const m of [...S.inimigos]) { // cópia: matar() remove da lista
         if (b.acertou.has(m)) continue;
         if (Math.hypot(b.x - m.x, b.y - m.y) < TIPOS[m.tipo].raio + 2) {
@@ -299,7 +304,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     // cristais de XP: o impulso da morte some rápido; perto da nave eles são atraídos; ao tocar, viram XP
     for (let i = S.cristais.length - 1; i >= 0; i--) {
       const c = S.cristais[i];
-      c.x = Math.max(4, Math.min(L - 4, c.x + c.vx * dt)); c.y = Math.max(4, Math.min(A - 4, c.y + c.vy * dt));
+      c.x += c.vx * dt; c.y += c.vy * dt;
       const freio = Math.pow(0.05, dt); c.vx *= freio; c.vy *= freio;
       const dx = S.nx - c.x, dy = S.ny - c.y, d = Math.hypot(dx, dy) || 1;
       if (d < S.raioIma) {
@@ -320,7 +325,6 @@ export function iniciarArcade({ adicionarFichas, bip }) {
       p.x += p.vx * dt; p.y += p.vy * dt; p.vida -= dt;
       if (p.vida <= 0) S.parts.splice(i, 1);
     }
-    for (const e of estrelas) { e.y += e.v * dt; if (e.y > A) { e.y = 0; e.x = Math.random() * L; } }
 
     if (S.hp <= 0) { fimDeJogo(); return; }
     if (S.xp >= S.xpProx) subirNivel();
@@ -383,23 +387,29 @@ export function iniciarArcade({ adicionarFichas, bip }) {
 
   // ---------- desenho ----------
   function desenhar() {
+    const t = performance.now() / 1000;
+    const camX = S ? S.cx : CX, camY = S ? S.cy : CY;
     g.save();
-    g.fillStyle = '#0b1026'; g.fillRect(0, 0, L, A);
-    if (S && S.tremor > 0) g.translate(Math.round((Math.random() - 0.5) * 4), Math.round((Math.random() - 0.5) * 4));
-    // estrelas e anéis de radar
-    for (const e of estrelas) { g.fillStyle = ['#3a4a8a', '#6a7ac0', '#c9d3ff'][e.c]; g.fillRect(Math.round(e.x), Math.round(e.y), 1, 1); }
-    g.strokeStyle = 'rgba(74, 168, 255, 0.12)'; g.lineWidth = 1;
-    const ox = S ? S.nx : CX, oy = S ? S.ny : CY; // os anéis de radar acompanham a nave
-    for (const r of [30, 62]) { g.beginPath(); g.arc(Math.round(ox), Math.round(oy), r, 0, Math.PI * 2); g.stroke(); }
+    fundo.desenhar(g, camX, camY, t); // espaço: estrelas, nebulosas, planetas (com parallax)
     if (!S) { g.restore(); return; }
+    const ox = Math.round(camX - L / 2), oy = Math.round(camY - A / 2); // canto superior esquerdo da tela, no mundo
+    const visivel = (x, y, m = 16) => x > ox - m && x < ox + L + m && y > oy - m && y < oy + A + m;
+
+    g.save();
+    if (S.tremor > 0) g.translate(Math.round((Math.random() - 0.5) * 4), Math.round((Math.random() - 0.5) * 4));
+    g.translate(-ox, -oy);
+    // anéis de radar em volta da nave
+    g.strokeStyle = 'rgba(74, 168, 255, 0.12)'; g.lineWidth = 1;
+    for (const r of [30, 62]) { g.beginPath(); g.arc(Math.round(S.nx), Math.round(S.ny), r, 0, Math.PI * 2); g.stroke(); }
 
     // cristais de XP (balançam de leve para chamar atenção)
     for (const c of S.cristais) {
-      const spr = c.v >= 6 ? sprites.cristais[6] : c.v >= 3 ? sprites.cristais[3] : c.v >= 2 ? sprites.cristais[2] : sprites.cristais[1];
-      g.drawImage(spr, Math.round(c.x - 3.5), Math.round(c.y - 4.5 + Math.sin(S.t * 4 + c.fase)));
+      if (!visivel(c.x, c.y)) continue;
+      g.drawImage(spriteCristal(c.v), Math.round(c.x - 3.5), Math.round(c.y - 4.5 + Math.sin(S.t * 4 + c.fase)));
     }
     // monstros
     for (const m of S.inimigos) {
+      if (!visivel(m.x, m.y, 24)) continue;
       const f = Math.floor(S.t * 6 + m.fase) % 2;
       const spr = m.piscar > 0 ? sprites.brancos[m.tipo][f] : sprites.quadros[m.tipo][f];
       if (m.tipo === 'fantasma') g.globalAlpha = 0.85;
@@ -416,9 +426,22 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     for (let k = 4; k <= 9; k++) g.fillRect(Math.round(nx + Math.cos(ang) * k) - 1, Math.round(ny + Math.sin(ang) * k) - 1, 2, 2);
     g.drawImage(piscando ? sprites.naveBranca : sprites.nave.c, nx - 8, ny - 8);
     // partículas
-    for (const p of S.parts) { g.fillStyle = p.cor; g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); }
+    for (const p of S.parts) { if (visivel(p.x, p.y, 4)) { g.fillStyle = p.cor; g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); } }
+    g.restore();
+
+    // indicadores na borda da tela para os cristais que estão fora de vista (os mais próximos)
+    const fora = S.cristais.filter((c) => !visivel(c.x, c.y, 2))
+      .map((c) => ({ c, d: Math.hypot(c.x - S.nx, c.y - S.ny) })).filter((o) => o.d < 620).sort((p, q) => p.d - q.d).slice(0, 6);
+    g.globalAlpha = 0.55 + 0.35 * Math.sin(t * 6);
+    for (const { c } of fora) {
+      const dx = c.x - (ox + L / 2), dy = c.y - (oy + A / 2);
+      const k = Math.min((L / 2 - 10) / (Math.abs(dx) || 1e-6), (A / 2 - 10) / (Math.abs(dy) || 1e-6));
+      g.drawImage(spriteCristal(c.v), Math.round(L / 2 + dx * k - 3.5), Math.round(A / 2 + dy * k - 4.5));
+    }
+    g.globalAlpha = 1;
     g.restore();
   }
+  const spriteCristal = (v) => (v >= 6 ? sprites.cristais[6] : v >= 3 ? sprites.cristais[3] : v >= 2 ? sprites.cristais[2] : sprites.cristais[1]);
 
   let hudCache = '';
   function atualizarHud() {
@@ -442,6 +465,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     const dt = Math.min((agora - ultimo) / 1000, 0.05);
     ultimo = agora;
     if (modo === 'jogando') atualizar(dt);
+    fundo.passo(dt); // estrelas cadentes
     desenhar();
     atualizarHud();
     raf = requestAnimationFrame(quadro);
@@ -513,7 +537,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   // gancho só do modo dev: avança a simulação sem depender do relógio do navegador (usado nos testes)
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
-      mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x; ponteiro.y = y; } },
+      mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x - (S.cx - L / 2); ponteiro.y = y - (S.cy - A / 2); } }, // x, y no mundo
       cristais: () => S.cristais.map((c) => ({ x: Math.round(c.x), y: Math.round(c.y), v: c.v })),
       avancar(seg, auto = true) {
         for (let t = 0; t < seg; t += 0.05) {
@@ -521,7 +545,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { cristais: S && S.cristais.length, xp: S && S.xp, xpProx: S && S.xpProx, modo, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny), onda: S && S.onda, fila: S && S.fila, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, inimigos: S && S.inimigos.length, tiros: S && S.tiros.length, projeteis: S && S.projeteis, dano: S && S.dano, cadencia: S && S.cadencia };
+        return { cx: S && Math.round(S.cx), cy: S && Math.round(S.cy), cristais: S && S.cristais.length, xp: S && S.xp, xpProx: S && S.xpProx, modo, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny), onda: S && S.onda, fila: S && S.fila, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, inimigos: S && S.inimigos.length, tiros: S && S.tiros.length, projeteis: S && S.projeteis, dano: S && S.dano, cadencia: S && S.cadencia };
       },
     };
   }
