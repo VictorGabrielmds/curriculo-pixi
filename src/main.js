@@ -6,6 +6,7 @@ import { iniciarArcade } from './arcade.js';
 import { montarPainel } from './painel.js';
 import { iniciarMusicaAmbiente } from './musica.js';
 import { criarJasmim, criarMazzy, soltarCoracoes, lerCarinhos, guardarCarinhos } from './carinhos.js';
+import { criarFutebol } from './futebol.js';
 
 // ---------- constantes ----------
 const R = 5; // raio do planeta
@@ -781,9 +782,11 @@ const carinhoBtn = document.createElement('button');
 carinhoBtn.id = 'carinho'; carinhoBtn.hidden = true;
 document.body.append(carinhoBtn);
 const rotulosSitio = sitios.map(() => { const e = document.createElement('div'); e.className = 'rotulo pet'; rotulosEl.append(e); return e; });
-const fraseJasmim = document.createElement('div'); // dedicatória escrita embaixo da flor
+const fraseJasmim = document.createElement('div'); // dedicatória discreta no céu, embaixo do planeta
 fraseJasmim.className = 'rotulo frase';
-fraseJasmim.textContent = 'a flor mais bela do meu mundo todo';
+fraseJasmim.textContent = '♥ a flor mais bela do meu mundo todo';
+const pontoFrase = new THREE.Vector3(0, -(R + 2.7), 0); // fora do planeta, logo abaixo dele (o céu não gira)
+let brilhoFrase = 0;
 rotulosEl.append(fraseJasmim);
 let alvoCarinho = null, textoCarinho = '';
 const pontoSitio = new THREE.Vector3();
@@ -819,13 +822,12 @@ function atualizarSitios(dt, pausado) {
     e.style.transform = `translate(${Math.round((pontoSitio.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoSitio.y * 0.5 + 0.5) * window.innerHeight)}px) translate(-50%, -100%)`;
     e.style.opacity = '1';
   });
-  w.copy(dirsSitios.jasmim).applyQuaternion(q); // a frase só aparece com a flor virada para a câmera
-  if (w.dot(camDir) < 0.2) fraseJasmim.style.opacity = '0';
-  else {
-    jasmim.pe.getWorldPosition(pontoSitio).project(camera);
-    fraseJasmim.style.transform = `translate(${Math.round((pontoSitio.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoSitio.y * 0.5 + 0.5) * window.innerHeight) + 4}px) translate(-50%, 0)`;
-    fraseJasmim.style.opacity = '1';
-  }
+  // a dedicatória só aparece quando você está perto da Jasmim: surge devagar embaixo do planeta e some ao se afastar
+  const perto = clamp((0.42 - angulo(dirsSitios.jasmim)) / 0.22, 0, 1);
+  brilhoFrase = damp(brilhoFrase, 0.8 * perto, 3, dt);
+  pontoSitio.copy(pontoFrase).project(camera);
+  fraseJasmim.style.transform = `translate(${Math.round((pontoSitio.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoSitio.y * 0.5 + 0.5) * window.innerHeight)}px) translate(-50%, -50%)`;
+  fraseJasmim.style.opacity = brilhoFrase.toFixed(2);
 }
 
 // skins do cassino: trocam as cores do planeta, das árvores e do céu
@@ -847,6 +849,8 @@ function aplicarSkins(equipadas) {
 }
 const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins, aoMudarFichas: (n) => { fichasHudEl.textContent = String(n); } });
 const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a), somAtivo: () => cassino.somAtivo() });
+const futebol = criarFutebol({ planeta, fincar, R, q, altura, NIVEL_MAR, dirsZonas, raioBloqueio, obstaculos, dirsSitios, camera, rotulosEl, camDir, bip: (...a) => cassino.bip(...a) });
+if (import.meta.env.DEV) window.__futebol = { ...futebol, aFrente: (rad, graus) => dirPolar(rad, graus).applyQuaternion(q.clone().invert()), mundo: (d) => d.clone().applyQuaternion(q) }; // só no servidor de desenvolvimento
 const musica = iniciarMusicaAmbiente({ somAtivo: () => cassino.somAtivo() });
 const somBtn = $('#som');
 let somMostrado = null;
@@ -1024,6 +1028,7 @@ renderer.setAnimationLoop(() => {
   atualizarRotulos(ativa);
   atualizarMoedas(dt);
   atualizarSitios(dt, pausado);
+  futebol.atualizar(dt, { vLeste, vNorte, VEL, pulando: alturaPulo > 0.4, pausado });
   musica.atualizar(dt, pausado);
   if (cassino.somAtivo() !== somMostrado) { somMostrado = cassino.somAtivo(); somBtn.classList.toggle('mudo', !somMostrado); }
 

@@ -28,18 +28,38 @@ function imagemCoracao() {
   x.fillStyle = '#ffd0e0'; x.fillRect(2, 2, 2, 1); x.fillRect(2, 3, 1, 1); // brilho
   return c.toDataURL();
 }
-export function soltarCoracoes(px, py, n = 5) {
-  urlCoracao ??= imagemCoracao();
+// cruz de malta em pixel art (vermelha, com os braços abrindo para pontas retas, como a do Vasco): sai quando você faz um gol
+let urlCruz = null;
+function imagemCruz() {
+  const T = 17, c = document.createElement('canvas');
+  c.width = c.height = T;
+  const x = c.getContext('2d');
+  const meia = [1, 1, 1, 1, 2, 2, 3, 3]; // meia-largura do braço a cada distância do centro: fino no meio, abre para fora e termina reto
+  const braco = (t, l) => t <= 7 && l <= meia[t];
+  for (let v = -7; v <= 7; v++) for (let u = -7; u <= 7; u++) {
+    if (!(braco(Math.abs(v), Math.abs(u)) || braco(Math.abs(u), Math.abs(v)))) continue;
+    x.fillStyle = u + v > 4 ? '#b01820' : u + v < -4 ? '#ff5a5f' : '#e3262d';
+    x.fillRect(8 + u, 8 + v, 1, 1);
+  }
+  const d = x.getImageData(0, 0, T, T).data;
+  const cheio = (i, j) => i >= 0 && j >= 0 && i < T && j < T && d[(j * T + i) * 4 + 3] > 0;
+  x.fillStyle = '#3a0d12';
+  for (let j = 0; j < T; j++) for (let i = 0; i < T; i++) if (!cheio(i, j) && (cheio(i + 1, j) || cheio(i - 1, j) || cheio(i, j + 1) || cheio(i, j - 1))) x.fillRect(i, j, 1, 1);
+  return c.toDataURL();
+}
+function soltar(url, largura, altura, escalas, px, py, n) { // n figurinhas que sobem e somem, como os corações da Mazzy
   for (let k = 0; k < n; k++) {
-    const e = document.createElement('i'), s = Math.random() < 0.4 ? 3 : 2;
+    const e = document.createElement('i'), s = escalas[Math.floor(Math.random() * escalas.length)];
     e.className = 'coracao';
-    e.style.cssText = `background-image:url(${urlCoracao});width:${9 * s}px;height:${8 * s}px;left:${Math.round(px + (Math.random() - 0.5) * 30)}px;top:${Math.round(py)}px;animation-delay:${(k * 0.09).toFixed(2)}s;`;
+    e.style.cssText = `background-image:url(${url});width:${largura * s}px;height:${altura * s}px;left:${Math.round(px + (Math.random() - 0.5) * 30)}px;top:${Math.round(py)}px;animation-delay:${(k * 0.09).toFixed(2)}s;`;
     e.style.setProperty('--dx', `${Math.round((Math.random() - 0.5) * 80)}px`);
     e.style.setProperty('--sobe', `${70 + Math.round(Math.random() * 60)}px`);
     e.addEventListener('animationend', () => e.remove());
     document.body.append(e);
   }
 }
+export function soltarCoracoes(px, py, n = 5) { urlCoracao ??= imagemCoracao(); soltar(urlCoracao, 9, 8, [2, 2, 3], px, py, n); }
+export function soltarCruzes(px, py, n = 6) { urlCruz ??= imagemCruz(); soltar(urlCruz, 17, 17, [2, 3, 3], px, py, n); }
 
 // ---------- Jasmim: uma ramo de jasmim com flores brancas de cinco pétalas ----------
 // mat: fábrica de materiais do main.js (cor, extras)
@@ -101,10 +121,9 @@ export function criarJasmim(mat) {
 
   const cabeca = new THREE.Object3D(); cabeca.position.set(0, 0.85, 0.05); raiz.add(cabeca); // de onde saem os corações
   const topo = new THREE.Object3D(); topo.position.set(0, 1.05, 0); raiz.add(topo); // onde o nome fica ancorado
-  const pe = new THREE.Object3D(); pe.position.set(0, 0, 0.12); raiz.add(pe); // no chão, na frente da flor: a frase fica logo abaixo
   let pulo = 0;
   return {
-    raiz, cabeca, topo, pe,
+    raiz, cabeca, topo,
     carinho() { pulo = 1; },
     atualizar(t, dt) {
       pulo = Math.max(0, pulo - dt * 2.2);
