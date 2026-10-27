@@ -1,0 +1,73 @@
+/* Janela do cassino: visual de jogo retrô (bordas quadradas, sombras duras, fonte monoespaçada) */
+#cassino {
+  position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+  background: rgba(5, 7, 20, 0.74); padding: 12px; box-sizing: border-box;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "Lucida Console", "Courier New", monospace; font-weight: 700; color: #fff;
+}
+#cassino.aberto { display: flex; }
+#cassino * { box-sizing: border-box; }
+
+.cas-caixa {
+  width: min(580px, 100%); max-height: 100%; overflow: auto;
+  background: #1a1033; border: 4px solid #ffc83d; padding: 14px 18px 18px;
+  box-shadow: 0 0 0 4px #070a1a, 8px 8px 0 4px rgba(0, 0, 0, 0.55);
+}
+.cas-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.cas-topo h2 { margin: 0; font-size: 22px; letter-spacing: 2px; color: #ffc83d; text-shadow: 2px 2px 0 #070a1a; }
+.cas-aviso { margin: 0 0 10px; font-size: 13px; line-height: 1.4; color: #c9cdf5; }
+
+.cas-fichas { display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 12px; }
+.cas-fichas b { font-size: 24px; color: #ffd23f; text-shadow: 2px 2px 0 #070a1a; }
+.moeda { display: inline-block; width: 16px; height: 16px; background: #ffd23f; border-radius: 50%; box-shadow: inset -3px -3px 0 #d99a1a, 0 0 0 2px #070a1a; }
+
+.cas-rolos { display: flex; justify-content: center; gap: 10px; padding: 14px; background: #2b1f55; border: 4px solid #070a1a; margin-bottom: 10px; }
+.cas-rolos.vitoria { animation: cas-piscar 0.35s steps(2) 5; }
+.rolo { width: 96px; height: 96px; background: #0f0b22; border: 4px solid #070a1a; box-shadow: inset 0 0 0 4px #3a2c70; padding: 6px; }
+.rolo canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.rolo.girando canvas { filter: brightness(1.25) saturate(1.2); }
+@keyframes cas-piscar { 50% { background: #ffc83d; } }
+
+.cas-msg { min-height: 28px; text-align: center; font-size: 16px; letter-spacing: 1px; color: #e6e8ff; margin: 4px 0 8px; }
+.cas-msg.ganhou { color: #ffd23f; text-shadow: 2px 2px 0 #070a1a; font-size: 18px; }
+.cas-msg.par { color: #8be6ff; }
+
+.cas-premio { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 10px; margin-bottom: 10px; background: #12173a; border: 4px solid var(--r, #ffd23f); }
+.cas-premio b { color: var(--r, #ffd23f); letter-spacing: 1px; }
+.cas-premio[hidden] { display: none; }
+
+.cas-botoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.cas-btn {
+  font: inherit; font-size: 14px; letter-spacing: 1px; cursor: pointer; color: #fff; background: #3a2c70;
+  border: 4px solid #070a1a; padding: 8px 12px; box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.35), inset 3px 3px 0 rgba(255, 255, 255, 0.18);
+}
+.cas-btn:hover:not(:disabled) { background: #4d3b94; }
+.cas-btn:active:not(:disabled) { transform: translate(2px, 2px); }
+.cas-btn:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+.cas-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.cas-btn.grande { background: #d6293e; font-size: 18px; padding: 10px 22px; }
+.cas-btn.grande:hover:not(:disabled) { background: #ec3a50; }
+.cas-btn.pequeno { font-size: 12px; padding: 5px 8px; }
+
+.cas-tabela { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; font-size: 12px; color: #c9cdf5; }
+.cas-linha { display: flex; align-items: center; gap: 8px; }
+.cas-linha canvas { width: 24px; height: 24px; image-rendering: pixelated; flex: none; }
+.cas-linha small { color: #8f96c9; }
+.cas-linha.par { grid-column: 1 / -1; margin-top: 4px; font-size: 11px; color: #8f96c9; }
+
+.cas-maquina[hidden], .cas-colecao[hidden] { display: none; }
+.cas-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.cas-cabecalho h3 { margin: 0; font-size: 18px; color: #ffc83d; }
+.cas-colecao h4 { margin: 14px 0 6px; font-size: 13px; letter-spacing: 2px; color: #8f96c9; }
+.cas-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.cas-card { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #12173a; border: 4px solid var(--r, #9fb0c8); }
+.cas-card.equipada { box-shadow: 0 0 0 3px #ffd23f; }
+.cas-card.bloqueada { opacity: 0.7; }
+.cas-card b { font-size: 14px; }
+.cas-card small { color: var(--r, #9fb0c8); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+.cas-card .amostra { display: flex; height: 22px; border: 2px solid #070a1a; }
+.cas-card .amostra i { flex: 1; }
+
+@media (max-width: 480px) {
+  .rolo { width: 80px; height: 80px; }
+  .cas-tabela { grid-template-columns: 1fr; }
+}

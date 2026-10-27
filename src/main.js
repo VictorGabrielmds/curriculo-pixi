@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { perfil, zonas } from './data.js';
+import { skinPorId } from './skins.js';
+import { iniciarCassino } from './cassino.js';
 
 // ---------- constantes ----------
 const R = 5; // raio do planeta
@@ -10,7 +12,7 @@ const RAIO_ESTACAO = 0.27 * K; // rad que o personagem não consegue atravessar
 const CIMA = new THREE.Vector3(0, 1, 0); // onde o personagem pisa (topo do planeta)
 
 // onde cada estação fica no planeta: [leste-oeste, norte-sul] em radianos; norte = para o fundo da tela
-const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6]];
+const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6], [0.1, -0.95]];
 function posicaoZona(i) {
   const [lon, lat] = POSICOES[i] ?? [i * 2.4, (((i * 0.37) % 1) - 0.5) * 1.6]; // zonas extras: espalha em espiral
   return new THREE.Vector3(Math.sin(lon) * Math.cos(lat), Math.cos(lon) * Math.cos(lat), -Math.sin(lat));
@@ -84,6 +86,15 @@ Object.assign(sol.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near:
 sol.shadow.bias = -0.0004;
 scene.add(sol, sol.target);
 
+// materiais que as skins do mundo recolorem
+const materialEstrelas = new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, sizeAttenuation: true, fog: false });
+const materialNuvens = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: 0.95 });
+const copasArvores = [], copas2Arvores = []; // {m, v}: material e variação da copa
+const uniformsTerreno = {
+  uMarRaso: { value: new THREE.Color(0x56c2ee) }, uMarMedio: { value: new THREE.Color(0x2f7fdc) }, uMarFundo: { value: new THREE.Color(0x1d56b8) }, uEspuma: { value: new THREE.Color(0xd4f1fc) },
+  uAreia: { value: new THREE.Color(0xf3dda3) }, uGrama0: { value: new THREE.Color(0x6fcf6a) }, uGrama1: { value: new THREE.Color(0x4cb760) }, uGrama2: { value: new THREE.Color(0x2f9055) },
+};
+
 // céu: estrelas e lua
 {
   const rnd = semente(3);
@@ -94,7 +105,7 @@ scene.add(sol, sol.target);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, sizeAttenuation: true, fog: false })));
+  scene.add(new THREE.Points(g, materialEstrelas));
   const lua = new THREE.Mesh(
     new THREE.SphereGeometry(4, 32, 32),
     new THREE.MeshBasicMaterial({ color: 0xfff1c9, fog: false }),
@@ -136,11 +147,7 @@ scene.add(planeta);
 
   const material = new THREE.MeshStandardMaterial({ roughness: 0.9 });
   material.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, {
-      uAltura: { value: tex }, uN: { value: N }, uP: { value: P }, uM: { value: M }, uNivel: { value: NIVEL_MAR },
-      uMarRaso: { value: new THREE.Color(0x56c2ee) }, uMarMedio: { value: new THREE.Color(0x2f7fdc) }, uMarFundo: { value: new THREE.Color(0x1d56b8) }, uEspuma: { value: new THREE.Color(0xd4f1fc) },
-      uAreia: { value: new THREE.Color(0xf3dda3) }, uGrama0: { value: new THREE.Color(0x6fcf6a) }, uGrama1: { value: new THREE.Color(0x4cb760) }, uGrama2: { value: new THREE.Color(0x2f9055) },
-    });
+    Object.assign(sh.uniforms, { uAltura: { value: tex }, uN: { value: N }, uP: { value: P }, uM: { value: M }, uNivel: { value: NIVEL_MAR } }, uniformsTerreno);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vObj;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;');
@@ -238,9 +245,12 @@ const obstaculos = [];
     const s = 0.5 + rnd() * 0.45;
     const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 6), mat(0x7a4a2b));
     tronco.position.y = 0.3;
-    const copa = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 7), mat(rnd() > 0.5 ? 0x2f9e5c : 0x258a4e));
+    const variacao = rnd() > 0.5 ? 0 : 1;
+    const copa = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 7), mat(variacao === 0 ? 0x2f9e5c : 0x258a4e));
+    copasArvores.push({ m: copa.material, v: variacao });
     copa.position.y = 1.1;
     const copa2 = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 7), mat(0x34b068));
+    copas2Arvores.push(copa2.material);
     copa2.position.y = 1.7;
     t.add(tronco, copa, copa2);
     t.scale.setScalar(s);
@@ -264,7 +274,7 @@ const nuvens = new THREE.Group();
 scene.add(nuvens);
 {
   const rnd = semente(5);
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: 0.95 });
+  const m = materialNuvens;
   for (let i = 0; i < 10; i++) {
     const d = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
     d.z = -Math.abs(d.z) - 0.6; // só atrás do planeta, para não tapar o personagem
@@ -287,26 +297,6 @@ scene.add(nuvens);
 }
 
 // ---------- estações ----------
-function rotulo(texto) {
-  const c = document.createElement('canvas');
-  c.width = 144; c.height = 36; // ~3,3 unidades de largura: 1 texel = 1 pixel da tela interna
-  const x = c.getContext('2d');
-  x.font = 'bold 18px "Courier New", ui-monospace, monospace';
-  x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.lineJoin = 'round'; x.lineWidth = 4; x.strokeStyle = '#070a1a';
-  x.strokeText(texto, 72, 20);
-  x.fillStyle = '#fff';
-  x.fillText(texto, 72, 20);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.magFilter = tex.minFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); // com teste de profundidade: o planeta esconde os rótulos do outro lado
-  s.scale.set(3.28, 0.82, 1);
-  s.renderOrder = 10;
-  return s;
-}
-
 function estrelaForma(raio) {
   const sh = new THREE.Shape();
   for (let i = 0; i < 10; i++) {
@@ -359,6 +349,19 @@ function modelo(tipo, cor) {
       e.name = 'gira';
       break;
     }
+    case 'cassino': {
+      const rolo = (cx, cor) => add(new THREE.BoxGeometry(0.36, 0.5, 0.06), mat(cor, { emissive: cor, emissiveIntensity: 0.7 }), cx, 2.05, 0.66);
+      add(new THREE.BoxGeometry(2.2, 0.3, 1.6), escuro, 0, 0.15); // base
+      add(new THREE.BoxGeometry(1.8, 2.7, 1.3), claro, 0, 1.65); // corpo
+      add(new THREE.BoxGeometry(2.0, 0.55, 1.4), escuro, 0, 3.2); // letreiro
+      add(new THREE.BoxGeometry(1.6, 0.3, 0.08), luz, 0, 3.2, 0.72);
+      add(new THREE.BoxGeometry(1.45, 0.75, 0.1), mat(0x15152b), 0, 2.05, 0.62); // janela dos rolos
+      rolo(-0.46, 0xff3b4a); rolo(0, 0xffe14a); rolo(0.46, 0x58d6ff);
+      add(new THREE.BoxGeometry(1.2, 0.28, 0.45), escuro, 0, 0.8, 0.8); // bandeja de fichas
+      add(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), mat(0xc9cdd8), 1.05, 2.0, 0); // alavanca
+      add(new THREE.SphereGeometry(0.2, 12, 12), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.5 }), 1.05, 2.65, 0);
+      break;
+    }
     case 'carta':
       add(new THREE.CylinderGeometry(0.1, 0.14, 1.1, 8), escuro, 0, 0.55);
       add(new THREE.BoxGeometry(2.2, 1.4, 0.35), claro, 0, 1.75);
@@ -387,14 +390,14 @@ const estacoes = zonas.map((z, i) => {
   anel.position.y = 0.1;
   const icone = modelo(z.icone, z.cor);
   icone.position.y = 0.1;
-  const rot = rotulo(z.id.toUpperCase());
-  rot.position.y = 4.8;
-  raiz.add(base, anel, icone, rot);
+  const topo = new THREE.Object3D(); // ponto acima da estação onde o rótulo HTML fica ancorado
+  topo.position.y = 4.4;
+  raiz.add(base, anel, icone, topo);
   sombrear(raiz);
   base.castShadow = false;
   raiz.scale.setScalar(0.8);
   fincar(raiz, dirsZonas[i], 0);
-  return { raiz, anel, icone, rot, gira: icone.getObjectByName('gira') };
+  return { raiz, anel, icone, topo, gira: icone.getObjectByName('gira') };
 });
 
 // ---------- personagem (sprite 2D, 4 direções) ----------
@@ -456,7 +459,9 @@ zonas.forEach((z) => {
   pontosEl.appendChild(i);
 });
 const painel = $('#painel');
+const acaoBtn = $('#acao');
 let painelAtivo = -2;
+let estacaoAtiva = -1;
 function mostrarPainel(i) {
   if (i === painelAtivo) return;
   painelAtivo = i;
@@ -466,6 +471,7 @@ function mostrarPainel(i) {
     painel.querySelector('h2').textContent = z.titulo;
     const t = $('#texto');
     t.replaceChildren(...z.linhas.map((l) => Object.assign(document.createElement('p'), { textContent: l })));
+    acaoBtn.hidden = !z.jogo;
     painel.classList.add('on');
   }
   [...pontosEl.children].forEach((d, k) => d.classList.toggle('on', k === i));
@@ -474,6 +480,12 @@ function mostrarPainel(i) {
 // ---------- entrada ----------
 const teclas = new Set();
 window.addEventListener('keydown', (e) => {
+  if (cassino.estaAberto()) return; // com o cassino aberto, as teclas são dele
+  if ((e.code === 'KeyE' || e.code === 'Enter') && estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo === 'cassino') {
+    teclas.clear();
+    cassino.abrir();
+    return;
+  }
   teclas.add(e.code);
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
 });
@@ -611,6 +623,50 @@ function empurrar(d, r) {
   q.premultiply(dq);
 }
 
+// rótulos das estações: texto HTML projetado na tela (some quando a estação está do outro lado do planeta)
+const rotulosEl = document.createElement('div');
+rotulosEl.id = 'rotulos';
+document.body.append(rotulosEl);
+const rotulosDom = zonas.map((z) => {
+  const e = document.createElement('div');
+  e.className = 'rotulo';
+  e.textContent = z.id;
+  rotulosEl.append(e);
+  return e;
+});
+const camDir = new THREE.Vector3(), pontoRotulo = new THREE.Vector3();
+function atualizarRotulos(ativa) {
+  camDir.copy(camera.position).normalize();
+  zonas.forEach((_, i) => {
+    const e = rotulosDom[i];
+    w.copy(dirsZonas[i]).applyQuaternion(q);
+    if (i === ativa || w.dot(camDir) < 0.2) { e.style.opacity = '0'; return; }
+    estacoes[i].topo.getWorldPosition(pontoRotulo).project(camera);
+    e.style.transform = `translate(${Math.round((pontoRotulo.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoRotulo.y * 0.5 + 0.5) * window.innerHeight)}px) translate(-50%, -100%)`;
+    e.style.opacity = '1';
+  });
+}
+
+// skins do cassino: trocam as cores do planeta, das árvores e do céu
+const CORES_TERRENO = { marRaso: 'uMarRaso', marMedio: 'uMarMedio', marFundo: 'uMarFundo', espuma: 'uEspuma', areia: 'uAreia', grama0: 'uGrama0', grama1: 'uGrama1', grama2: 'uGrama2' };
+function aplicarSkins(equipadas) {
+  const pl = skinPorId(equipadas.planeta)?.cores;
+  if (pl) for (const [chave, uniforme] of Object.entries(CORES_TERRENO)) uniformsTerreno[uniforme].value.set(pl[chave]);
+  const ar = skinPorId(equipadas.arvores)?.cores;
+  if (ar) {
+    for (const { m, v } of copasArvores) m.color.set(ar.copa[v % ar.copa.length]);
+    for (const m of copas2Arvores) m.color.set(ar.copa2);
+  }
+  const ce = skinPorId(equipadas.ceu)?.cores;
+  if (ce) {
+    scene.background.set(ce.fundo);
+    materialEstrelas.color.set(ce.estrelas);
+    materialNuvens.color.set(ce.nuvens);
+  }
+}
+const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins });
+acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo === 'cassino') { teclas.clear(); cassino.abrir(); } });
+
 const relogio = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(relogio.getDelta(), 0.05);
@@ -618,8 +674,9 @@ renderer.setAnimationLoop(() => {
 
   // entrada: ← → leste-oeste, ↑ ↓ norte-sul
   const k = (a, b) => (teclas.has(a) || teclas.has(b) ? 1 : 0);
-  let ix = k('ArrowRight', 'KeyD') - k('ArrowLeft', 'KeyA') || toque.x;
-  let iy = k('ArrowUp', 'KeyW') - k('ArrowDown', 'KeyS') || toque.y;
+  const pausado = cassino.estaAberto();
+  let ix = pausado ? 0 : k('ArrowRight', 'KeyD') - k('ArrowLeft', 'KeyA') || toque.x;
+  let iy = pausado ? 0 : k('ArrowUp', 'KeyW') - k('ArrowDown', 'KeyS') || toque.y;
   const tam = Math.hypot(ix, iy);
   if (tam > 1) { ix /= tam; iy /= tam; }
   const correndo = teclas.has('ShiftLeft') || teclas.has('ShiftRight');
@@ -640,7 +697,7 @@ renderer.setAnimationLoop(() => {
   if (andou) $('#dica').classList.add('some');
 
   // pulo
-  const querPular = teclas.has('Space') || toque.pulo;
+  const querPular = !pausado && (teclas.has('Space') || toque.pulo);
   if (querPular && noChao) { vPulo = 7.2; noChao = false; tempoNoAr = 0; }
   if (!noChao) {
     vPulo -= 20 * dt;
@@ -698,9 +755,10 @@ renderer.setAnimationLoop(() => {
     e.anel.material.opacity = damp(e.anel.material.opacity, on ? 0.55 + Math.sin(tempo * 4) * 0.25 : 0, 8, dt);
     e.icone.position.y = 0.1 + Math.sin(tempo * 1.6 + i) * (on ? 0.12 : 0.04);
     if (e.gira) e.gira.rotation.y += dt * (on ? 2.4 : 0.8);
-    e.rot.material.opacity = damp(e.rot.material.opacity, on ? 0 : 0.85, 8, dt);
   });
+  estacaoAtiva = ativa;
   mostrarPainel(ativa);
+  atualizarRotulos(ativa);
 
   renderer.setRenderTarget(alvoRender);
   renderer.render(scene, camera);

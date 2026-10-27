@@ -57,4 +57,15 @@ export const zonas = [
       'GitHub: github.com/seu-usuario   ·   LinkedIn: linkedin.com/in/seu-usuario',
     ],
   },
+  {
+    id: 'cassino',
+    icone: 'cassino',
+    cor: 0xffc83d,
+    jogo: 'cassino', // abre o minijogo (tecla E ou botão do painel)
+    titulo: 'Cassino da Sorte',
+    linhas: [
+      'Um caça-níquel de brincadeira: só fichas virtuais, sem dinheiro de verdade.',
+      'Ganhe skins para o planeta, as árvores e o céu e deixe o mundo do seu jeito.',
+    ],
+  },
 ];
