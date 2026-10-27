@@ -101,9 +101,10 @@ export function criarJasmim(mat) {
 
   const cabeca = new THREE.Object3D(); cabeca.position.set(0, 0.85, 0.05); raiz.add(cabeca); // de onde saem os corações
   const topo = new THREE.Object3D(); topo.position.set(0, 1.05, 0); raiz.add(topo); // onde o nome fica ancorado
+  const pe = new THREE.Object3D(); pe.position.set(0, 0, 0.12); raiz.add(pe); // no chão, na frente da flor: a frase fica logo abaixo
   let pulo = 0;
   return {
-    raiz, cabeca, topo,
+    raiz, cabeca, topo, pe,
     carinho() { pulo = 1; },
     atualizar(t, dt) {
       pulo = Math.max(0, pulo - dt * 2.2);

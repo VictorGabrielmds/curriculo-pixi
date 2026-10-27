@@ -781,6 +781,10 @@ const carinhoBtn = document.createElement('button');
 carinhoBtn.id = 'carinho'; carinhoBtn.hidden = true;
 document.body.append(carinhoBtn);
 const rotulosSitio = sitios.map(() => { const e = document.createElement('div'); e.className = 'rotulo pet'; rotulosEl.append(e); return e; });
+const fraseJasmim = document.createElement('div'); // dedicatória escrita embaixo da flor
+fraseJasmim.className = 'rotulo frase';
+fraseJasmim.textContent = 'a flor mais bela do meu mundo todo';
+rotulosEl.append(fraseJasmim);
 let alvoCarinho = null, textoCarinho = '';
 const pontoSitio = new THREE.Vector3();
 function fazerCarinho(s) {
@@ -815,6 +819,13 @@ function atualizarSitios(dt, pausado) {
     e.style.transform = `translate(${Math.round((pontoSitio.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoSitio.y * 0.5 + 0.5) * window.innerHeight)}px) translate(-50%, -100%)`;
     e.style.opacity = '1';
   });
+  w.copy(dirsSitios.jasmim).applyQuaternion(q); // a frase só aparece com a flor virada para a câmera
+  if (w.dot(camDir) < 0.2) fraseJasmim.style.opacity = '0';
+  else {
+    jasmim.pe.getWorldPosition(pontoSitio).project(camera);
+    fraseJasmim.style.transform = `translate(${Math.round((pontoSitio.x * 0.5 + 0.5) * window.innerWidth)}px, ${Math.round((-pontoSitio.y * 0.5 + 0.5) * window.innerHeight) + 4}px) translate(-50%, 0)`;
+    fraseJasmim.style.opacity = '1';
+  }
 }
 
 // skins do cassino: trocam as cores do planeta, das árvores e do céu

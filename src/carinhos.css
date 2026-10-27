@@ -24,3 +24,5 @@
 
 /* nome de quem mora no planeta (mesmo estilo dos rótulos das estações, só menor e rosa) */
 .rotulo.pet { font-size: 12px; letter-spacing: 1px; color: #ffc1d9; }
+/* a dedicatória embaixo da Jasmim: texto corrido, em duas linhas, sem caixa alta */
+.rotulo.frase { width: 138px; white-space: normal; text-align: center; text-transform: none; font-size: 11px; line-height: 1.3; letter-spacing: 0.5px; color: #fff; }
