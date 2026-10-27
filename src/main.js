@@ -400,6 +400,7 @@ const estacoes = zonas.map((z, i) => {
 // quadros em public/avatar/<animação>-<direção>-<n>.png (84x182, pés na linha y=168)
 const FRAMES = { parado: 4, andar: 5, correr: 5, pular: 5 };
 const DIRECOES = ['direita', 'esquerda', 'norte', 'sul']; // norte = de costas (fundo da tela), sul = de frente
+const CICLO_PARADO = [0, 1, 2, 3, 2, 1]; // parado de frente: ida e volta
 const FRAME_W = 84, FRAME_H = 182, FRAME_PES_Y = 168;
 const carregador = new THREE.TextureLoader();
 const quadros = {};
@@ -607,12 +608,12 @@ renderer.setAnimationLoop(() => {
   } else if (vel > 0.08) {
     quadro = quadros.andar[olhando][Math.floor(passo) % FRAMES.andar];
   } else {
-    // os quadros de "parado" do desenho não estão alinhados entre si (o corpo pula de lugar), então fica um quadro só
-    // e a respiração vem de um leve esticar do sprite
-    quadro = quadros.parado[olhando][0];
+    // de frente há 4 quadros bem alinhados (ida e volta); nas outras direções os quadros do desenho não se alinham
+    // (o corpo "pula"), então fica um quadro só e a respiração vem de um leve esticar do sprite
+    quadro = olhando === 'sul' ? quadros.parado.sul[CICLO_PARADO[Math.floor(tempo * 4) % CICLO_PARADO.length]] : quadros.parado[olhando][0];
   }
   boneco.material = quadro;
-  const respira = noChao && vel <= 0.08 ? Math.sin(tempo * 2.4) * 0.012 : 0;
+  const respira = noChao && vel <= 0.08 && olhando !== 'sul' ? Math.sin(tempo * 2.4) * 0.012 : 0;
   boneco.scale.set(LARGURA_BONECO * (1 - respira * 0.5), ALTURA_BONECO * (1 + respira), 1);
   boneco.position.y = R + alturaPulo;
   const sobe = Math.min(alturaPulo, 1.5);
