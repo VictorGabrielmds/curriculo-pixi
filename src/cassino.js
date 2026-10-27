@@ -454,5 +454,6 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     abrir, fechar: fecharJanela, estaAberto: () => aberto,
     adicionarFichas: (n) => { estado.fichas += n; salvar(); atualizar(); }, // fichas do mapa
     bip: (...a) => bip(estado, ...a),
+    somAtivo: () => estado.som,
   };
 }
