@@ -270,6 +270,7 @@ scene.add(nuvens);
     const d = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
     d.z = -Math.abs(d.z) - 0.6; // só atrás do planeta, para não tapar o personagem
     d.y = Math.abs(d.y);
+    d.x = (d.x < 0 ? -1 : 1) * (0.55 + Math.abs(d.x)); // só nas laterais, longe do personagem
     d.normalize();
     const n = new THREE.Group();
     for (let k = 0; k < 4; k++) {
@@ -395,90 +396,23 @@ const estacoes = zonas.map((z, i) => {
   return { raiz, anel, icone, rot, gira: icone.getObjectByName('gira') };
 });
 
-// ---------- personagem (2D, sempre de frente) ----------
-// desenhado em canvas no estilo "formas chapadas": 4 quadros de caminhada, em um sprite que olha para a câmera
-const BARBA = true; // cavanhaque e bigode (false = rosto limpo)
-function desenharBoneco(fase) {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 384;
-  const x = c.getContext('2d');
-  x.scale(2, 2);
-  x.translate(64, 0);
-  x.lineCap = 'round'; x.lineJoin = 'round';
-  const PELE = '#e2b48d', PELE_SOMBRA = '#cb9972', CABELO = '#14111a', CAMISA = '#7c5cff', MOCHILA = '#ffd23f', CALCA1 = '#1b1f3b', CALCA2 = '#2a2f5c', TENIS = '#f1f2fa';
-  const s = [0, 1, 0, -1][fase]; // balanço da caminhada
-  const rr = (px, py, w, h, r, cor) => { x.beginPath(); x.roundRect(px, py, w, h, r); x.fillStyle = cor; x.fill(); };
-  const bola = (cx, cy, r, cor) => { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fillStyle = cor; x.fill(); };
-  const elipse = (cx, cy, rx, ry, rot, cor) => { x.beginPath(); x.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2); x.fillStyle = cor; x.fill(); };
-  // cacho solto: espiral que sai do contorno do cabelo
-  const espiral = (cx, cy, raio, giro) => {
-    x.beginPath();
-    for (let t = 0; t <= Math.PI * 2.6; t += 0.2) {
-      const r = raio * (0.2 + (t / (Math.PI * 2.6)) * 0.8);
-      const px = cx + Math.cos(t + giro) * r, py = cy + Math.sin(t + giro) * r;
-      if (t === 0) x.moveTo(px, py); else x.lineTo(px, py);
-    }
-    x.strokeStyle = CABELO; x.lineWidth = 2.8; x.stroke();
-  };
-
-  const subE = Math.max(0, s) * 9, subD = Math.max(0, -s) * 9; // pé que levanta
-
-  rr(-37, 96, 74, 40, 12, MOCHILA); // mochila (aparece dos lados do corpo)
-  rr(-23, 140, 20, 48 - subE, 8, CALCA1); rr(-27, 188 - subE - 10, 27, 11, 5, TENIS);
-  rr(3, 140, 20, 48 - subD, 8, CALCA2); rr(0, 188 - subD - 10, 27, 11, 5, TENIS);
-  rr(-30, 80, 60, 70, 20, CAMISA);
-  rr(-30, 128, 60, 22, 14, 'rgba(0,0,0,0.14)');
-  rr(-19, 82, 7, 42, 3, MOCHILA); rr(12, 82, 7, 42, 3, MOCHILA); // alças
-  rr(-47, 88 + s * 6, 16, 42, 8, CAMISA); bola(-39, 135 + s * 6, 8, PELE);
-  rr(31, 88 - s * 6, 16, 42, 8, CAMISA); bola(39, 135 - s * 6, 8, PELE);
-  rr(-9, 72, 18, 16, 6, PELE_SOMBRA); // pescoço
-
-  // cabelo por trás da cabeça: massa de cachos
-  elipse(0, 46, 40, 36, 0, CABELO);
-  for (let i = 0; i <= 18; i++) {
-    const a = Math.PI * (0.85 + (i / 18) * 1.3);
-    bola(Math.cos(a) * 38, 48 + Math.sin(a) * 36, 11 + (i % 3) * 1.6, CABELO);
-  }
-
-  bola(-30, 58, 6.5, PELE); bola(30, 58, 6.5, PELE); // orelhas
-  elipse(0, 54, 29, 31, 0, PELE); // cabeça
-  if (BARBA) { // sombra de barba na parte de baixo do rosto
-    x.save(); x.beginPath(); x.ellipse(0, 54, 29, 31, 0, 0, Math.PI * 2); x.clip();
-    x.fillStyle = 'rgba(30,22,24,0.22)'; x.fillRect(-40, 69, 80, 40); x.restore();
-  }
-
-  // rosto
-  x.strokeStyle = CABELO; x.lineWidth = 4.6;
-  x.beginPath(); x.moveTo(-23, 42.5); x.lineTo(-7.5, 40.5); x.moveTo(7.5, 40.5); x.lineTo(23, 42.5); x.stroke(); // sobrancelhas grossas
-  elipse(-13, 51, 4.6, 5, 0, '#2a1a14'); elipse(13, 51, 4.6, 5, 0, '#2a1a14');
-  bola(-11.6, 49.2, 1.5, '#ffffff'); bola(14.4, 49.2, 1.5, '#ffffff');
-  x.strokeStyle = 'rgba(90,50,35,0.55)'; x.lineWidth = 2;
-  x.beginPath(); x.arc(-13, 51, 6.4, Math.PI * 1.1, Math.PI * 1.9); x.stroke();
-  x.beginPath(); x.arc(13, 51, 6.4, Math.PI * 1.1, Math.PI * 1.9); x.stroke();
-  x.strokeStyle = 'rgba(120,70,50,0.6)'; x.lineWidth = 2;
-  x.beginPath(); x.moveTo(-2.5, 58); x.quadraticCurveTo(0, 63.5, 3.5, 59.5); x.stroke(); // nariz
-  if (BARBA) {
-    elipse(-8, 67.5, 9, 3.3, -0.2, '#2a2123'); elipse(8, 67.5, 9, 3.3, 0.2, '#2a2123'); // bigode
-    elipse(0, 80, 9.5, 6.5, 0, '#241c1e'); // cavanhaque
-  }
-  x.strokeStyle = '#7a4a40'; x.lineWidth = 2.4;
-  x.beginPath(); x.moveTo(-5, 72.5); x.quadraticCurveTo(0, 74, 5, 72.5); x.stroke(); // boca
-
-  // cabelo por cima: franja de cachos na testa, volume no topo e cachos soltos
-  for (let i = -3; i <= 3; i++) bola(i * 9, 30 + Math.abs(i) * 1.6, 10.5 - Math.abs(i) * 0.4, CABELO);
-  bola(-29, 42, 8.5, CABELO); bola(29, 42, 8.5, CABELO);
-  bola(-17, 19, 14, CABELO); bola(17, 19, 14, CABELO); bola(0, 14, 14, CABELO); bola(-31, 29, 12, CABELO); bola(31, 29, 12, CABELO);
-  [[-44, 38, 0.4], [-36, 18, 3.8], [-18, 4, 1.2], [4, 0, 5.1], [24, 5, 2.4], [38, 20, 0.2], [45, 40, 2.9], [-47, 56, 1.9], [46, 58, 4.4]].forEach(([px, py, g]) => espiral(px, py, 8, g));
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
-}
-const quadros = [0, 1, 2, 3].map(desenharBoneco);
-const boneco = new THREE.Sprite(quadros[0]);
-boneco.center.set(0.5, 0.02); // pés na base do sprite
-boneco.scale.set(1.9, 2.85, 1);
+// ---------- personagem (sprite 2D de perfil) ----------
+// quadros em public/avatar (pixel art, todos olhando para a direita; para a esquerda o sprite é espelhado)
+const QUADROS = { idle: 5, walk: 5, jump: 4, fall: 3 };
+const carregador = new THREE.TextureLoader();
+const quadros = Object.fromEntries(Object.entries(QUADROS).map(([nome, n]) => [
+  nome,
+  Array.from({ length: n }, (_, i) => {
+    const tex = carregador.load(`${import.meta.env.BASE_URL}avatar/${nome}-${i}.png`);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
+  }),
+]));
+const LARGURA_BONECO = 3.5 * (116 / 189);
+const boneco = new THREE.Sprite(quadros.idle[0]);
+boneco.center.set(0.5, 6 / 189); // pés na base do sprite (os quadros têm 116x189 com 6px de folga)
+boneco.scale.set(LARGURA_BONECO, 3.5, 1);
 boneco.position.y = R;
 scene.add(boneco);
 
@@ -593,7 +527,7 @@ if (zonaParam !== null) {
   q.setFromUnitVectors(dirsZonas[i], new THREE.Vector3(0.25, 1, -0.2).normalize());
 }
 let vLeste = 0, vNorte = 0, alturaPulo = 0, vPulo = 0, noChao = true;
-let passo = 0, andou = false, tempo = 0, inclina = 0;
+let passo = 0, andou = false, tempo = 0, olhando = 1;
 const eixo = new THREE.Vector3(), dq = new THREE.Quaternion(), w = new THREE.Vector3();
 const volta = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const angulo = (d) => Math.acos(clamp(w.copy(d).applyQuaternion(q).y, -1, 1)); // distância (rad) de d até o personagem
@@ -646,14 +580,21 @@ renderer.setAnimationLoop(() => {
     if (alturaPulo <= 0) { alturaPulo = 0; vPulo = 0; noChao = true; }
   }
 
-  // quadro do sprite: ciclo de caminhada (sempre de frente) + pequeno balanço
+  // quadro do sprite: pulo/queda no ar, caminhada andando, respirando parado; de perfil (espelha para a esquerda)
   const mov = Math.min(1, vel);
+  if (Math.abs(vLeste) > 0.06) olhando = vLeste > 0 ? 1 : -1;
   passo += mov * dt * 9;
-  const fase = vel > 0.08 && noChao ? Math.floor(passo) % 4 : (noChao ? 0 : 1);
-  boneco.material = quadros[fase];
-  inclina = lerp(inclina, -vLeste * 0.07, 0.2); // inclina de leve para o lado em que anda
-  boneco.material.rotation = inclina;
-  boneco.position.y = R + alturaPulo + (noChao ? Math.abs(Math.sin(passo * Math.PI / 2)) * 0.07 * mov : 0);
+  let quadro;
+  if (!noChao) {
+    quadro = vPulo > 4.5 ? quadros.jump[1] : vPulo > 1.5 ? quadros.jump[2] : vPulo > -1.5 ? quadros.jump[3] : vPulo > -5 ? quadros.fall[1] : quadros.fall[2];
+  } else if (vel > 0.08) {
+    quadro = quadros.walk[Math.floor(passo) % QUADROS.walk];
+  } else {
+    quadro = quadros.idle[Math.floor(tempo * 4) % QUADROS.idle];
+  }
+  boneco.material = quadro;
+  boneco.scale.x = LARGURA_BONECO * olhando;
+  boneco.position.y = R + alturaPulo;
   const sobe = Math.min(alturaPulo, 1.5);
   sombraBoneco.scale.setScalar(1 - sobe * 0.2);
   sombraBoneco.material.opacity = 0.55 - sobe * 0.2;
