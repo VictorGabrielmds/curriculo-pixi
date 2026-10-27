@@ -607,9 +607,13 @@ renderer.setAnimationLoop(() => {
   } else if (vel > 0.08) {
     quadro = quadros.andar[olhando][Math.floor(passo) % FRAMES.andar];
   } else {
-    quadro = quadros.parado[olhando][Math.floor(tempo * 4) % FRAMES.parado];
+    // os quadros de "parado" do desenho não estão alinhados entre si (o corpo pula de lugar), então fica um quadro só
+    // e a respiração vem de um leve esticar do sprite
+    quadro = quadros.parado[olhando][0];
   }
   boneco.material = quadro;
+  const respira = noChao && vel <= 0.08 ? Math.sin(tempo * 2.4) * 0.012 : 0;
+  boneco.scale.set(LARGURA_BONECO * (1 - respira * 0.5), ALTURA_BONECO * (1 + respira), 1);
   boneco.position.y = R + alturaPulo;
   const sobe = Math.min(alturaPulo, 1.5);
   sombraBoneco.scale.setScalar(1 - sobe * 0.2);
