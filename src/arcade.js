@@ -177,18 +177,31 @@ export function iniciarArcade({ bip, somAtivo }) {
   const VOLUME_MUSICA = 0.3;
   const novaMusica = (arquivo) => { const m = new Audio(import.meta.env.BASE_URL + arquivo); m.loop = true; m.volume = VOLUME_MUSICA; m.preload = 'none'; return m; };
   const musica = novaMusica('audio/arcade.mp3'), musicaChefe = novaMusica('audio/chefe.mp3'), musicaFim = novaMusica('audio/gameover.mp3');
-  let musicaDoChefe = false;
-  const tocarMusica = () => { if (somAtivo && !somAtivo()) return; (musicaDoChefe ? musicaChefe : musica).play().catch(() => { /* o navegador pode bloquear até o primeiro toque */ }); };
-  const pararMusicas = () => { musica.pause(); musicaChefe.pause(); musicaFim.pause(); };
-  function tocarMusicaFim() { // game over: só a música de descanso
-    musicaDoChefe = false; musica.pause(); musicaChefe.pause(); musicaFim.currentTime = 0;
-    if (!somAtivo || somAtivo()) musicaFim.play().catch(() => { /* sem permissão de áudio */ });
+  // faixas: 'normal' (jogando), 'chefe' (chefões e alienígenas) e 'fim' (game over)
+  const faixas = { normal: musica, chefe: musicaChefe, fim: musicaFim };
+  let faixa = 'normal', aguardandoToque = false;
+  // se o navegador bloquear o som (precisa de um toque antes), tenta de novo no próximo toque ou tecla
+  function esperarToque() {
+    if (aguardandoToque) return;
+    aguardandoToque = true;
+    const tentar = () => { aguardandoToque = false; window.removeEventListener('pointerdown', tentar, true); window.removeEventListener('keydown', tentar, true); if (aberto) tocarMusica(); };
+    window.addEventListener('pointerdown', tentar, true); window.addEventListener('keydown', tentar, true);
   }
-  function trocarMusica(chefe) { // true: música do chefão; false: volta à normal
-    if (musicaDoChefe === chefe) return;
-    musicaDoChefe = chefe;
-    if (chefe) { musica.pause(); musicaChefe.currentTime = 0; } else musicaChefe.pause();
+  const tocarMusica = () => { if (somAtivo && !somAtivo()) return; faixas[faixa].play().catch(esperarToque); };
+  const pararMusicas = () => { musica.pause(); musicaChefe.pause(); musicaFim.pause(); };
+  function trocarFaixa(nome) { // pausa as outras; a do chefão e a de game over começam do início, a normal continua de onde parou
+    if (faixa === nome) return;
+    faixa = nome;
+    for (const [n, el] of Object.entries(faixas)) if (n !== nome) el.pause();
+    if (nome !== 'normal') faixas[nome].currentTime = 0;
     tocarMusica();
+  }
+  // a primeira vez que o jogador toca em algo, "destrava" as outras faixas (alguns navegadores só liberam o som de cada arquivo depois de um toque)
+  let faixasDestravadas = false;
+  function destravarFaixas() {
+    if (faixasDestravadas) return;
+    faixasDestravadas = true;
+    for (const el of [musicaChefe, musicaFim]) { el.muted = true; el.play().then(() => { el.pause(); el.currentTime = 0; el.muted = false; }).catch(() => { el.muted = false; faixasDestravadas = false; }); }
   }
   const fundo = criarFundo(L, A);
   let naveSpr = gerarNave({ casco: 0, motor: 0, nucleo: 0, armas: 0, ima: 0 });
@@ -380,14 +393,21 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.inimigos.push(m);
     return m;
   }
-  function spawn(max = 99) {
+  // Monstros surgem de TODOS os lados, sempre fora da tela, num anel em volta da nave: alguns logo depois da borda e outros bem longe
+  // (parecem já estar por ali e vêm atrás de você). Com o tempo cada surgimento traz mais monstros de uma vez.
+  // angPref (opcional): direção para onde a nave está andando; os monstros "que já estavam lá" ficam mais à frente dela.
+  function spawn(max = 99, angPref = null) {
     const tipo = sortearTipo();
-    const n = Math.min(max, tipo === 'inseto' ? 4 + Math.floor(Math.random() * 3) : 1); // insetos vêm em bando
-    const lado = Math.random() < 0.5 ? -1 : 1;
-    const esquerda = S.cx - L / 2, topoY = S.cy - A / 2;
-    const y0 = topoY + 12 + Math.random() * (A - 24);
-    for (let i = 0; i < n; i++) criarInimigo(tipo, lado < 0 ? esquerda - 12 - i * 4 : esquerda + L + 12 + i * 4, y0 + (i - n / 2) * 7);
+    const grupo = 1 + Math.min(6, Math.floor(S.t / 80));
+    const n = Math.max(1, Math.min(max, tipo === 'inseto' ? 4 + Math.floor(Math.random() * 3) : Math.round(grupo * (0.7 + Math.random() * 0.6))));
+    const ang = angPref == null ? Math.random() * Math.PI * 2 : angPref + (Math.random() - 0.5) * 1.8;
+    const r = 215 + (Math.random() < 0.35 ? Math.random() * 230 : Math.random() * 60);
+    const px = S.nx + Math.cos(ang) * r, py = S.ny + Math.sin(ang) * r;
+    for (let i = 0; i < n; i++) criarInimigo(tipo, px + (Math.random() - 0.5) * 30, py + (Math.random() - 0.5) * 30);
     return n;
+  }
+  function semearMundo(quantos) { // o mundo já começa povoado: monstros espalhados em volta, que vão chegando
+    for (let i = 0; i < quantos; i++) spawn(1);
   }
   function spawnCantos(quantidade) {
     const disponiveis = S.elencoRun.filter((tipo) => tier() >= S.entradaRun[tipo]);
@@ -546,7 +566,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     const kit = embaralhar(['raios', 'investida', 'drift', 'minhoca']).slice(0, 2);
     const c = { tipo: 'chefe', x: S.cx + lado * (L / 2 + 40), y: S.cy - 30, hp, hpMax: hp, vel: 30, fase: 0, piscar: 0, v: S.fase - 1 + S.skinBase, b: S.chefeIdx, cdRajada: 2.2, cdMira: 1.6, cdBomba: 4, cdEsp: 3.8, esp: null, movEsp: null, kit, rot: 0 };
     S.inimigos.push(c); S.chefe = c;
-    trocarMusica(true);
+    trocarFaixa('chefe');
     mostrarAviso(`${CHEFES[S.chefeIdx].nome} DETECTOU VOCÊ!`, 3);
     bip(90, 0.4, 'sawtooth', 0.06); bip(70, 0.5, 'sawtooth', 0.06, 0.3);
   }
@@ -627,7 +647,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   function matarChefe(c) {
     S.kills += 5;
     S.chefe = null; S.chefesVencidos += 1;
-    trocarMusica(false);
+    trocarFaixa('normal');
     const i = S.inimigos.indexOf(c); if (i >= 0) S.inimigos.splice(i, 1);
     particulas(c.x, c.y, 50, ['#ffd23f', '#ff7a3a', '#ffffff', '#ff3b4a'], 130);
     S.flash = 0.3; S.tremor = 0.5;
@@ -656,6 +676,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     if (b.vida <= 0) { S.buraco = null; S.proxBuraco = S.t + 50 + Math.random() * 40; }
   }
   function entrarBuraco() {
+    trocarFaixa('chefe'); // o alienígena também tem a música de chefão
     S.alienIdx = (S.alienIdx + 1 + Math.floor(Math.random() * (ALIENS.length - 1))) % ALIENS.length; // alienígena diferente a cada buraco
     S.mundoSalvo = { nx: S.nx, ny: S.ny, cx: S.cx, cy: S.cy, inimigos: S.inimigos, tirosInimigos: S.tirosInimigos, campos: S.campos, hp: S.hp, buraco: S.buraco, chefe: S.chefe };
     const hpAlien = Math.round(95 * (1 + S.aliensVencidos * 0.6 + (S.fase - 1) * 0.25) * (1 + S.t / 300));
@@ -671,6 +692,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.nx = m.nx; S.ny = m.ny; S.cx = m.cx; S.cy = m.cy;
     S.inimigos = m.inimigos; S.tirosInimigos = m.tirosInimigos; S.campos = m.campos; S.chefe = m.chefe;
     S.hp = m.hp; S.tiros = []; S.raios = []; S.misseis = []; S.alien = null; S.mundoSalvo = null; S.buraco = null;
+    trocarFaixa(S.chefe ? 'chefe' : 'normal');
     S.invul = 2; S.proxBuraco = S.t + 60 + Math.random() * 40; S.flash = 0.4;
     if (vitoria) {
       S.aliensVencidos += 1;
@@ -869,12 +891,18 @@ export function iniciarArcade({ bip, somAtivo }) {
     // monstros nunca param de aparecer: cada onda é um novo pico, mesmo que a anterior ainda esteja viva
     const rampa = S.ondaT > 0 ? 0.75 + 0.55 * (1 - S.ondaT / S.ondaDur) : 0;
     const extra = S.ondaT > 0 ? (0.9 + 0.2 * S.onda) * rampa : 0;
-    const basico = 0.7 + Math.min(3.5, S.t * 0.012) + 0.04 * S.nivel;
+    const basico = 0.6 + Math.min(1.4, S.t * 0.005) + 0.03 * S.nivel; // surgimentos por segundo (cada um traz um grupo que cresce com o tempo)
     S.spawnAcc += dt * (basico + extra) * (S.ondaEstado === 'chefe' ? 0.6 : 1);
     if (!Number.isFinite(S.spawnAcc) || S.spawnAcc < 0) S.spawnAcc = 0;
-    const cap = Math.min(55, 12 + 3 * tier());
+    const cap = Math.min(60, 14 + 3 * tier());
     let lotes = 0;
     while (S.spawnAcc >= 1 && lotes < 8) { S.spawnAcc -= 1; lotes += 1; if (S.inimigos.length < cap) spawn(); }
+    // conforme a nave anda, aparecem monstros à frente dela (o mundo já estava povoado) e eles vão atrás de você
+    if (S.ultX == null) { S.ultX = S.nx; S.ultY = S.ny; S.andou = 0; S.angAndar = 0; }
+    const mvx = S.nx - S.ultX, mvy = S.ny - S.ultY, passo = Math.hypot(mvx, mvy);
+    S.ultX = S.nx; S.ultY = S.ny;
+    if (passo > 0 && passo < 60) { S.andou += passo; S.angAndar = Math.atan2(mvy, mvx); }
+    while (S.andou >= 170) { S.andou -= 170; if (S.inimigos.length < cap) spawn(99, S.angAndar); }
     if (S.ondaT <= 0 && !S.chefe && !S.buraco && S.t >= S.proxBuraco) criarBuraco();
     if (S.buraco) { atualizarBuraco(dt); if (S.alien) return; }
 
@@ -1449,7 +1477,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- fim ----------
   function fimDeJogo() {
     modo = 'fim';
-    tocarMusicaFim();
+    trocarFaixa('fim');
     const bonus = Math.min(BONUS_MAXIMO, Math.floor(S.kills / 30) + Math.floor(S.nivel / 3));
     const tempo = Math.floor(S.t);
     const novoRecorde = tempo > dados.tempo || S.kills > dados.kills || S.onda > dados.onda;
@@ -1755,9 +1783,11 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- controle ----------
   function comecar() {
     teclas.clear(); ponteiro.ativo = false; joystick.hidden = true;
-    musicaChefe.pause(); musicaFim.pause(); musicaDoChefe = false;
+    destravarFaixas();
+    faixa = 'normal'; musicaChefe.pause(); musicaFim.pause();
     musica.currentTime = 0; tocarMusica(); // a música recomeça do início a cada partida
     novoJogo();
+    semearMundo(12);
     hudCache = '';
     painelInicio.hidden = true; painelFim.hidden = true; painelEscolha.hidden = true; painelPausa.hidden = true; painelOficina.hidden = true;
     modo = 'jogando';
@@ -1772,8 +1802,9 @@ export function iniciarArcade({ bip, somAtivo }) {
     if (aberto) return;
     aberto = true;
     raiz.classList.add('aberto');
-    musicaChefe.pause(); musicaFim.pause(); musicaDoChefe = false;
+    faixa = 'normal'; musicaChefe.pause(); musicaFim.pause();
     tocarMusica();
+    destravarFaixas();
     dados = carregarDados();
     recordesEl.textContent = dados.tempo || dados.kills || dados.onda
       ? `RECORDE  ${fmt(dados.tempo)}  ·  ${dados.kills} MONSTROS  ·  ONDA ${dados.onda}`
@@ -1852,8 +1883,9 @@ export function iniciarArcade({ bip, somAtivo }) {
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
       abrir, oficina: () => abrirOficina(),
-      musicas: () => ({ normal: !musica.paused, chefe: !musicaChefe.paused, fim: !musicaFim.paused }),
+      musicas: () => ({ normal: !musica.paused, chefe: !musicaChefe.paused, fim: !musicaFim.paused, tN: +musica.currentTime.toFixed(1), tC: +musicaChefe.currentTime.toFixed(1), estadoC: musicaChefe.readyState, errC: musicaChefe.error && musicaChefe.error.code, volC: musicaChefe.volume, mudoC: musicaChefe.muted }),
       mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x - (S.cx - L / 2); ponteiro.y = y - (S.cy - A / 2); } },
+      inimigosXY: () => S.inimigos.map((m) => [Math.round(m.x - S.nx), Math.round(m.y - S.ny)]),
       cristais: () => S.cristais.map((c) => ({ x: Math.round(c.x), y: Math.round(c.y), v: c.v })),
       itens: () => S.itens.map((i) => ({ x: Math.round(i.x), y: Math.round(i.y), tipo: i.tipo })),
       rochas: () => S.rochas.map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), hp: r.hp, hpMax: r.hpMax })),
