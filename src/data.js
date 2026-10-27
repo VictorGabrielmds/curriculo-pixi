@@ -62,6 +62,7 @@ export const zonas = [
     titulo: 'Vamos conversar?',
     linhas: [
       'E-mail: mds.victorgabriel@gmail.com',
+      'Telefone: (98) 98752-7469',
       'GitHub e LinkedIn: VictorGabrielmds',
       'Portfólio: victorgabrielmds.github.io/victor-portfolio-dfe',
     ],
