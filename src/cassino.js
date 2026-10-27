@@ -137,20 +137,88 @@ function desenharSimbolo(id) {
 }
 
 // ---------- efeitos sonoros simples (WebAudio, sem arquivos) ----------
-let audio = null;
+let audio = null, ruido = null;
+function contexto() {
+  audio ??= new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === 'suspended') audio.resume(); // o navegador pode deixar o áudio parado até o primeiro toque
+  return audio;
+}
 function bip(estado, freq, dur = 0.09, tipo = 'square', vol = 0.04, atraso = 0) {
   if (!estado.som) return;
   try {
-    audio ??= new (window.AudioContext || window.webkitAudioContext)();
-    if (audio.state === 'suspended') audio.resume(); // o navegador pode deixar o áudio parado até o primeiro toque
-    const t0 = audio.currentTime + atraso;
-    const osc = audio.createOscillator(), g = audio.createGain();
+    const ac = contexto();
+    const t0 = ac.currentTime + atraso;
+    const osc = ac.createOscillator(), g = ac.createGain();
     osc.type = tipo; osc.frequency.value = freq;
     g.gain.setValueAtTime(vol, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(g).connect(audio.destination);
+    osc.connect(g).connect(ac.destination);
     osc.start(t0); osc.stop(t0 + dur + 0.02);
   } catch { /* sem áudio: segue sem som */ }
+}
+// estalo de peça de metal: um sopro curto de ruído filtrado (é o "tec" dos rolos e da catraca da alavanca)
+function estalo(estado, freq, dur = 0.03, vol = 0.07, atraso = 0) {
+  if (!estado.som) return;
+  try {
+    const ac = contexto();
+    if (!ruido) {
+      ruido = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.4), ac.sampleRate);
+      const d = ruido.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t0 = ac.currentTime + atraso;
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = ruido;
+    f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 1.4;
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f).connect(g).connect(ac.destination);
+    src.start(t0, Math.random() * 0.3); src.stop(t0 + dur + 0.02);
+  } catch { /* sem áudio */ }
+}
+// pancada grave que cai de tom (rolo travando, alavanca batendo no fim do curso)
+function pancada(estado, freq = 140, dur = 0.14, vol = 0.12, atraso = 0) {
+  if (!estado.som) return;
+  try {
+    const ac = contexto();
+    const t0 = ac.currentTime + atraso;
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.4, t0 + dur);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  } catch { /* sem áudio */ }
+}
+// zumbido grave do motor dos rolos: sobe de tom ao arrancar e desce ao parar (devolve { sair } para desligar)
+function ligarMotor(estado) {
+  if (!estado.som) return null;
+  try {
+    const ac = contexto(), t0 = ac.currentTime;
+    const osc = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(46, t0);
+    osc.frequency.linearRampToValueAtTime(84, t0 + 0.45);
+    f.type = 'lowpass'; f.frequency.value = 240;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.045, t0 + 0.12);
+    osc.connect(f).connect(g).connect(ac.destination);
+    osc.start(t0);
+    return {
+      sair(dur = 0.4) {
+        const t = ac.currentTime;
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(0.045, t);
+        g.gain.linearRampToValueAtTime(0.0001, t + dur);
+        osc.frequency.cancelScheduledValues(t);
+        osc.frequency.setValueAtTime(84, t);
+        osc.frequency.linearRampToValueAtTime(40, t + dur);
+        osc.stop(t + dur + 0.05);
+      },
+    };
+  } catch { return null; }
 }
 
 // ---------- sorteio ----------
@@ -209,13 +277,20 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
   const fechar = el('button', 'cas-x', 'X'); fechar.title = 'Fechar (Esc)';
   const letreiro = el('div', 'cas-letreiro');
   const lampadas = el('div', 'lampadas');
-  for (let i = 0; i < 9; i++) lampadas.append(el('i', 'lampada'));
-  letreiro.append(lampadas, el('h2', null, 'CASSINO'));
+  const piscante = (cls, n) => { const i = el('i', cls); i.style.setProperty('--i', n); return i; };
+  for (let i = 0; i < 9; i++) lampadas.append(piscante('lampada', i));
+  letreiro.append(lampadas, el('h2', null, 'CASSINO'), el('div', 'cas-sub', '★ DA SORTE ★'));
 
+  // tela: moldura curva com os três rolos, o vidro com reflexo por cima e a linha do prêmio no meio
+  const tela = el('div', 'cas-tela');
   const janela = el('div', 'cas-janela');
-  const rolos = [0, 1, 2].map(() => { const r = el('div', 'rolo'); const cv = document.createElement('canvas'); cv.width = 16; cv.height = 48; r.append(cv); janela.append(r); return cv; });
+  const rolosEl = [0, 1, 2].map(() => el('div', 'rolo'));
+  const rolos = rolosEl.map((r) => { const cv = document.createElement('canvas'); cv.width = 16; cv.height = 48; r.append(cv); janela.append(r); return cv; });
   janela.append(el('i', 'linha-premio'));
+  tela.append(janela, el('i', 'cas-vidro'));
 
+  // painel de controle inclinado: visor verde, botões quadrados salientes (cada um com a sua luzinha) e fileira de luzes
+  const painel = el('div', 'cas-painel');
   const lcd = el('div', 'cas-lcd');
   const mensagem = el('div', 'cas-msg', 'PUXE A ALAVANCA!');
   const fichasLinha = el('div', 'cas-fichas');
@@ -225,17 +300,32 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
 
   const premioBox = el('div', 'cas-premio'); premioBox.hidden = true;
 
-  const controles = el('div', 'cas-controles');
-  const btnAjuda = el('button', 'cas-mini', '?'); btnAjuda.title = 'Tabela de prêmios';
-  const btnColecao = el('button', 'cas-mini', 'SKINS'); btnColecao.title = 'Coleção de skins (C)';
-  const btnSom = el('button', 'cas-mini');
-  const btnGirar = el('button', 'cas-girar', 'GIRAR'); btnGirar.title = `Girar (-${CUSTO} fichas) · Espaço`;
-  const btnGratis = el('button', 'cas-mini largo', `+${FICHAS_GRATIS} FICHAS`); btnGratis.hidden = true;
-  controles.append(btnAjuda, btnColecao, btnSom, btnGirar, btnGratis);
+  const botoes = el('div', 'cas-botoes');
+  const botao = (txt, cor, titulo, grande = false) => {
+    const wrap = el('div', 'cas-bw' + (grande ? ' grande' : ''));
+    const led = el('i', 'led'), b = el('button', `cas-b3d ${cor}${grande ? ' grande' : ''}`, txt);
+    b.title = titulo;
+    wrap.append(led, b); botoes.append(wrap);
+    return { b, led };
+  };
+  const { b: btnAjuda, led: ledAjuda } = botao('?', 'azul', 'Tabela de prêmios');
+  const { b: btnColecao, led: ledColecao } = botao('SKINS', 'rosa', 'Coleção de skins (C)');
+  const { b: btnGirar, led: ledGirar } = botao('GIRAR', 'vermelho', `Girar (-${CUSTO} fichas) · Espaço`, true);
+  const { b: btnSom, led: ledSom } = botao('SOM', 'amarelo', 'Ligar ou desligar o som');
+  ledColecao.classList.add('on');
+  const btnGratis = el('button', 'cas-b3d verde largo', `+${FICHAS_GRATIS} FICHAS DE CORTESIA`); btnGratis.hidden = true;
+  botoes.append(btnGratis);
+  const luzes = el('div', 'cas-luzes');
+  for (let i = 0; i < 14; i++) luzes.append(piscante('', i));
+  painel.append(lcd, premioBox, botoes, luzes);
 
-  const alavanca = el('button', 'cas-alavanca'); alavanca.title = 'Puxar a alavanca';
-  alavanca.append(el('i', 'haste'), el('i', 'bola'));
+  // alavanca na lateral: base fixa e um braço que gira em perspectiva (desce até perto de quem joga e volta com um quique)
+  const alavanca = el('button', 'cas-alavanca'); alavanca.title = 'Puxar a alavanca · Espaço';
+  const braco = el('i', 'braco');
+  braco.append(el('i', 'haste'), el('i', 'bola'));
+  alavanca.append(el('i', 'suporte'), braco);
   const bandeja = el('div', 'cas-bandeja');
+  bandeja.append(el('i', 'fenda'));
 
   const tabela = el('div', 'cas-tabela'); tabela.hidden = true;
   for (const s of SIMBOLOS) {
@@ -246,7 +336,7 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
   }
   tabela.append(el('div', 'cas-linha par', `linha do meio · 2 iguais = ${PREMIO_PAR} · a cada ${GIROS_ATE_GARANTIA + 1} giros sem trio, o próximo é garantido`));
 
-  maq.append(fechar, letreiro, janela, lcd, premioBox, controles, alavanca, bandeja, tabela, el('p', 'cas-nota', 'de brincadeira: fichas virtuais, sem dinheiro de verdade'));
+  maq.append(fechar, letreiro, tela, painel, alavanca, bandeja, tabela, el('p', 'cas-nota', 'de brincadeira: fichas virtuais, sem dinheiro de verdade'));
 
   // --- coleção de skins (cartão separado) ---
   const colBox = el('div', 'cas-colecao-caixa'); colBox.hidden = true;
@@ -277,7 +367,13 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     btnGirar.disabled = girando || semFicha;
     alavanca.disabled = girando || semFicha;
     btnGratis.hidden = !semFicha || girando;
-    btnSom.textContent = estado.som ? 'SOM ON' : 'SOM OFF';
+    btnSom.classList.toggle('apagado', !estado.som);
+    ledSom.classList.toggle('on', estado.som);
+    ledGirar.classList.toggle('on', !girando && !semFicha);
+    ledAjuda.classList.toggle('on', !tabela.hidden);
+    maq.classList.toggle('girando', girando);
+    maq.classList.toggle('pronto', !girando && !semFicha);
+    maq.classList.toggle('sem-ficha', semFicha);
   }
   function mostrarMensagem(txt, cls = '') { mensagem.textContent = txt; mensagem.className = 'cas-msg ' + cls; }
 
@@ -325,14 +421,15 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     if (ligar) renderColecao(); else btnGirar.focus();
   }
 
-  function girar() {
+  // atraso: tempo até os rolos arrancarem (a alavanca leva um instante para chegar ao fim do curso)
+  function girar(atraso = 0) {
     if (!aberto || girando || estado.fichas < CUSTO) return;
     estado.fichas -= CUSTO;
     estado.giros += 1;
     const res = sortear(estado);
     girando = true;
     premioBox.hidden = true;
-    janela.classList.remove('vitoria');
+    janela.classList.remove('vitoria'); maq.classList.remove('vitoria');
     mostrarMensagem('GIRANDO...');
     atualizar();
     // o símbolo da linha do meio é o sorteado; cima e baixo são aleatórios (sem formar trio, que não pagaria)
@@ -350,32 +447,58 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
       while (fita.length < linhasTotal[i] + 3) fita.push(simboloAleatorio());
       return fita;
     });
-    const inicio = performance.now();
-    const parado = [false, false, false];
-    let ultimoTique = -1;
     const posicao = (i, ms) => {
       const cruzeiro = duracoes[i] - FREIO;
       if (ms < cruzeiro) return linhasTotal[i] - (VEL * ms) / 1000;
       const u = Math.min(1, (ms - cruzeiro) / FREIO);
       return 3 * (1 - u) ** 3;
     };
-    const passo = (t) => {
-      const dt = t - inicio;
-      for (let i = 0; i < 3; i++) {
-        if (parado[i]) continue;
-        if (dt >= duracoes[i]) {
-          parado[i] = true;
-          desenharFita(i, fitas[i], 0);
-          bip(estado, 330 + i * 110, 0.1);
-        } else {
-          desenharFita(i, fitas[i], posicao(i, dt));
+    const arrancar = () => {
+      const inicio = performance.now();
+      const parado = [false, false, false];
+      const linhaAnterior = [-1, -1, -1];
+      let motorDesligado = false;
+      const zumbido = ligarMotor(estado);
+      for (const r of rolosEl) r.classList.add('girando');
+      const passo = (t) => {
+        const dt = Math.max(0, t - inicio);
+        for (let i = 0; i < 3; i++) {
+          if (parado[i]) continue;
+          if (dt >= duracoes[i]) {
+            parado[i] = true;
+            rolosEl[i].classList.remove('girando');
+            desenharFita(i, fitas[i], 0);
+            pancada(estado, 150 - i * 12, 0.13, 0.11); // o rolo trava com um "tum" e um estalo de metal
+            estalo(estado, 1100 + i * 350, 0.06, 0.09);
+            bip(estado, 330 + i * 110, 0.1, 'square', 0.025);
+          } else {
+            const pos = posicao(i, dt);
+            desenharFita(i, fitas[i], pos);
+            const linha = Math.floor(pos); // cada símbolo que passa pela janela faz um "tec"; na freada os tecs ficam mais espaçados
+            if (linha !== linhaAnterior[i]) {
+              if (linhaAnterior[i] >= 0) estalo(estado, 1500 + i * 450, 0.022, 0.05);
+              linhaAnterior[i] = linha;
+            }
+          }
         }
-      }
-      const tique = Math.floor(dt / 90);
-      if (tique !== ultimoTique && !parado[2]) { ultimoTique = tique; bip(estado, 170, 0.025, 'square', 0.012); }
-      if (parado.every(Boolean)) fim(res); else requestAnimationFrame(passo);
+        if (!motorDesligado && dt >= duracoes[2] - FREIO) { motorDesligado = true; zumbido?.sair(FREIO / 1000 + 0.1); }
+        if (parado.every(Boolean)) fim(res); else requestAnimationFrame(passo);
+      };
+      requestAnimationFrame(passo);
     };
-    requestAnimationFrame(passo);
+    if (atraso > 0) setTimeout(arrancar, atraso); else arrancar();
+  }
+
+  function chover(fichas) { // moedinhas caem na bandeja (mais fichas, mais moedas)
+    const n = Math.min(10, Math.max(2, Math.ceil(fichas / 25)));
+    for (let k = 0; k < n; k++) {
+      const m = el('i', 'moeda caindo');
+      m.style.left = `${14 + Math.random() * 68}%`;
+      m.style.animationDelay = `${k * 0.09}s`;
+      m.addEventListener('animationend', () => m.remove());
+      bandeja.append(m);
+      estalo(estado, 3400 + Math.random() * 900, 0.04, 0.05, 0.55 + k * 0.09); // tilintar na bandeja
+    }
   }
 
   function fim(res) {
@@ -384,9 +507,10 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     estado.semTrio = res.tipo === 'trio' ? 0 : estado.semTrio + 1;
     if (res.skin) estado.skins.push(res.skin.id);
     salvar();
+    if (res.fichas > 0) chover(res.fichas);
     if (res.tipo === 'trio') {
       mostrarMensagem(`TRIO! +${res.fichas}`, 'ganhou');
-      janela.classList.add('vitoria');
+      janela.classList.add('vitoria'); maq.classList.add('vitoria');
       [523, 659, 784, 1047].forEach((f, k) => bip(estado, f, 0.14, 'square', 0.05, k * 0.11));
     } else if (res.tipo === 'par') {
       mostrarMensagem(`PAR! +${res.fichas}`, 'par');
@@ -408,11 +532,16 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     atualizar();
   }
 
-  function puxar() {
-    if (girando || estado.fichas < CUSTO) return;
-    alavanca.classList.add('puxada');
-    setTimeout(() => alavanca.classList.remove('puxada'), 450);
-    girar();
+  function puxar() { // a alavanca desce (1,1 s de animação) e os rolos arrancam quando ela chega embaixo
+    if (!aberto || girando || estado.fichas < CUSTO) return;
+    alavanca.classList.add('puxada'); maq.classList.add('puxando');
+    setTimeout(() => { alavanca.classList.remove('puxada'); maq.classList.remove('puxando'); }, 1150);
+    for (let k = 0; k < 5; k++) estalo(estado, 2600 - k * 150, 0.03, 0.07, 0.07 + k * 0.045); // catraca do mecanismo
+    pancada(estado, 95, 0.2, 0.15, 0.34); // batida no fim do curso
+    estalo(estado, 900, 0.07, 0.1, 0.34);
+    pancada(estado, 330, 0.1, 0.05, 0.76); // mola soltando
+    estalo(estado, 2200, 0.05, 0.06, 0.9);
+    girar(360);
   }
 
   function abrir() {
@@ -430,9 +559,9 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
     raiz.classList.remove('aberto');
   }
 
-  btnGirar.onclick = girar;
+  btnGirar.onclick = () => girar();
   alavanca.onclick = puxar;
-  btnAjuda.onclick = () => { tabela.hidden = !tabela.hidden; };
+  btnAjuda.onclick = () => { tabela.hidden = !tabela.hidden; atualizar(); };
   btnColecao.onclick = () => alternarColecao(true);
   fechar.onclick = fecharJanela;
   btnGratis.onclick = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); mostrarMensagem('FICHAS DE CORTESIA!'); bip(estado, 880, 0.1); };
@@ -441,7 +570,7 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
   window.addEventListener('keydown', (e) => {
     if (!aberto) return;
     if (e.code === 'Escape') { e.preventDefault(); if (naColecao) alternarColecao(false); else fecharJanela(); }
-    else if (e.code === 'Space' && !naColecao && document.activeElement !== btnColecao && document.activeElement !== btnAjuda) { e.preventDefault(); puxar(); }
+    else if (e.code === 'Space' && !naColecao && ![btnColecao, btnAjuda, btnSom, btnGratis, fechar].includes(document.activeElement)) { e.preventDefault(); puxar(); }
     else if (e.code === 'KeyC') { e.preventDefault(); alternarColecao(!naColecao); }
   }, true);
 
