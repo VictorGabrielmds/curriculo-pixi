@@ -44,7 +44,7 @@
 .cas-msg.par { color: #8be6ff; }
 .cas-fichas { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 4px; }
 .cas-fichas b { font-size: 16px; }
-.moeda { display: inline-block; width: 12px; height: 12px; background: #ffd23f; border-radius: 50%; box-shadow: inset -2px -2px 0 #d99a1a, 0 0 0 2px #070a1a; }
+.moeda { display: inline-block; width: 12px; height: 12px; background: #d6293e; border-radius: 50%; box-shadow: inset 0 0 0 2px #f4efe0, 0 0 0 2px #070a1a; }
 
 .cas-premio { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; margin-top: 8px; padding: 6px; font-size: 12px; background: #12173a; border: 3px solid var(--r, #ffd23f); }
 .cas-premio b { color: var(--r, #ffd23f); letter-spacing: 1px; }

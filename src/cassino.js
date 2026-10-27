@@ -452,7 +452,7 @@ export function iniciarCassino({ aoMudarSkins, aoMudarFichas }) {
 
   return {
     abrir, fechar: fecharJanela, estaAberto: () => aberto,
-    adicionarFichas: (n) => { estado.fichas += n; salvar(); atualizar(); }, // moedas do mapa, prêmio do arcade
+    adicionarFichas: (n) => { estado.fichas += n; salvar(); atualizar(); }, // fichas do mapa
     bip: (...a) => bip(estado, ...a),
   };
 }

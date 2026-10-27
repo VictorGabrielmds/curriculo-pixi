@@ -67,7 +67,7 @@ export const zonas = [
     linhas: [
       'Um caça-níquel de brincadeira: só fichas virtuais, sem dinheiro de verdade.',
       'Ganhe skins para o planeta, as árvores e o céu e deixe o mundo do seu jeito.',
-      'Dica: pegue as moedas espalhadas pelo planeta para ganhar fichas.',
+      'Dica: pegue as fichas espalhadas pelo planeta para ganhar mais.',
     ],
   },
   {

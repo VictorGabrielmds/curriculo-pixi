@@ -695,10 +695,10 @@ const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a) });
 function abrirJogo(jogo) { if (jogo === 'arcade') arcade.abrir(); else cassino.abrir(jogo); }
 acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) { teclas.clear(); abrirJogo(zonas[estacaoAtiva].jogo); } });
 
-// ---------- moedas espalhadas pelo planeta: é só andar por cima para pegar; viram fichas do cassino ----------
+// ---------- fichas espalhadas pelo planeta: é só andar por cima para pegar; valem fichas do cassino ----------
 const NUM_MOEDAS = 4, VALOR_MOEDA = 5, RAIO_COLETA = 0.2 * K;
-const matMoeda = new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0xc98a10, emissiveIntensity: 0.6, roughness: 0.4, flatShading: true });
-const matMoedaMiolo = new THREE.MeshStandardMaterial({ color: 0xd99a1a, roughness: 0.6, flatShading: true });
+const matMoeda = new THREE.MeshStandardMaterial({ color: 0xd6293e, emissive: 0x8a1020, emissiveIntensity: 0.6, roughness: 0.45, flatShading: true }); // ficha vermelha de cassino
+const matMoedaMiolo = new THREE.MeshStandardMaterial({ color: 0xf4efe0, emissive: 0x6a6658, emissiveIntensity: 0.4, roughness: 0.6, flatShading: true });
 const moedas = [];
 const pontoMundo = new THREE.Vector3();
 function posicionarMoeda(moeda) {
@@ -725,6 +725,10 @@ for (let i = 0; i < NUM_MOEDAS; i++) {
   const miolo = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 12), matMoedaMiolo);
   disco.rotation.z = miolo.rotation.z = Math.PI / 2; // moeda "em pé", girando
   giro.add(disco, miolo);
+  for (let k = 0; k < 8; k++) { // marcas brancas na borda, como numa ficha de verdade
+    const an = (k * Math.PI) / 4, marca = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.1), matMoedaMiolo);
+    marca.position.set(0, Math.sin(an) * 0.3, Math.cos(an) * 0.3); marca.rotation.x = an; giro.add(marca);
+  }
   giro.position.y = R + 0.7;
   raiz.add(giro);
   sombrear(raiz);
