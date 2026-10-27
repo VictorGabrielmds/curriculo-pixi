@@ -142,6 +142,7 @@ function bip(estado, freq, dur = 0.09, tipo = 'square', vol = 0.04, atraso = 0) 
   if (!estado.som) return;
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume(); // o navegador pode deixar o áudio parado até o primeiro toque
     const t0 = audio.currentTime + atraso;
     const osc = audio.createOscillator(), g = audio.createGain();
     osc.type = tipo; osc.frequency.value = freq;

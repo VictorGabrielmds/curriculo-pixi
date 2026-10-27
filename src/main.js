@@ -696,7 +696,7 @@ function abrirJogo(jogo) { if (jogo === 'arcade') arcade.abrir(); else cassino.a
 acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) { teclas.clear(); abrirJogo(zonas[estacaoAtiva].jogo); } });
 
 // ---------- moedas espalhadas pelo planeta: é só andar por cima para pegar; viram fichas do cassino ----------
-const NUM_MOEDAS = 9, VALOR_MOEDA = 5, RAIO_COLETA = 0.2 * K;
+const NUM_MOEDAS = 4, VALOR_MOEDA = 5, RAIO_COLETA = 0.2 * K;
 const matMoeda = new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0xc98a10, emissiveIntensity: 0.6, roughness: 0.4, flatShading: true });
 const matMoedaMiolo = new THREE.MeshStandardMaterial({ color: 0xd99a1a, roughness: 0.6, flatShading: true });
 const moedas = [];
@@ -753,11 +753,12 @@ function atualizarMoedas(dt) {
     if (angulo(moeda.d) < RAIO_COLETA) {
       moeda.ativa = false;
       moeda.raiz.visible = false;
-      moeda.volta = tempo + 3 + Math.random() * 4; // reaparece em outro lugar
+      moeda.volta = tempo + 25 + Math.random() * 25; // reaparece em outro lugar, bem depois
       cassino.adicionarFichas(VALOR_MOEDA);
       popup('+' + VALOR_MOEDA);
-      cassino.bip(988, 0.06, 'square', 0.04);
-      cassino.bip(1319, 0.1, 'square', 0.04, 0.07);
+      cassino.bip(988, 0.07, 'square', 0.07); // plim de moeda: duas notas, a segunda mais longa e aguda
+      cassino.bip(1319, 0.22, 'square', 0.07, 0.08);
+      cassino.bip(1976, 0.3, 'triangle', 0.05, 0.08);
     }
   }
 }
