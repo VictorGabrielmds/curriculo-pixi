@@ -397,22 +397,37 @@ const estacoes = zonas.map((z, i) => {
 });
 
 // ---------- personagem (sprite 2D de perfil) ----------
-// quadros em public/avatar (pixel art, todos olhando para a direita; para a esquerda o sprite é espelhado)
+// quadros em public/avatar (pixel art, todos olhando para a direita). Sprite do three.js ignora escala negativa,
+// então para andar para a esquerda cada quadro tem uma segunda textura espelhada (repeat.x = -1)
 const QUADROS = { idle: 5, walk: 5, jump: 4, fall: 3 };
+const CICLO_PARADO = [0, 1, 3, 4]; // o quadro 2 é uma piscada de um olho só
+const LARG_QUADRO = 119, ALT_QUADRO = 195, FOLGA_PES = 6; // tamanho dos PNGs e folga embaixo dos pés
 const carregador = new THREE.TextureLoader();
 const quadros = Object.fromEntries(Object.entries(QUADROS).map(([nome, n]) => [
   nome,
   Array.from({ length: n }, (_, i) => {
-    const tex = carregador.load(`${import.meta.env.BASE_URL}avatar/${nome}-${i}.png`);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
-    return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
+    const dir = new THREE.SpriteMaterial({ transparent: true, toneMapped: false });
+    const esq = new THREE.SpriteMaterial({ transparent: true, toneMapped: false });
+    carregador.load(`${import.meta.env.BASE_URL}avatar/${nome}-${i}.png`, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      dir.map = tex;
+      dir.needsUpdate = true;
+      const espelho = tex.clone();
+      espelho.repeat.set(-1, 1);
+      espelho.offset.set(1, 0);
+      espelho.needsUpdate = true;
+      esq.map = espelho;
+      esq.needsUpdate = true;
+    });
+    return { dir, esq };
   }),
 ]));
-const LARGURA_BONECO = 3.5 * (116 / 189);
-const boneco = new THREE.Sprite(quadros.idle[0]);
-boneco.center.set(0.5, 6 / 189); // pés na base do sprite (os quadros têm 116x189 com 6px de folga)
-boneco.scale.set(LARGURA_BONECO, 3.5, 1);
+const ALTURA_BONECO = 3.5;
+const LARGURA_BONECO = ALTURA_BONECO * (LARG_QUADRO / ALT_QUADRO);
+const boneco = new THREE.Sprite(quadros.idle[0].dir);
+boneco.center.set(0.5, FOLGA_PES / ALT_QUADRO); // pés na base do sprite
+boneco.scale.set(LARGURA_BONECO, ALTURA_BONECO, 1);
 boneco.position.y = R;
 scene.add(boneco);
 
@@ -590,10 +605,9 @@ renderer.setAnimationLoop(() => {
   } else if (vel > 0.08) {
     quadro = quadros.walk[Math.floor(passo) % QUADROS.walk];
   } else {
-    quadro = quadros.idle[Math.floor(tempo * 4) % QUADROS.idle];
+    quadro = quadros.idle[CICLO_PARADO[Math.floor(tempo * 3) % CICLO_PARADO.length]];
   }
-  boneco.material = quadro;
-  boneco.scale.x = LARGURA_BONECO * olhando;
+  boneco.material = olhando > 0 ? quadro.dir : quadro.esq;
   boneco.position.y = R + alturaPulo;
   const sobe = Math.min(alturaPulo, 1.5);
   sombraBoneco.scale.setScalar(1 - sobe * 0.2);
