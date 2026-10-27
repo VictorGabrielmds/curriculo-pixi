@@ -9,7 +9,7 @@
 #arcade [hidden] { display: none !important; }
 
 .arc-caixa {
-  width: min(960px, calc(100vw - 20px)); padding: 10px 12px 8px;
+  width: min(1700px, calc(100vw - 20px)); padding: 10px 12px 8px;
   background: #1a1033; border: 4px solid #8a5cff; box-shadow: 0 0 0 4px #070a1a, 8px 8px 0 4px rgba(0, 0, 0, 0.55);
 }
 .arc-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
@@ -24,7 +24,7 @@
 .arc-x:hover { background: #4d3b94; }
 
 /* tela 16:9 que cabe na janela */
-.arc-tela { position: relative; width: min(100%, calc((100vh - 120px) * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: #0b1026; border: 4px solid #070a1a; overflow: hidden; }
+.arc-tela { position: relative; width: min(100%, calc((100vh - 165px) * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: #0b1026; border: 4px solid #070a1a; overflow: hidden; }
 .arc-tela canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .arc-tela::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.16) 2px 3px); } /* linhas de tubo de TV */
 
@@ -123,3 +123,13 @@
   .of-svg { display: none; }
   .of-topo h3 { font-size: 14px; letter-spacing: 1px; }
 }
+
+.of-parte { position: relative; }
+.of-parte.upgradiada { animation: of-up 1.1s ease-out; }
+@keyframes of-up { 0% { transform: scale(1.05); border-color: #ffe14a; box-shadow: 0 0 0 2px #070a1a, 0 0 26px 6px rgba(255, 225, 74, 0.8); } 60% { border-color: #ffe14a; box-shadow: 0 0 0 2px #070a1a, 0 0 18px 2px rgba(255, 225, 74, 0.4); } 100% { transform: scale(1); } }
+.of-selo { position: absolute; top: -9px; right: 8px; padding: 1px 6px; font-size: 10px; letter-spacing: 1px; color: #070a1a; background: #ffe14a; animation: of-selo 1.6s ease-out forwards; }
+@keyframes of-selo { 0% { transform: translateY(8px); opacity: 0; } 15% { transform: translateY(0); opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.of-melhoria.upg { animation: of-linha 1.1s ease-out; }
+@keyframes of-linha { 0%, 40% { background: rgba(255, 225, 74, 0.3); } 100% { background: transparent; } }
+.pips i.nova { animation: pip-pop 0.9s ease-out; }
+@keyframes pip-pop { 0% { transform: scale(3); background: #ffffff; } 100% { transform: scale(1); } }
