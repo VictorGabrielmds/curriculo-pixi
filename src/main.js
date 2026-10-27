@@ -79,8 +79,11 @@ function altura(p) {
 const NIVEL_MAR = 0.5; // menor = mais terra
 
 // ---------- cena ----------
-const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const DISPOSITIVO_MOVEL = window.matchMedia?.('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 900;
+const POUCA_MEMORIA = Number(navigator.deviceMemory || 8) <= 4;
+const MODO_GRAFICO_LEVE = DISPOSITIVO_MOVEL || POUCA_MEMORIA;
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MODO_GRAFICO_LEVE ? 1 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -94,7 +97,7 @@ const sol = new THREE.DirectionalLight(0xfff0d4, 1.9);
 sol.position.set(7, R + 9, 9);
 sol.target.position.set(0, 2, 0);
 sol.castShadow = true;
-sol.shadow.mapSize.set(2048, 2048);
+sol.shadow.mapSize.set(MODO_GRAFICO_LEVE ? 1024 : 2048, MODO_GRAFICO_LEVE ? 1024 : 2048);
 Object.assign(sol.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 50 });
 sol.shadow.bias = -0.0004;
 scene.add(sol, sol.target);
@@ -135,10 +138,12 @@ scene.add(planeta);
   // a altura do terreno vai para uma textura (cubo desdobrado em 6 faces) e o shader a lê por pixel:
   // o litoral fica nítido em qualquer zoom, sem depender da quantidade de triângulos
   const N = 320, P = 2, M = N + 2 * P; // N texels por face + borda de P para não aparecer emenda
-  const dados = new Uint16Array(3 * M * 2 * M * 4);
+  // Textura de 8 bits: funciona com filtragem linear em todo WebGL2 móvel.
+  // HalfFloat + LinearFilter depende de extensões que não existem em vários celulares.
+  const dados = new Uint8Array(3 * M * 2 * M * 4);
   const FACES = [(u, v) => [1, v, -u], (u, v) => [-1, v, u], (u, v) => [u, 1, -v], (u, v) => [u, -1, v], (u, v) => [u, v, 1], (u, v) => [-u, v, -1]];
   const p = new THREE.Vector3();
-  const um = THREE.DataUtils.toHalfFloat(1);
+  const um = 255;
   for (let f = 0; f < 6; f++) {
     const cx = (f % 3) * M, cy = Math.floor(f / 3) * M;
     for (let j = 0; j < M; j++) {
@@ -148,12 +153,12 @@ scene.add(planeta);
         const [x, y, z] = FACES[f](u, v);
         p.set(x, y, z).normalize();
         const idx = ((cy + j) * 3 * M + cx + i) * 4;
-        dados[idx] = THREE.DataUtils.toHalfFloat(altura(p));
+        dados[idx] = Math.round(clamp(altura(p), 0, 1) * 255);
         dados[idx + 3] = um;
       }
     }
   }
-  const tex = new THREE.DataTexture(dados, 3 * M, 2 * M, THREE.RGBAFormat, THREE.HalfFloatType);
+  const tex = new THREE.DataTexture(dados, 3 * M, 2 * M, THREE.RGBAFormat, THREE.UnsignedByteType);
   tex.minFilter = tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
@@ -651,9 +656,11 @@ for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
 // ---------- câmera e pós-processamento (visual pixel art) ----------
 // A cena é desenhada numa tela interna de ~640 px de altura (sem suavização) e ampliada sem filtro. O avatar foi
 // desenhado em ~182 px de altura, então com esta altura interna cada pixel dele vira exatamente 1 pixel do mundo.
-const ALTURA_INTERNA = 640;
+const ALTURA_INTERNA = MODO_GRAFICO_LEVE ? 420 : 640;
 const DIST_CAMERA = 19;
-const alvoRender = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType, samples: 0 });
+// UnsignedByte é aceito por praticamente todo WebGL2 móvel. HalfFloat pode criar um framebuffer
+// incompleto em celulares e deixar somente os textos HTML visíveis sobre uma tela preta.
+const alvoRender = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.UnsignedByteType, samples: 0 });
 alvoRender.depthTexture = new THREE.DepthTexture(2, 2);
 const telaCena = new THREE.Scene();
 const telaCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -1032,8 +1039,14 @@ renderer.setAnimationLoop(() => {
   musica.atualizar(dt, pausado);
   if (cassino.somAtivo() !== somMostrado) { somMostrado = cassino.somAtivo(); somBtn.classList.toggle('mudo', !somMostrado); }
 
-  renderer.setRenderTarget(alvoRender);
-  renderer.render(scene, camera);
-  renderer.setRenderTarget(null);
-  renderer.render(telaCena, telaCamera);
+  if (MODO_GRAFICO_LEVE) {
+    // No celular a cena vai direto para a tela: evita depth texture e pós-processamento incompatíveis.
+    renderer.setRenderTarget(null);
+    renderer.render(scene, camera);
+  } else {
+    renderer.setRenderTarget(alvoRender);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+    renderer.render(telaCena, telaCamera);
+  }
 });
