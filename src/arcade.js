@@ -195,7 +195,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   painelInicio.append(el('h3', null, 'NAVE ARCADE'),
     el('p', null, 'A nave atira sozinha. Mova-a com as SETAS (ou WASD, ou arraste o dedo) pelo espaço sem limites. Cada monstro solta um CRISTAL de XP: só sobe de nível quem pegar o cristal!'),
     el('p', null, 'Quebre ROCHAS para achar itens, entre em BURACOS NEGROS para enfrentar um alienígena e derrote CHEFÕES para ganhar moedas espaciais (gaste na OFICINA).'),
-    el('p', null, 'Os monstros vêm em ONDAS: cada uma começa mais calma e termina mais cheia. Ao fim de cada onda uma onda de choque derrota o que sobrou, você ganha vida e cristais e respira um pouco. A cada 3 ondas vem um CHEFÃO.'),
+    el('p', null, 'Os monstros nunca param de vir, e de tempos em tempos vem uma ONDA com um extra deles. A cada 3 ondas aparece um CHEFÃO.'),
     el('p', null, 'ARMAS: [1] tiro normal · [2] laser contínuo (curto alcance, recarrega) · [3] e [4] poderes novos, que você conquista ao subir de nível ou vencer o alienígena.'),
     el('p', 'dica', 'Cuidado com as ondas de monstros, os atiradores e as bombas do chefão!'),
     btnComecar, btnOficinaIni);
@@ -253,7 +253,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     const of = dados.oficina;
     S = {
       t: 0, ta: 0, nx: CX, ny: CY, cx: CX, cy: CY, velNave: 75 * (1 + 0.08 * of.motor), cristais: [], raioIma: 26 * (1 + 0.25 * of.ima), raioPegar: 8, bonusXp: 1 + 0.1 * of.xp,
-      onda: 0, ondaEstado: 'calma', calmaT: 4, ondaT: 0, ondaDur: 0, ondasCompletas: 0, combo: 0, comboT: 0, melhorCombo: 0, aviso: 0, avisoTxt: '', fase: 1,
+      onda: 0, ondaEstado: 'calma', calmaT: 20, ondaT: 0, ondaDur: 0, combo: 0, comboT: 0, melhorCombo: 0, aviso: 0, avisoTxt: '', fase: 1,
       hp: 6 + of.casco, maxHp: 6 + of.casco, nivel: 1, xp: 0, xpProx: 5, kills: 0,
       dano: 1 + 0.25 * of.dano, cadencia: 2.6 * (1 + 0.1 * of.cadencia), projeteis: 1 + of.projetil, perfura: 0, velTiro: 160,
       inimigos: [], tiros: [], tirosInimigos: [], campos: [], raios: [], rochas: [], itens: [], parts: [], ondas: [], textos: [],
@@ -310,8 +310,8 @@ export function iniciarArcade({ bip, somAtivo }) {
   }
   const texto = (x, y, txt, cor = '#ffffff') => S.textos.push({ x, y, txt, cor, vida: 1.1 });
 
-  // Cada onda tem uma meta (monstros a derrotar, com barra no topo). A cada 3 ondas a onda é um chefão.
-  // Ao completar: onda de choque, vida, cristais e um respiro para coletar tudo antes da próxima.
+  // As ondas são só um acontecimento: de tempos em tempos vem um extra de monstros (e a cada 3 ondas um chefão),
+  // sem placar, recompensa ou pausa. Os monstros normais nunca param de aparecer.
   function iniciarOnda() {
     S.onda += 1;
     const novaFase = 1 + Math.floor((S.onda - 1) / 3); // a cada 3 ondas começa uma nova fase, com os monstros em outro tema
@@ -321,21 +321,11 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.spawnAcc = 3;
     S.tremor = 0.25;
     if (novaFase > S.fase) { S.fase = novaFase; mostrarAviso(`${REGIOES[regiaoAtual()].nome} · ${nomeTema()}`, 3.2); bip(330, 0.15, 'square', 0.05); bip(440, 0.15, 'square', 0.05, 0.15); bip(660, 0.3, 'square', 0.05, 0.3); }
-    else if (!doChefe) { mostrarAviso(`ONDA ${S.onda}`, 2); bip(300, 0.1, 'square', 0.05); bip(450, 0.14, 'square', 0.05, 0.1); }
+    else if (!doChefe) { mostrarAviso('!! ONDA DE MONSTROS !!', 2); bip(300, 0.1, 'square', 0.05); bip(450, 0.14, 'square', 0.05, 0.1); }
     if (doChefe) criarChefeInimigo();
   }
-  function completarOnda() {
-    S.ondaEstado = 'calma'; S.calmaT = 7; S.ondasCompletas += 1;
-    S.flash = 0.2; S.tremor = 0.3;
-    S.ondas.push({ x: S.nx, y: S.ny, r: 0, max: 260, v: 380, cor: '#8be6ff' });
-    for (const m of S.inimigos) if (m.tipo !== 'chefe') { soltarCristal(m.x, m.y, TIPOS[m.tipo].xp); particulas(m.x, m.y, 6, ['#ffe14a', '#ffffff'], 60); }
-    S.inimigos = S.inimigos.filter((m) => m.tipo === 'chefe'); S.tirosInimigos = []; S.campos = [];
-    for (let k = 0; k < 6 + S.onda; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 50, S.ny + (Math.random() - 0.5) * 36, 2); // bônus de onda
-    const cura = S.hp < S.maxHp ? 1 : 0; S.hp = Math.min(S.maxHp, S.hp + 1);
-    if (Math.random() < 0.35) S.itens.push({ tipo: 'moedaEsp', x: S.nx + 14, y: S.ny - 10, vida: 40, fase: 0 });
-    mostrarAviso(`ONDA ${S.onda} COMPLETA!`, 2.8);
-    texto(S.nx, S.ny - 16, cura ? '+1 VIDA' : 'ÓTIMO!', '#7dff9a');
-    bip(523, 0.1, 'triangle', 0.06); bip(659, 0.1, 'triangle', 0.06, 0.1); bip(784, 0.1, 'triangle', 0.06, 0.2); bip(1047, 0.25, 'triangle', 0.06, 0.3);
+  function terminarOnda() { // a onda acaba em silêncio; a próxima vem daqui a um tempo
+    S.ondaEstado = 'calma'; S.calmaT = 14 + Math.random() * 8;
   }
 
   function atirar(alvo) {
@@ -513,7 +503,8 @@ export function iniciarArcade({ bip, somAtivo }) {
     for (let k = 0; k < n; k++) S.itens.push({ tipo: 'moedaEsp', x: c.x + (Math.random() - 0.5) * 46, y: c.y + (Math.random() - 0.5) * 30, vida: 60, fase: Math.random() * 6 });
     for (let k = 0; k < 6; k++) soltarCristal(c.x, c.y, 6);
     S.tirosInimigos = []; S.campos = [];
-    if (S.ondaEstado === 'chefe') completarOnda(); else mostrarAviso('CHEFÃO DERROTADO!', 2.6);
+    if (S.ondaEstado === 'chefe') terminarOnda();
+    mostrarAviso('CHEFÃO DERROTADO!', 2.6);
     bip(220, 0.3, 'triangle', 0.06); bip(330, 0.3, 'triangle', 0.06, 0.2); bip(440, 0.4, 'triangle', 0.06, 0.4);
   }
 
@@ -723,8 +714,8 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- atualização ----------
   function atualizarMundo(dt) {
     if (S.ondaEstado === 'calma') { S.calmaT -= dt; if (S.calmaT <= 0) iniciarOnda(); }
-    else if (S.ondaEstado === 'ativa') { S.ondaT -= dt; if (S.ondaT <= 0) completarOnda(); }
-    else if (S.ondaEstado === 'chefe' && !S.chefe && !S.buraco) completarOnda();
+    else if (S.ondaEstado === 'ativa') { S.ondaT -= dt; if (S.ondaT <= 0) terminarOnda(); }
+    else if (S.ondaEstado === 'chefe' && !S.chefe && !S.buraco) terminarOnda();
     // monstros nunca param de aparecer (nem no respiro entre ondas): o ritmo base cresce com o tempo e a onda soma um extra
     const rampa = S.ondaEstado === 'ativa' ? 0.7 + 0.6 * (1 - S.ondaT / S.ondaDur) : 0; // a onda começa mais calma e termina mais cheia
     const extra = S.ondaEstado === 'ativa' ? (0.9 + 0.2 * S.onda) * rampa : 0;
@@ -1207,15 +1198,15 @@ export function iniciarArcade({ bip, somAtivo }) {
     modo = 'fim';
     const bonus = Math.min(BONUS_MAXIMO, Math.floor(S.kills / 30) + Math.floor(S.nivel / 3));
     const tempo = Math.floor(S.t);
-    const novoRecorde = tempo > dados.tempo || S.kills > dados.kills || S.ondasCompletas > dados.onda;
-    dados.tempo = Math.max(dados.tempo, tempo); dados.kills = Math.max(dados.kills, S.kills); dados.onda = Math.max(dados.onda, S.ondasCompletas);
+    const novoRecorde = tempo > dados.tempo || S.kills > dados.kills || S.onda > dados.onda;
+    dados.tempo = Math.max(dados.tempo, tempo); dados.kills = Math.max(dados.kills, S.kills); dados.onda = Math.max(dados.onda, S.onda);
     dados.skin = (dados.skin + 1 + Math.floor(Math.random() * (TEMAS.length - 1))) % TEMAS.length; // próxima partida: outro tema de monstros
     dados.moedas += bonus;
     salvarDados();
     bip(220, 0.25, 'sawtooth', 0.05); bip(165, 0.35, 'sawtooth', 0.05, 0.25);
     painelFim.replaceChildren(
       el('h3', null, 'FIM DE JOGO'),
-      el('p', null, `Tempo: ${fmt(tempo)} · Monstros: ${S.kills} · Nível: ${S.nivel} · Ondas completas: ${S.ondasCompletas} · Melhor combo: x${S.melhorCombo}`),
+      el('p', null, `Tempo: ${fmt(tempo)} · Monstros: ${S.kills} · Nível: ${S.nivel} · Onda: ${S.onda} · Melhor combo: x${S.melhorCombo}`),
       el('p', 'ganhou', `+${bonus + S.moedasRun} ◆ MOEDAS ESPACIAIS`),
       el('p', 'dica', `${S.moedasRun} coletadas + ${bonus} de bônus · Recorde: ${fmt(dados.tempo)} · ${dados.kills} monstros · ${dados.onda} ondas${novoRecorde ? ' · NOVO RECORDE!' : ''}`),
     );
@@ -1377,9 +1368,6 @@ export function iniciarArcade({ bip, somAtivo }) {
     }
     if (!S.alien) {
       const rotulo = (txt, x, y, cor, alinha = 'center') => { g.font = 'bold 8px monospace'; g.textAlign = alinha; g.fillStyle = '#070a1a'; g.fillText(txt, x + 1, y + 1); g.fillStyle = cor; g.fillText(txt, x, y); };
-      if (S.ondaEstado === 'ativa') rotulo(`ONDA ${S.onda}`, CX, 14, '#cfeeff');
-      else if (S.ondaEstado === 'chefe') rotulo(`ONDA ${S.onda} · CHEFÃO`, CX, 22, '#ff9aa6');
-      else rotulo(S.onda === 0 ? 'PREPARE-SE!' : `ONDA ${S.onda} COMPLETA!`, CX, 14, '#7dff9a');
       if (S.combo >= 3) rotulo(`COMBO x${S.combo}`, L - 8, 22, S.combo >= 50 ? '#ff7ab8' : S.combo >= 25 ? '#ff9a3a' : S.combo >= 10 ? '#ffe14a' : '#ffffff', 'right');
     }
     if (S.chefe) barra(CX - 60, 8, 120, S.chefe.hp / S.chefe.hpMax, '#ff3b4a');
@@ -1527,7 +1515,7 @@ export function iniciarArcade({ bip, somAtivo }) {
         onda: () => { S.calmaT = 0; },
         fase: (n) => { S.onda = (n - 1) * 3; S.ondaEstado = 'calma'; S.calmaT = 0; },
         regiao: (n) => { S.fundoBase = n - (S.fase - 1); },
-        completar: () => { if (S.ondaEstado !== 'calma') completarOnda(); },
+        completar: () => { if (S.ondaEstado !== 'calma') terminarOnda(); },
         hp: (n) => { S.hp = n; },
         tempo: (n) => { S.t = n; S.proxBuraco = n + 999; },
         limpar: () => { S.inimigos = []; S.chefe = null; },
@@ -1547,7 +1535,7 @@ export function iniciarArcade({ bip, somAtivo }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, ondasCompletas: S && S.ondasCompletas, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
+        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
       },
     };
   }
