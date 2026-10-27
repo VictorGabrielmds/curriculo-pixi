@@ -396,37 +396,28 @@ const estacoes = zonas.map((z, i) => {
   return { raiz, anel, icone, rot, gira: icone.getObjectByName('gira') };
 });
 
-// ---------- personagem (sprite 2D de perfil) ----------
-// quadros em public/avatar (pixel art, todos olhando para a direita). Sprite do three.js ignora escala negativa,
-// então para andar para a esquerda cada quadro tem uma segunda textura espelhada (repeat.x = -1)
-const QUADROS = { idle: 5, walk: 5, jump: 4, fall: 3 };
-const CICLO_PARADO = [0, 1, 3, 4]; // o quadro 2 é uma piscada de um olho só
-const LARG_QUADRO = 119, ALT_QUADRO = 195, FOLGA_PES = 6; // tamanho dos PNGs e folga embaixo dos pés
+// ---------- personagem (sprite 2D, 4 direções) ----------
+// quadros em public/avatar/<animação>-<direção>-<n>.png (84x182, pés na linha y=168)
+const FRAMES = { parado: 4, andar: 5, correr: 5, pular: 5 };
+const DIRECOES = ['direita', 'esquerda', 'norte', 'sul']; // norte = de costas (fundo da tela), sul = de frente
+const FRAME_W = 84, FRAME_H = 182, FRAME_PES_Y = 168;
 const carregador = new THREE.TextureLoader();
-const quadros = Object.fromEntries(Object.entries(QUADROS).map(([nome, n]) => [
-  nome,
-  Array.from({ length: n }, (_, i) => {
-    const dir = new THREE.SpriteMaterial({ transparent: true, toneMapped: false });
-    const esq = new THREE.SpriteMaterial({ transparent: true, toneMapped: false });
-    carregador.load(`${import.meta.env.BASE_URL}avatar/${nome}-${i}.png`, (tex) => {
+const quadros = {};
+for (const [anim, n] of Object.entries(FRAMES)) {
+  quadros[anim] = {};
+  for (const dir of DIRECOES) {
+    quadros[anim][dir] = Array.from({ length: n }, (_, i) => {
+      const tex = carregador.load(`${import.meta.env.BASE_URL}avatar/${anim}-${dir}-${i}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 8;
-      dir.map = tex;
-      dir.needsUpdate = true;
-      const espelho = tex.clone();
-      espelho.repeat.set(-1, 1);
-      espelho.offset.set(1, 0);
-      espelho.needsUpdate = true;
-      esq.map = espelho;
-      esq.needsUpdate = true;
+      return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
     });
-    return { dir, esq };
-  }),
-]));
-const ALTURA_BONECO = 3.5;
-const LARGURA_BONECO = ALTURA_BONECO * (LARG_QUADRO / ALT_QUADRO);
-const boneco = new THREE.Sprite(quadros.idle[0].dir);
-boneco.center.set(0.5, FOLGA_PES / ALT_QUADRO); // pés na base do sprite
+  }
+}
+const ALTURA_BONECO = 3.6;
+const LARGURA_BONECO = ALTURA_BONECO * (FRAME_W / FRAME_H);
+const boneco = new THREE.Sprite(quadros.parado.sul[0]);
+boneco.center.set(0.5, (FRAME_H - FRAME_PES_Y) / FRAME_H); // pés na base do sprite
 boneco.scale.set(LARGURA_BONECO, ALTURA_BONECO, 1);
 boneco.position.y = R;
 scene.add(boneco);
@@ -541,8 +532,9 @@ if (zonaParam !== null) {
   const i = clamp(Math.round(Number(zonaParam)) || 0, 0, zonas.length - 1);
   q.setFromUnitVectors(dirsZonas[i], new THREE.Vector3(0.25, 1, -0.2).normalize());
 }
+const TEMPO_PULO = (2 * 7.2) / 20; // duração do pulo em segundos (impulso 7,2 e gravidade 20)
 let vLeste = 0, vNorte = 0, alturaPulo = 0, vPulo = 0, noChao = true;
-let passo = 0, andou = false, tempo = 0, olhando = 1;
+let passo = 0, andou = false, tempo = 0, olhando = 'sul', tempoNoAr = 0;
 const eixo = new THREE.Vector3(), dq = new THREE.Quaternion(), w = new THREE.Vector3();
 const volta = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const angulo = (d) => Math.acos(clamp(w.copy(d).applyQuaternion(q).y, -1, 1)); // distância (rad) de d até o personagem
@@ -571,6 +563,8 @@ renderer.setAnimationLoop(() => {
   let iy = k('ArrowUp', 'KeyW') - k('ArrowDown', 'KeyS') || toque.y;
   const tam = Math.hypot(ix, iy);
   if (tam > 1) { ix /= tam; iy /= tam; }
+  const correndo = teclas.has('ShiftLeft') || teclas.has('ShiftRight');
+  if (correndo) { ix *= 1.7; iy *= 1.7; }
   vLeste = damp(vLeste, ix, 9, dt);
   vNorte = damp(vNorte, iy, 9, dt);
   const vel = Math.hypot(vLeste, vNorte);
@@ -588,26 +582,34 @@ renderer.setAnimationLoop(() => {
 
   // pulo
   const querPular = teclas.has('Space') || toque.pulo;
-  if (querPular && noChao) { vPulo = 7.2; noChao = false; }
+  if (querPular && noChao) { vPulo = 7.2; noChao = false; tempoNoAr = 0; }
   if (!noChao) {
     vPulo -= 20 * dt;
+    tempoNoAr += dt;
     alturaPulo += vPulo * dt;
     if (alturaPulo <= 0) { alturaPulo = 0; vPulo = 0; noChao = true; }
   }
 
-  // quadro do sprite: pulo/queda no ar, caminhada andando, respirando parado; de perfil (espelha para a esquerda)
-  const mov = Math.min(1, vel);
-  if (Math.abs(vLeste) > 0.06) olhando = vLeste > 0 ? 1 : -1;
+  // quadro do sprite: direção predominante (de frente, de costas ou de lado) + animação do momento
+  const mov = Math.min(1.7, vel);
+  if (vel > 0.08) {
+    const horizontal = Math.abs(vLeste) > Math.abs(vNorte) * 1.1, vertical = Math.abs(vNorte) > Math.abs(vLeste) * 1.1;
+    if (horizontal) olhando = vLeste > 0 ? 'direita' : 'esquerda';
+    else if (vertical) olhando = vNorte > 0 ? 'norte' : 'sul';
+  }
   passo += mov * dt * 9;
   let quadro;
   if (!noChao) {
-    quadro = vPulo > 4.5 ? quadros.jump[1] : vPulo > 1.5 ? quadros.jump[2] : vPulo > -1.5 ? quadros.jump[3] : vPulo > -5 ? quadros.fall[1] : quadros.fall[2];
+    const p = Math.min(0.999, tempoNoAr / TEMPO_PULO);
+    quadro = quadros.pular[olhando][Math.floor(p * FRAMES.pular)];
+  } else if (vel > 1.2) {
+    quadro = quadros.correr[olhando][Math.floor(passo) % FRAMES.correr];
   } else if (vel > 0.08) {
-    quadro = quadros.walk[Math.floor(passo) % QUADROS.walk];
+    quadro = quadros.andar[olhando][Math.floor(passo) % FRAMES.andar];
   } else {
-    quadro = quadros.idle[CICLO_PARADO[Math.floor(tempo * 3) % CICLO_PARADO.length]];
+    quadro = quadros.parado[olhando][Math.floor(tempo * 4) % FRAMES.parado];
   }
-  boneco.material = olhando > 0 ? quadro.dir : quadro.esq;
+  boneco.material = quadro;
   boneco.position.y = R + alturaPulo;
   const sobe = Math.min(alturaPulo, 1.5);
   sombraBoneco.scale.setScalar(1 - sobe * 0.2);
