@@ -3,6 +3,7 @@ import { perfil, zonas } from './data.js';
 import { skinPorId } from './skins.js';
 import { iniciarCassino } from './cassino.js';
 import { iniciarArcade } from './arcade.js';
+import { montarPainel } from './painel.js';
 
 // ---------- constantes ----------
 const R = 5; // raio do planeta
@@ -545,19 +546,42 @@ const painel = $('#painel');
 const acaoBtn = $('#acao');
 let painelAtivo = -2;
 let estacaoAtiva = -1;
+
+// estações já visitadas ficam guardadas no navegador; o painel mostra o progresso e sugere a próxima
+const CHAVE_VISITADAS = 'curriculo-visitadas-v1';
+const visitadas = new Set();
+try { for (const id of JSON.parse(localStorage.getItem(CHAVE_VISITADAS)) || []) if (zonas.some((z) => z.id === id)) visitadas.add(id); } catch { /* sem armazenamento */ }
+const SETAS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖']; // 0 = norte (parte de cima da tela)
+function proximaEstacao(atual) { // a estação ainda não visitada mais perto da atual, e a direção (a partir do personagem) para chegar nela
+  let melhor = -1, menorAng = Infinity;
+  zonas.forEach((z, k) => {
+    if (k === atual || visitadas.has(z.id)) return;
+    const a = dirsZonas[atual].angleTo(dirsZonas[k]);
+    if (a < menorAng) { menorAng = a; melhor = k; }
+  });
+  if (melhor < 0) return null;
+  const v = new THREE.Vector3().copy(dirsZonas[melhor]).applyQuaternion(q);
+  const ang = Math.atan2(v.x, -v.z), dist = Math.acos(clamp(v.y, -1, 1));
+  return { id: zonas[melhor].id, seta: SETAS[((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8], seg: Math.max(1, Math.round(dist / VEL)) };
+}
+function marcarPontos(ativa) {
+  [...pontosEl.children].forEach((d, k) => { d.classList.toggle('on', k === ativa); d.classList.toggle('vis', visitadas.has(zonas[k].id)); });
+}
+marcarPontos(-1);
 function mostrarPainel(i) {
   if (i === painelAtivo) return;
   painelAtivo = i;
   if (i < 0) { painel.classList.remove('on'); } else {
     const z = zonas[i];
+    if (!visitadas.has(z.id)) { visitadas.add(z.id); try { localStorage.setItem(CHAVE_VISITADAS, JSON.stringify([...visitadas])); } catch { /* sem armazenamento */ } }
     painel.style.setProperty('--c', '#' + z.cor.toString(16).padStart(6, '0'));
     painel.querySelector('h2').textContent = z.titulo;
-    const t = $('#texto');
-    t.replaceChildren(...z.linhas.map((l) => Object.assign(document.createElement('p'), { textContent: l })));
+    $('#texto').replaceChildren(...montarPainel(z, { zonas, visitadas, proxima: proximaEstacao(i) }));
+    painel.scrollTop = 0;
     acaoBtn.hidden = !z.jogo;
     painel.classList.add('on');
   }
-  [...pontosEl.children].forEach((d, k) => d.classList.toggle('on', k === i));
+  marcarPontos(i);
 }
 
 // ---------- entrada ----------

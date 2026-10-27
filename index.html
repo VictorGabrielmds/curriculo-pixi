@@ -26,7 +26,7 @@
       #painel.on { opacity: 1; transform: translate(-50%, 0); }
       /* tela larga: o painel fica na lateral, sem cobrir o planeta nem o personagem */
       @media (min-width: 900px) {
-        #painel { left: 36px; bottom: auto; top: 50%; width: 360px; transform: translate(-14px, -50%); }
+        #painel { left: 36px; bottom: auto; top: 50%; width: 400px; max-height: calc(100vh - 90px); transform: translate(-14px, -50%); }
         #painel.on { transform: translate(0, -50%); }
       }
       #painel h2 { margin: 0 0 10px; font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--c, #fff); }
@@ -37,7 +37,57 @@
       #rotulos { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
       .rotulo { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: #fff; opacity: 0; transition: opacity .2s; will-change: transform;
         text-shadow: 2px 0 #070a1a, -2px 0 #070a1a, 0 2px #070a1a, 0 -2px #070a1a, 2px 2px #070a1a, -2px -2px #070a1a, 2px -2px #070a1a, -2px 2px #070a1a; }
-      #painel p:last-child { margin-bottom: 0; }
+      #painel.on { pointer-events: auto; }
+      #painel { max-height: min(72vh, calc(100vh - 110px)); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--c, #7c5cff) #0b1026; }
+      #painel p { font-size: 14px; line-height: 1.5; }
+      #painel p.destaque { font-size: 16px; line-height: 1.4; color: #fff; border-left: 4px solid var(--c); padding-left: 10px; }
+      #painel p.dica { font-size: 12px; color: #9fa8e0; }
+      #painel .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin: 0 0 12px; }
+      #painel .num { background: #1b2252; border: 2px solid #2a3470; padding: 6px 6px; text-align: center; }
+      #painel .num b { display: block; font-size: 20px; color: var(--c); }
+      #painel .num span { font-size: 11px; color: #aab3e8; }
+      #painel .etiquetas { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; }
+      #painel .etq { font-size: 12px; padding: 2px 7px; background: #1b2252; border: 2px solid #323d86; color: #dfe4ff; }
+      #painel .grupo { margin: 0 0 6px; }
+      #painel .grupo h3 { margin: 0 0 5px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--c); }
+      #painel .grupo .etiquetas { margin-bottom: 6px; }
+      #painel details.cartao { margin: 0 0 8px; background: #171d47; border-left: 4px solid #3a4496; }
+      #painel details.cartao.atual { border-left-color: #58e08a; }
+      #painel details.cartao[open] { border-left-color: var(--c); background: #1b2252; }
+      #painel summary { position: relative; list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 7px 9px 7px 22px; }
+      #painel summary::-webkit-details-marker { display: none; }
+      #painel summary::before { content: '▸'; position: absolute; left: 8px; top: 7px; color: var(--c); font-size: 13px; }
+      #painel details[open] > summary::before { content: '▾'; }
+      #painel summary:hover { background: rgba(255, 255, 255, .05); }
+      #painel summary .tit b { display: block; font-size: 14px; color: #fff; }
+      #painel summary .tit i { font-style: normal; font-size: 12px; color: #9fa8e0; }
+      #painel summary .per { font-size: 11px; color: #aab3e8; text-align: right; }
+      #painel details.atual summary .per { color: #58e08a; }
+      #painel .corpo { padding: 0 9px 9px 22px; }
+      #painel .corpo p { font-size: 13px; line-height: 1.45; margin: 0 0 8px; color: #e0e4ff; }
+      #painel .corpo .etiquetas { margin-bottom: 4px; }
+      #painel .links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      #painel a.btn { display: inline-flex; gap: 6px; align-items: center; padding: 5px 10px; background: var(--c); color: #fff; text-decoration: none; border: 3px solid #070a1a; font-size: 13px; box-shadow: inset -2px -2px 0 rgba(0, 0, 0, .3), inset 2px 2px 0 rgba(255, 255, 255, .2); }
+      #painel a.btn:hover { filter: brightness(1.15); }
+      #painel .contatos { display: flex; flex-direction: column; gap: 6px; }
+      #painel .contato { display: flex; gap: 6px; align-items: stretch; }
+      #painel .contato .ln { flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 9px; background: #171d47; border-left: 4px solid var(--c); color: #fff; text-decoration: none; min-width: 0; }
+      #painel .contato .ln:hover { background: #212a66; }
+      #painel .ln .ic { font-size: 18px; color: var(--c); width: 20px; text-align: center; }
+      #painel .ln small { display: block; font-size: 11px; color: #9fa8e0; text-transform: uppercase; letter-spacing: 1px; }
+      #painel .ln b { font-size: 14px; overflow-wrap: anywhere; }
+      #painel button.copiar { margin: 0; font: inherit; font-size: 11px; padding: 0 9px; background: #2a3470; color: #fff; border: 3px solid #070a1a; cursor: pointer; box-shadow: none; }
+      #painel button.copiar:hover { background: #38449a; }
+      #painel .rodape { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 9px; border-top: 2px dashed #2a3470; font-size: 11px; color: #9fa8e0; }
+      #painel .pts { display: inline-flex; gap: 3px; margin-right: 7px; vertical-align: middle; }
+      #painel .pts i { width: 8px; height: 8px; background: #2a3470; display: inline-block; }
+      #painel .pts i.vis { background: var(--c); }
+      #painel .prox { color: var(--c); letter-spacing: 1px; }
+      #painel a.prox.fim { text-decoration: none; color: #fff; background: var(--c); padding: 3px 8px; }
+      #painel { z-index: 3; }
+      #rotulos { z-index: 2; }
+      #painel button#acao:not([hidden]) { display: block; }
+      #pontos i.vis { opacity: .65; }
     </style>
   </head>
   <body>
