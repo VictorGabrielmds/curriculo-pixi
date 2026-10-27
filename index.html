@@ -6,16 +6,16 @@
     <title>Victor Gabriel — Currículo jogável</title>
     <meta name="description" content="Currículo interativo em 3D: ande pelo meu planeta e descubra minha trajetória." />
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1026; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
-      canvas { display: block; touch-action: none; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1026; font-family: "Courier New", ui-monospace, Consolas, monospace; font-weight: 700; color: #fff; }
+      canvas { display: block; touch-action: none; image-rendering: pixelated; }
       #nome { position: fixed; left: 18px; top: 14px; font-size: 15px; font-weight: 600; opacity: .85; pointer-events: none; }
       #pontos { position: fixed; right: 18px; top: 18px; display: flex; gap: 10px; pointer-events: none; }
-      #pontos i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); opacity: .3; transition: opacity .25s, transform .25s; }
+      #pontos i { width: 12px; height: 12px; border-radius: 0; box-shadow: 0 0 0 2px #070a1a; background: var(--c); opacity: .3; transition: opacity .25s, transform .25s; }
       #pontos i.on { opacity: 1; transform: scale(1.5); }
       #dica { position: fixed; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 14px; color: #c9cdf5; padding: 0 16px; pointer-events: none; transition: opacity .6s; }
       #dica.some { opacity: 0; }
       #painel { position: fixed; left: 50%; bottom: 46px; width: min(640px, calc(100vw - 28px)); box-sizing: border-box; transform: translate(-50%, 14px); opacity: 0; pointer-events: none;
-        background: rgba(18, 23, 58, .9); border: 2px solid var(--c, #7c5cff); border-left-width: 6px; border-radius: 18px; padding: 16px 22px 18px; backdrop-filter: blur(6px);
+        background: #12173a; border: 4px solid var(--c, #7c5cff); border-radius: 0; padding: 14px 20px 16px; box-shadow: 0 0 0 4px #070a1a, 6px 6px 0 4px rgba(0, 0, 0, .5);
         transition: opacity .25s, transform .25s; }
       #painel.on { opacity: 1; transform: translate(-50%, 0); }
       /* tela larga: o painel fica na lateral, sem cobrir o planeta nem o personagem */
@@ -23,8 +23,8 @@
         #painel { left: 36px; bottom: auto; top: 50%; width: 360px; transform: translate(-14px, -50%); }
         #painel.on { transform: translate(0, -50%); }
       }
-      #painel h2 { margin: 0 0 10px; font-size: 26px; font-weight: 800; }
-      #painel p { margin: 0 0 10px; font-size: 16px; line-height: 1.45; color: #dfe2ff; }
+      #painel h2 { margin: 0 0 10px; font-size: 21px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--c, #fff); }
+      #painel p { margin: 0 0 10px; font-size: 15px; line-height: 1.5; color: #e6e8ff; }
       #painel p:last-child { margin-bottom: 0; }
     </style>
   </head>

@@ -8,6 +8,10 @@ planeta, árvores, estações e o terreno são gerados em código; o personagem 
 
 > A versão 2D em PixiJS continua na branch `main`; esta é a branch `3d`.
 
+## Visual pixel art
+
+A cena 3D é desenhada numa tela interna de ~640 px de altura e ampliada sem suavização; um pós-processamento limita a paleta (com dithering) e desenha contorno escuro nas silhuetas. A altura interna é calculada para que cada pixel do avatar seja exatamente um pixel do mundo (`ALTURA_INTERNA` em `src/main.js`). Para comparar sem o contorno, abra com `?borda=0`.
+
 ## Rodar
 
 ```bash

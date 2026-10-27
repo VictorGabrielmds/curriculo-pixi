@@ -64,19 +64,18 @@ function altura(p) {
 const NIVEL_MAR = 0.5; // menor = mais terra
 
 // ---------- cena ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1026);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
-scene.add(new THREE.HemisphereLight(0xbcd0ff, 0x241c4d, 1.15));
-const sol = new THREE.DirectionalLight(0xfff0d4, 2.6);
+scene.add(new THREE.HemisphereLight(0xbcd0ff, 0x241c4d, 1.0));
+const sol = new THREE.DirectionalLight(0xfff0d4, 1.9);
 sol.position.set(7, R + 9, 9);
 sol.target.position.set(0, 2, 0);
 sol.castShadow = true;
@@ -95,7 +94,7 @@ scene.add(sol, sol.target);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.55, sizeAttenuation: true, fog: false })));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, sizeAttenuation: true, fog: false })));
   const lua = new THREE.Mesh(
     new THREE.SphereGeometry(4, 32, 32),
     new THREE.MeshBasicMaterial({ color: 0xfff1c9, fog: false }),
@@ -171,7 +170,7 @@ scene.add(planeta);
           // detalhe fino do litoral calculado por pixel: a costa fica recortada em qualquer zoom
           float h = alturaTex(d) + (vnoise(d * 26.0) - 0.5) * 0.04 + (vnoise(d * 60.0) - 0.5) * 0.016;
           float c = h - uNivel;
-          float w = fwidth(h) * 0.9 + 1e-5;
+          float w = 2e-4; // borda dura: pixel art
           // água em faixas (fundo, médio, raso) e espuma na beira
           vec3 agua = mix(uMarFundo, uMarMedio, degrau(c + 0.2, w));
           agua = mix(agua, uMarRaso, degrau(c + 0.07, w));
@@ -183,7 +182,7 @@ scene.add(planeta);
           vec3 terra = mix(uAreia, grama, degrau(c - 0.03, w));
           vec3 col = mix(agua, terra, degrau(c, w));
           float fino = vnoise(d * 120.0);
-          return col * (0.95 + 0.1 * fino);
+          return col * (0.97 + 0.06 * fino);
         }`)
       .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = corTerreno(normalize(vObj));');
   };
@@ -290,18 +289,20 @@ scene.add(nuvens);
 // ---------- estações ----------
 function rotulo(texto) {
   const c = document.createElement('canvas');
-  c.width = 512; c.height = 128;
+  c.width = 144; c.height = 36; // ~3,3 unidades de largura: 1 texel = 1 pixel da tela interna
   const x = c.getContext('2d');
-  x.font = '800 54px system-ui, sans-serif';
+  x.font = 'bold 18px "Courier New", ui-monospace, monospace';
   x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.lineJoin = 'round'; x.lineWidth = 10; x.strokeStyle = 'rgba(8,10,30,.85)';
-  x.strokeText(texto, 256, 64);
+  x.lineJoin = 'round'; x.lineWidth = 4; x.strokeStyle = '#070a1a';
+  x.strokeText(texto, 72, 20);
   x.fillStyle = '#fff';
-  x.fillText(texto, 256, 64);
+  x.fillText(texto, 72, 20);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); // com teste de profundidade: o planeta esconde os rótulos do outro lado
-  s.scale.set(3.2, 0.8, 1);
+  s.scale.set(3.28, 0.82, 1);
   s.renderOrder = 10;
   return s;
 }
@@ -410,13 +411,14 @@ for (const [anim, n] of Object.entries(FRAMES)) {
     quadros[anim][dir] = Array.from({ length: n }, (_, i) => {
       const tex = carregador.load(`${import.meta.env.BASE_URL}avatar/${anim}-${dir}-${i}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
+      tex.magFilter = tex.minFilter = THREE.NearestFilter; // pixel art: sem suavizar
+      tex.generateMipmaps = false;
       return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
     });
   }
 }
-const ALTURA_BONECO = 3.6;
-const LARGURA_BONECO = ALTURA_BONECO * (FRAME_W / FRAME_H);
+let ALTURA_BONECO = 3.6; // recalculado em ajustar(): 1 pixel do desenho = 1 pixel da tela interna
+let LARGURA_BONECO = ALTURA_BONECO * (FRAME_W / FRAME_H);
 const boneco = new THREE.Sprite(quadros.parado.sul[0]);
 boneco.center.set(0.5, (FRAME_H - FRAME_PES_Y) / FRAME_H); // pés na base do sprite
 boneco.scale.set(LARGURA_BONECO, ALTURA_BONECO, 1);
@@ -512,7 +514,54 @@ for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
   });
 }
 
-// ---------- câmera ----------
+// ---------- câmera e pós-processamento (visual pixel art) ----------
+// A cena é desenhada numa tela interna de ~640 px de altura (sem suavização) e ampliada sem filtro. O avatar foi
+// desenhado em ~182 px de altura, então com esta altura interna cada pixel dele vira exatamente 1 pixel do mundo.
+const ALTURA_INTERNA = 640;
+const DIST_CAMERA = 19;
+const alvoRender = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType, samples: 0 });
+alvoRender.depthTexture = new THREE.DepthTexture(2, 2);
+const telaCena = new THREE.Scene();
+const telaCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const telaMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    tCor: { value: alvoRender.texture }, tProf: { value: alvoRender.depthTexture },
+    uPixel: { value: new THREE.Vector2(1, 1) }, uBorda: { value: new URLSearchParams(location.search).get('borda') === '0' ? 0 : 1 }, uNear: { value: camera.near }, uFar: { value: camera.far },
+  },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tCor, tProf; uniform vec2 uPixel; uniform float uNear, uFar, uBorda;
+    varying vec2 vUv;
+    #include <packing>
+    float profund(vec2 uv) { return -perspectiveDepthToViewZ(texture2D(tProf, uv).x, uNear, uFar); }
+    float bayer4(vec2 p) {
+      int x = int(mod(p.x, 4.0)), y = int(mod(p.y, 4.0));
+      float m[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+      return (m[x + 4 * y] + 0.5) / 16.0;
+    }
+    void main() {
+      vec2 px = floor(vUv / uPixel);
+      vec2 uv = (px + 0.5) * uPixel;
+      vec4 cor = texture2D(tCor, uv);
+      // contorno: pixel de objeto que tem um vizinho muito mais longe (céu ou outro objeto atrás) vira linha escura.
+      // Só desenha em pixels de objeto, nunca no céu, para não sujar o fundo.
+      float z = profund(uv);
+      float borda = 0.0;
+      vec2 viz[4] = vec2[4](vec2(uPixel.x, 0.0), vec2(-uPixel.x, 0.0), vec2(0.0, uPixel.y), vec2(0.0, -uPixel.y));
+      if (z < 0.98 * uFar) {
+        for (int i = 0; i < 4; i++) { if (profund(uv + viz[i]) - z > 0.035 * z) borda = 1.0; }
+      }
+      gl_FragColor = vec4(cor.rgb, 1.0);
+      #include <colorspace_fragment>
+      // paleta limitada com dithering ordenado leve
+      float niveis = 14.0;
+      vec3 q = floor(gl_FragColor.rgb * niveis + 0.5 + (bayer4(px) - 0.5) * 0.55) / niveis;
+      gl_FragColor.rgb = mix(q, vec3(0.03, 0.04, 0.10), borda * uBorda);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+telaCena.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), telaMaterial));
+
 function ajustar() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h);
@@ -520,6 +569,14 @@ function ajustar() {
   // em tela estreita afasta a câmera para o planeta continuar inteiro
   camera.userData.afasta = 1 / clamp(camera.aspect / 1.1, 0.5, 1);
   camera.updateProjectionMatrix();
+  // tela interna: no máximo ALTURA_INTERNA de altura, mesma proporção da janela
+  const hi = Math.min(ALTURA_INTERNA, h), wi = Math.max(2, Math.round(hi * camera.aspect));
+  alvoRender.setSize(wi, hi);
+  telaMaterial.uniforms.uPixel.value.set(1 / wi, 1 / hi);
+  // 1 pixel do desenho do avatar = 1 pixel da tela interna
+  const unidadesPorPixel = (2 * DIST_CAMERA * camera.userData.afasta * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / hi;
+  ALTURA_BONECO = FRAME_H * unidadesPorPixel;
+  LARGURA_BONECO = FRAME_W * unidadesPorPixel;
 }
 window.addEventListener('resize', ajustar);
 ajustar();
@@ -622,7 +679,7 @@ renderer.setAnimationLoop(() => {
 
   // câmera: afastada, vendo o planeta inteiro de cima e de frente
   const af = camera.userData.afasta;
-  const dist = 19 * af;
+  const dist = DIST_CAMERA * af;
   const el = 0.42; // câmera quase de frente, um pouco de cima: o personagem fica "em pé" no topo do planeta
   const alvoY = 1.5;
   camera.position.set(0, alvoY + Math.sin(el) * dist, Math.cos(el) * dist);
@@ -644,5 +701,8 @@ renderer.setAnimationLoop(() => {
   });
   mostrarPainel(ativa);
 
+  renderer.setRenderTarget(alvoRender);
   renderer.render(scene, camera);
+  renderer.setRenderTarget(null);
+  renderer.render(telaCena, telaCamera);
 });
