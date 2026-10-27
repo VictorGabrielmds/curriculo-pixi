@@ -96,6 +96,9 @@ function pintar(W, H, fn) {
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
     const p = fn(i, j, ((i + 0.5) / W) * 2 - 1, ((j + 0.5) / H) * 2 - 1);
     if (!p) continue;
+    // as bordas da imagem se dissolvem em meio-tom: nunca aparece um corte reto no meio do céu
+    const borda = Math.min(i, W - 1 - i, j, H - 1 - j) / (0.2 * Math.min(W, H));
+    if (borda < 1 && borda < BAYER[(j % 4) * 4 + (i % 4)]) continue;
     const k = (j * W + i) * 4; d[k] = p[0]; d[k + 1] = p[1]; d[k + 2] = p[2]; d[k + 3] = p[3];
   }
   x.putImageData(img, 0, 0);
@@ -127,7 +130,7 @@ const OBJETOS = {
   // Nebulosa de Órion: gás rosa e azul com o núcleo brilhante e as quatro estrelas do Trapézio
   orion() {
     const c = pintar(150, 112, (i, j, nx0, ny0) => {
-      const nx = nx0 + (fbm(nx0 * 2 + 1, ny0 * 2, 41) - 0.5) * 0.7, ny = ny0 + (fbm(nx0 * 2, ny0 * 2 + 3, 42) - 0.5) * 0.7;
+      const nx = nx0 * 1.18 + (fbm(nx0 * 2 + 1, ny0 * 2, 41) - 0.5) * 0.7, ny = ny0 * 1.18 + (fbm(nx0 * 2, ny0 * 2 + 3, 42) - 0.5) * 0.7; // forma menor que a imagem, para não encostar na borda
       const corpo = Math.max(0, 1 - Math.hypot(nx * 0.95, (ny + 0.05) * 1.25));
       const asa1 = Math.max(0, 1 - Math.hypot((nx + 0.5) * 1.3, (ny - 0.25) * 2.4));
       const asa2 = Math.max(0, 1 - Math.hypot((nx - 0.55) * 1.3, (ny + 0.15) * 2.6)) * 0.8;

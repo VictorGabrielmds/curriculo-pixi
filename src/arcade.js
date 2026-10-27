@@ -170,11 +170,20 @@ export function iniciarArcade({ bip, somAtivo }) {
     if (!cacheSkin.has(k)) cacheSkin.set(k, TEMAS[k].criar());
     return cacheSkin.get(k);
   };
-  // música de fundo (mp3 em public/audio): baixinha, só enquanto o jogo de nave está aberto e se o som estiver ligado
+  // música de fundo (mp3 em public/audio): baixinha, só enquanto o jogo de nave está aberto e se o som estiver ligado.
+  // Quando um chefão aparece a música normal pausa e toca a do chefão; quando ele cai a normal volta de onde parou.
   const VOLUME_MUSICA = 0.3;
-  const musica = new Audio(import.meta.env.BASE_URL + 'audio/arcade.mp3');
-  musica.loop = true; musica.volume = VOLUME_MUSICA; musica.preload = 'none';
-  const tocarMusica = () => { if (somAtivo && !somAtivo()) return; musica.play().catch(() => { /* o navegador pode bloquear até o primeiro toque */ }); };
+  const novaMusica = (arquivo) => { const m = new Audio(import.meta.env.BASE_URL + arquivo); m.loop = true; m.volume = VOLUME_MUSICA; m.preload = 'none'; return m; };
+  const musica = novaMusica('audio/arcade.mp3'), musicaChefe = novaMusica('audio/chefe.mp3');
+  let musicaDoChefe = false;
+  const tocarMusica = () => { if (somAtivo && !somAtivo()) return; (musicaDoChefe ? musicaChefe : musica).play().catch(() => { /* o navegador pode bloquear até o primeiro toque */ }); };
+  const pararMusicas = () => { musica.pause(); musicaChefe.pause(); };
+  function trocarMusica(chefe) { // true: música do chefão; false: volta à normal
+    if (musicaDoChefe === chefe) return;
+    musicaDoChefe = chefe;
+    if (chefe) { musica.pause(); musicaChefe.currentTime = 0; } else musicaChefe.pause();
+    tocarMusica();
+  }
   const fundo = criarFundo(L, A);
   let naveSpr = gerarNave({ casco: 0, motor: 0, nucleo: 0, armas: 0, ima: 0 });
   let dados = carregarDados();
@@ -526,6 +535,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     const kit = embaralhar(['raios', 'investida', 'drift', 'minhoca']).slice(0, 2);
     const c = { tipo: 'chefe', x: S.cx + lado * (L / 2 + 40), y: S.cy - 30, hp, hpMax: hp, vel: 30, fase: 0, piscar: 0, v: S.fase - 1 + S.skinBase, b: S.chefeIdx, cdRajada: 2.2, cdMira: 1.6, cdBomba: 4, cdEsp: 3.8, esp: null, movEsp: null, kit, rot: 0 };
     S.inimigos.push(c); S.chefe = c;
+    trocarMusica(true);
     mostrarAviso(`${CHEFES[S.chefeIdx].nome} DETECTOU VOCÊ!`, 3);
     bip(90, 0.4, 'sawtooth', 0.06); bip(70, 0.5, 'sawtooth', 0.06, 0.3);
   }
@@ -606,6 +616,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   function matarChefe(c) {
     S.kills += 5;
     S.chefe = null; S.chefesVencidos += 1;
+    trocarMusica(false);
     const i = S.inimigos.indexOf(c); if (i >= 0) S.inimigos.splice(i, 1);
     particulas(c.x, c.y, 50, ['#ffd23f', '#ff7a3a', '#ffffff', '#ff3b4a'], 130);
     S.flash = 0.3; S.tremor = 0.5;
@@ -1427,6 +1438,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- fim ----------
   function fimDeJogo() {
     modo = 'fim';
+    trocarMusica(false);
     const bonus = Math.min(BONUS_MAXIMO, Math.floor(S.kills / 30) + Math.floor(S.nivel / 3));
     const tempo = Math.floor(S.t);
     const novoRecorde = tempo > dados.tempo || S.kills > dados.kills || S.onda > dados.onda;
@@ -1730,6 +1742,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- controle ----------
   function comecar() {
     teclas.clear(); ponteiro.ativo = false; joystick.hidden = true;
+    musicaChefe.pause(); musicaDoChefe = false;
     musica.currentTime = 0; tocarMusica(); // a música recomeça do início a cada partida
     novoJogo();
     hudCache = '';
@@ -1739,13 +1752,14 @@ export function iniciarArcade({ bip, somAtivo }) {
     bip(523, 0.08, 'square', 0.05); bip(784, 0.12, 'square', 0.05, 0.08);
   }
   function pausar(ligar) {
-    if (ligar && modo === 'jogando') { modo = 'pausa'; teclas.clear(); ponteiro.ativo = false; joystick.hidden = true; painelPausa.hidden = false; musica.pause(); }
+    if (ligar && modo === 'jogando') { modo = 'pausa'; teclas.clear(); ponteiro.ativo = false; joystick.hidden = true; painelPausa.hidden = false; pararMusicas(); }
     else if (!ligar && modo === 'pausa') { modo = 'jogando'; painelPausa.hidden = true; ultimo = performance.now(); tocarMusica(); }
   }
   function abrir() {
     if (aberto) return;
     aberto = true;
     raiz.classList.add('aberto');
+    musicaChefe.pause(); musicaDoChefe = false;
     tocarMusica();
     dados = carregarDados();
     recordesEl.textContent = dados.tempo || dados.kills || dados.onda
@@ -1765,7 +1779,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     aberto = false;
     teclas.clear(); ponteiro.ativo = false; joystick.hidden = true;
     raiz.classList.remove('aberto');
-    musica.pause();
+    pararMusicas();
     cancelAnimationFrame(raf);
   }
 
@@ -1825,6 +1839,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
       abrir, oficina: () => abrirOficina(),
+      musicas: () => ({ normal: !musica.paused, chefe: !musicaChefe.paused, tCh: +musicaChefe.currentTime.toFixed(1) }),
       mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x - (S.cx - L / 2); ponteiro.y = y - (S.cy - A / 2); } },
       cristais: () => S.cristais.map((c) => ({ x: Math.round(c.x), y: Math.round(c.y), v: c.v })),
       itens: () => S.itens.map((i) => ({ x: Math.round(i.x), y: Math.round(i.y), tipo: i.tipo })),
