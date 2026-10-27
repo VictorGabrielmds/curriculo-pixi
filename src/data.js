@@ -71,15 +71,15 @@ export const zonas = [
     ],
   },
   {
-    id: 'arcade',
-    icone: 'arcade',
+    id: 'nave',
+    icone: 'nave', // o ícone da estação é a própria nave do jogo
     cor: 0x8a5cff,
     jogo: 'arcade', // abre o jogo de nave (tecla E ou botão do painel)
     escala: 0.6,
     titulo: 'Nave Arcade',
     linhas: [
-      'A nave atira sozinha no meio da tela enquanto monstrinhos chegam pelos lados.',
-      'Cada monstro dá XP e, a cada nível, você escolhe uma melhoria: cadência, dano, projétil extra e mais.',
+      'A nave atira sozinha e você a pilota pelo espaço enquanto monstrinhos chegam pelos lados.',
+      'Cada monstro solta um cristal de XP. Tem rochas com itens, buracos negros com um alienígena e chefões que dão moedas para melhorar a nave.',
     ],
   },
 ];

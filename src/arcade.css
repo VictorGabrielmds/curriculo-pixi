@@ -64,3 +64,16 @@
 @keyframes arc-pisca { 50% { opacity: 0.2; } }
 .arc-onda { color: #ffb36b; }
 .arc-onda.alerta { color: #ff3b4a; animation: arc-pisca 0.5s steps(2) infinite; }
+
+.arc-icone { width: 32px; height: 32px; image-rendering: pixelated; flex: none; }
+.arc-topo { flex-wrap: wrap; }
+.arc-hud { flex-wrap: wrap; row-gap: 4px; }
+.arc-moedas { color: #6fe8ff; }
+.arc-efeitos { color: #7dff9a; font-size: 11px; }
+.arc-painel.largo { width: min(94%, 520px); max-height: 94%; overflow: auto; }
+.arc-lista { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 8px; text-align: left; }
+.arc-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; background: #12173a; border: 3px solid #3a2c70; }
+.arc-item b { display: block; font-size: 13px; color: #ffe14a; }
+.arc-item span { font-size: 11px; color: #c9cdf5; }
+.arc-btn.pequeno { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
+.arc-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }

@@ -364,20 +364,27 @@ function modelo(tipo, cor) {
       add(new THREE.SphereGeometry(0.2, 12, 12), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.5 }), 1.05, 2.65, 0);
       break;
     }
-    case 'arcade': {
-      const verde = mat(0x7dff9a, { emissive: 0x7dff9a, emissiveIntensity: 0.8 });
-      add(new THREE.BoxGeometry(2.0, 0.3, 1.5), escuro, 0, 0.15); // base
-      add(new THREE.BoxGeometry(1.7, 3.0, 1.2), claro, 0, 1.8); // corpo
-      add(new THREE.BoxGeometry(1.9, 0.45, 1.3), escuro, 0, 3.4); // letreiro
-      add(new THREE.BoxGeometry(1.4, 0.2, 0.06), luz, 0, 3.4, 0.68);
-      add(new THREE.BoxGeometry(1.35, 1.2, 0.1), mat(0x0b1026), 0, 2.5, 0.62); // tela
-      [[-0.4, 2.8], [0, 2.8], [0.4, 2.8], [-0.2, 2.5], [0.2, 2.5], [0, 2.2]].forEach(([px, py]) => add(new THREE.BoxGeometry(0.18, 0.14, 0.06), verde, px, py, 0.69)); // monstrinhos
-      add(new THREE.BoxGeometry(0.2, 0.14, 0.06), mat(0x4aa8ff, { emissive: 0x4aa8ff, emissiveIntensity: 0.8 }), 0, 1.98, 0.69); // nave
-      add(new THREE.BoxGeometry(1.6, 0.14, 0.6), escuro, 0, 1.4, 0.82).rotation.x = -0.35; // painel de controle
-      add(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8), mat(0xc9cdd8), -0.4, 1.6, 0.9);
-      add(new THREE.SphereGeometry(0.1, 10, 10), mat(0xff3b4a), -0.4, 1.78, 0.9); // manche
-      add(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 10), mat(0xffe14a), 0.25, 1.5, 0.86);
-      add(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 10), mat(0x4aa8ff), 0.5, 1.5, 0.86); // botões
+    case 'nave': {
+      const casco = mat(0x4aa8ff, { emissive: 0x1d56b8, emissiveIntensity: 0.4 });
+      const vidro = mat(0x8bd3ff, { emissive: 0x4aa8ff, emissiveIntensity: 0.6 });
+      const aleta = mat(0xff7a59, { emissive: 0x8a3a20, emissiveIntensity: 0.3 });
+      add(new THREE.SphereGeometry(0.95, 14, 12), casco, 0, 1.85, 0).scale.set(1, 0.85, 1); // casco redondo, como no sprite
+      add(new THREE.SphereGeometry(0.58, 12, 10), vidro, 0, 2.15, 0.35); // cabine
+      add(new THREE.SphereGeometry(0.2, 8, 8), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.9 }), 0.1, 2.35, 0.8); // brilho no vidro
+      for (let k = 0; k < 4; k++) { // quatro aletas laranjas
+        const ang = (k * Math.PI) / 2;
+        const f = add(new THREE.BoxGeometry(0.55, 0.14, 0.95), aleta, Math.cos(ang) * 1.05, 1.7, Math.sin(ang) * 1.05);
+        f.rotation.y = -ang;
+      }
+      for (let k = 0; k < 3; k++) { // pernas de pouso
+        const ang = (k * Math.PI * 2) / 3 + 0.4;
+        const p = add(new THREE.CylinderGeometry(0.05, 0.07, 1, 8), mat(0xc9cdd8), Math.cos(ang) * 0.62, 0.62, Math.sin(ang) * 0.62);
+        p.rotation.z = Math.cos(ang) * 0.3; p.rotation.x = -Math.sin(ang) * 0.3;
+        add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), mat(0xc9cdd8), Math.cos(ang) * 0.78, 0.12, Math.sin(ang) * 0.78);
+      }
+      add(new THREE.ConeGeometry(0.3, 0.55, 10), mat(0xffd23f, { emissive: 0xff7a3a, emissiveIntensity: 1 }), 0, 1.05, 0).rotation.x = Math.PI; // chama do motor
+      add(new THREE.CylinderGeometry(0.03, 0.03, 0.6, 6), mat(0xc9cdd8), 0, 2.95, 0); // antena
+      add(new THREE.SphereGeometry(0.1, 8, 8), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.8 }), 0, 3.28, 0);
       break;
     }
     case 'carta':
