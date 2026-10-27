@@ -174,6 +174,9 @@ export function criarItens() {
     escudo: icone((s) => { s.poligono([[6, 0.5], [11, 2.5], [10, 8], [6, 11.5], [2, 8], [1, 2.5]], '#4aa8ff'); s.poligono([[6, 2], [9, 3.5], [8.5, 7.5], [6, 9.5], [3.5, 7.5], [3, 3.5]], '#8bd3ff'); }),
     turbo: icone((s) => { s.poligono([[7, 0.5], [2.5, 6.5], [5.5, 6.5], [4.5, 11.5], [9.5, 5], [6.5, 5]], '#ffe14a'); }),
     moedaEsp: icone((s) => { s.disco(6, 6, 5, '#38c8ff'); s.disco(6, 6, 4, '#ffd23f'); s.disco(6, 6, 2, '#c9971a'); s.pixel(5, 5, '#ffffff'); }),
+    // estrelas de poder: cada cor dá um bônus por um tempo
+    ...Object.fromEntries([['estrelaVermelha', '#ff3b4a', '#ff9aa6'], ['estrelaAmarela', '#ffd23f', '#fff4a8'], ['estrelaAzul', '#3f8cff', '#9cc8ff'], ['estrelaRoxa', '#a56bff', '#d9c2ff']]
+      .map(([nome, a, b]) => [nome, icone((s) => { s.poligono(estrela(5, 5.6, 2.4), a); s.poligono(estrela(5, 3.4, 1.5), b); s.pixel(6, 6, '#ffffff'); })])),
   };
 }
 

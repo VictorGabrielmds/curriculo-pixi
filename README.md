@@ -18,6 +18,10 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 
 ### Moedas e Nave Arcade (resumo dos extras do jogo de nave)
 
+- **Obstáculos no mapa**: planetas e luas (sólidos, ninguém atravessa), cadeias de rochas escuras (muralhas curvas com brechas para passar) e campos de detritos (poeira e cascalho que deixam lento quem estiver dentro, a nave e os monstros). A região de partida fica livre.
+- **Estrelas de poder**: de tempos em tempos surge uma estrela perto da nave (com um pontinho de aviso quando está fora da tela, mostrando os segundos que faltam): vermelha = dano +50% por 12 s, amarela = velocidade +50% por 12 s, azul = escudo por 9 s, roxa = XP em dobro por 15 s.
+- **Buraco negro com tempo**: ele some depois de 28 s; o tempo que falta aparece em cima dele e ao lado do pontinho que aponta para ele (que pisca nos últimos 8 s).
+- **Poderes dos alienígenas mais raros**: só cerca de 1 em cada 4 ataques é um poder especial, e nunca dois seguidos; o resto são rajada, tiro mirado e investida.
 - **Monstros de todos os lados**: eles surgem sempre fora da tela, num anel em volta da nave (em cima, embaixo e dos lados), alguns bem longe, como se já estivessem por ali, e vão atrás de você. O mundo já começa povoado, aparecem monstros à frente de quem anda, e com o tempo cada surgimento traz um grupo maior.
 - **Ondas**: os monstros nunca param de aparecer; de tempos em tempos vem uma onda com um extra deles (sem placar nem recompensa, é só um acontecimento) e, a cada 3 ondas, um chefão e uma nova fase. As primeiras ondas são fáceis (os monstros morrem de um tiro) e a dificuldade sobe com o tempo e com as ondas. Há **combo** (monstros em sequência) e o recorde de onda fica salvo.
 - **Tudo fica mais forte com o tempo**: monstros, chefões e alienígenas ganham vida e velocidade, os tiros inimigos ferem mais, o chefão aprende espiral, anéis, raios e invocação, e o alienígena vai liberando mais ataques. Os monstros nunca param de aparecer, e as ondas são um extra por cima. O **combo** zera ao levar dano. O **laser** é curto, esquenta e recarrega devagar.

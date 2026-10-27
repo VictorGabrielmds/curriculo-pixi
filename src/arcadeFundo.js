@@ -390,8 +390,11 @@ export const REGIOES = [
   { nivel: 2, nome: 'TEIA CÓSMICA', base: '#05050f', tom: '170, 150, 255', nebulosas: ['70, 50, 170', '150, 110, 60'], objetos: ['teia', 'buraconegro'], planetas: 0.1 },
 ];
 
+let planetasCache = null;
+export const planetasSprites = () => (planetasCache ??= TIPOS_PLANETA.map((cfg, i) => gerarPlaneta(cfg, i * 13 + 3))); // também usados como obstáculos no jogo
+
 export function criarFundo(W, H) {
-  const planetas = TIPOS_PLANETA.map((cfg, i) => gerarPlaneta(cfg, i * 13 + 3));
+  const planetas = planetasSprites();
   const buf = document.createElement('canvas'); buf.width = W; buf.height = H;
   const gb = buf.getContext('2d'); gb.imageSmoothingEnabled = false;
   let meteoros = [];

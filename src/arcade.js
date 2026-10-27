@@ -4,6 +4,7 @@
 import './arcade.css';
 import { novoSprite, silhuetaBranca } from './pixelArt.js';
 import { criarFundo, REGIOES } from './arcadeFundo.js';
+import { criarObstaculos } from './arcadeObstaculos.js';
 import { criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js';
 import { TEMAS, ALIENS, CHEFES } from './arcadeTemas.js';
 
@@ -110,6 +111,14 @@ const OFICINA = [
   { parte: 'SENSORES', id: 'xp', nome: 'Cristais ricos', desc: '+10% de XP dos cristais', max: 5, custo: (n) => 8 + n * 6 },
 ];
 
+// estrelas de poder: aparecem de tempos em tempos perto da nave; cada cor dá um bônus por um tempo
+const ESTRELAS = {
+  estrelaVermelha: { cor: '#ff3b4a', nome: 'DANO +50%', tempo: 12, peso: 3 },
+  estrelaAmarela: { cor: '#ffd23f', nome: 'VELOCIDADE +50%', tempo: 12, peso: 3 },
+  estrelaAzul: { cor: '#3f8cff', nome: 'ESCUDO', tempo: 9, peso: 2.5 },
+  estrelaRoxa: { cor: '#a56bff', nome: 'XP EM DOBRO', tempo: 15, peso: 2 },
+};
+const PESOS_ESTRELAS = Object.entries(ESTRELAS).map(([k, v]) => [k, v.peso]);
 const PESOS_ITENS = [['ima', 0.25], ['explosao', 0.2], ['coracao', 0.2], ['escudo', 0.15], ['turbo', 0.2]];
 
 const dadosPadrao = () => ({ tempo: 0, kills: 0, moedas: 0, skin: 0, onda: 0, oficina: Object.fromEntries(OFICINA.map((o) => [o.id, 0])) });
@@ -166,6 +175,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
   const sprites = criarSprites();
   const rochasSpr = criarRochas(), itensSpr = criarItens();
+  const obstaculos = criarObstaculos({ inicioX: CX, inicioY: CY, rochasSpr }); // planetas, cadeias de rochas e campos de detritos fixos no mapa
   const cacheAlien = new Map(), cacheChefe = new Map();
   const alienSprite = (i) => { if (!cacheAlien.has(i)) cacheAlien.set(i, ALIENS[i].criar()); return cacheAlien.get(i); };
   const chefeSprite = (i) => { if (!cacheChefe.has(i)) cacheChefe.set(i, CHEFES[i].criar()); return cacheChefe.get(i); };
@@ -361,7 +371,7 @@ export function iniciarArcade({ bip, somAtivo }) {
       dano: 1 + 0.25 * of.dano, danoGlobal: 1, recargaGlobal: 1, cadencia: 2.6 * (1 + 0.1 * of.cadencia), projeteis: 1 + of.projetil, perfura: 0, velTiro: 160, critico: 0,
       inimigos: [], tiros: [], tirosInimigos: [], campos: [], raios: [], rochas: [], itens: [], parts: [], ondas: [], textos: [],
       spawnAcc: 0, recarga: 0.3, invul: 0, mira: 0, tremor: 0, flash: 0, niveis: {},
-      imaT: 0, turboT: 0, escudoT: 0,
+      imaT: 0, turboT: 0, escudoT: 0, buffDanoT: 0, buffVelT: 0, buffXpT: 0, proxEstrela: 10 + Math.random() * 8,
       proxBuraco: 40 + Math.random() * 30, buraco: null, alien: null, mundoSalvo: null, aliensVencidos: 0, pendente: null,
       chefeIdx: Math.floor(Math.random() * CHEFES.length), alienIdx: Math.floor(Math.random() * ALIENS.length), chefe: null, chefesVencidos: 0, moedasRun: 0,
       skinBase: Math.floor(Math.random() * TEMAS.length), elencoRun, entradaRun, skinsRun,
@@ -535,6 +545,15 @@ export function iniciarArcade({ bip, somAtivo }) {
     else if (t === 'coracao') { S.hp = Math.min(S.maxHp, S.hp + 2); texto(S.nx, S.ny - 12, '+VIDA', '#ff7a8a'); }
     else if (t === 'escudo') { S.escudoT = 6; texto(S.nx, S.ny - 12, 'ESCUDO!', '#8bd3ff'); }
     else if (t === 'turbo') { S.turboT = 8; texto(S.nx, S.ny - 12, 'TURBO!', '#ffe14a'); }
+    else if (ESTRELAS[t]) {
+      const e = ESTRELAS[t];
+      if (t === 'estrelaVermelha') { if (S.buffDanoT <= 0) S.danoGlobal *= 1.5; S.buffDanoT = e.tempo; }
+      else if (t === 'estrelaAmarela') S.buffVelT = e.tempo;
+      else if (t === 'estrelaAzul') S.escudoT = Math.max(S.escudoT, e.tempo);
+      else if (t === 'estrelaRoxa') S.buffXpT = e.tempo;
+      texto(S.nx, S.ny - 12, e.nome, e.cor); particulas(S.nx, S.ny, 14, [e.cor, '#ffffff'], 70); S.ondas.push({ x: S.nx, y: S.ny, r: 0, max: 40, v: 110, cor: e.cor });
+      bip(660, 0.08, 'triangle', 0.05); bip(990, 0.1, 'triangle', 0.05, 0.08); bip(1320, 0.14, 'triangle', 0.05, 0.16);
+    }
     else if (t === 'moedaEsp') { dados.moedas += 1; S.moedasRun += 1; salvarDados(); texto(S.nx, S.ny - 12, '+1 MOEDA', '#6fe8ff'); }
     bip(880, 0.06, 'square', 0.04); bip(1175, 0.08, 'square', 0.04, 0.06);
   }
@@ -699,7 +718,8 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.invul = 2; S.proxBuraco = S.t + 60 + Math.random() * 40; S.flash = 0.4;
     if (vitoria) {
       S.aliensVencidos += 1;
-      S.imaT = Math.max(S.imaT, 3); texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); // derrotar um alienígena dá o ímã: puxa todos os cristais      for (let k = 0; k < 6; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 40, S.ny + (Math.random() - 0.5) * 40, 6);
+      S.imaT = Math.max(S.imaT, 3); texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); // derrotar um alienígena dá o ímã: puxa todos os cristais
+      for (let k = 0; k < 6; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 40, S.ny + (Math.random() - 0.5) * 40, 6);
       const livres = Object.keys(NOMES_PODER).filter((id) => !S.poderes[id]);
       if (livres.length && S.slots.includes(null)) darPoder(S, livres[Math.floor(Math.random() * livres.length)]);
       else {
@@ -749,7 +769,10 @@ export function iniciarArcade({ bip, somAtivo }) {
       al.cd -= dt * ritmo;
       if (al.cd <= 0) {
         const gosto = ALIENS[al.v].pesos; // cada alienígena prefere alguns ataques e tem os seus golpes exclusivos
-        al.ataque = sorteio(ATAQUES_BASE.filter(([, , desde]) => S.t >= desde).map(([k, p]) => [k, p + (gosto[k] || 0)]).filter(([, p]) => p > 0));
+        // os poderes (tudo que não é rajada, tiro mirado ou investida) são raros: pesam bem menos e nunca vêm dois seguidos
+        const basico = (k) => k === 'rajada' || k === 'mira' || k === 'investida';
+        al.ataque = sorteio(ATAQUES_BASE.filter(([, , desde]) => S.t >= desde).map(([k, p]) => [k, (p + (gosto[k] || 0)) * (basico(k) ? 1 : 0.3)]).filter(([k, p]) => p > 0 && !(al.ultimoPoder && !basico(k))));
+        al.ultimoPoder = !basico(al.ataque);
         al.estado = 'carga'; al.carga = 0.5;
         texto(al.x, Math.max(12, al.y - 24), NOMES_ATAQUE[al.ataque] || '', '#ff7ab8');
       }
@@ -873,7 +896,7 @@ export function iniciarArcade({ bip, somAtivo }) {
       const multDrift = S.driftT > 0 ? 1.75 + 0.15 * (nvDrift - 1) : 1;
       const multCargaSalto = ativa === 'salto' && S.saltoCarga > 0 ? 0.32 : 1;
       const multItem = S.turboT > 0 ? 1.35 : 1;
-      const forca = Math.min(1, tam), velocidade = S.velNave * multTurbo * multDrift * multCargaSalto * multItem;
+      const forca = Math.min(1, tam), velocidade = S.velNave * multTurbo * multDrift * multCargaSalto * multItem * (S.buffVelT > 0 ? 1.5 : 1) * (S.alien ? 1 : S.lentidao || 1);
       S.nx += S.dirX * velocidade * dt * forca; S.ny += S.dirY * velocidade * dt * forca;
     }
     if (S.alien) {
@@ -907,6 +930,11 @@ export function iniciarArcade({ bip, somAtivo }) {
     if (passo > 0 && passo < 60) { S.andou += passo; S.angAndar = Math.atan2(mvy, mvx); }
     while (S.andou >= 170) { S.andou -= 170; if (S.inimigos.length < cap) spawn(99, S.angAndar); }
     if (S.ondaT <= 0 && !S.chefe && !S.buraco && S.t >= S.proxBuraco) criarBuraco();
+    S.proxEstrela -= dt; // de tempos em tempos surge uma estrela de poder perto da nave
+    if (S.proxEstrela <= 0) {
+      S.proxEstrela = 16 + Math.random() * 14;
+      if (S.itens.filter((i) => ESTRELAS[i.tipo]).length < 2) { const ang = Math.random() * Math.PI * 2, d = 70 + Math.random() * 90; S.itens.push({ tipo: sorteio(PESOS_ESTRELAS), x: S.nx + Math.cos(ang) * d, y: S.ny + Math.sin(ang) * d, vida: 24, fase: Math.random() * 6 }); bip(1500, 0.05, 'sine', 0.03); }
+    }
     if (S.buraco) { atualizarBuraco(dt); if (S.alien) return; }
 
     // rochas: poucas, à deriva; empurram a nave de leve se ela encostar
@@ -921,7 +949,7 @@ export function iniciarArcade({ bip, somAtivo }) {
 
     // monstros
     for (const m of [...S.inimigos]) {
-      if (m.tipo === 'chefe') { moverChefe(m, dt); continue; }
+      if (m.tipo === 'chefe') { moverChefe(m, dt); obstaculos.empurrar(m, TIPOS.chefe.raio, { x: S.nx, y: S.ny }, 30 * dt); continue; }
       m.buffT = Math.max(0, (m.buffT || 0) - dt); m.suporteFx = Math.max(0, (m.suporteFx || 0) - dt);
       const dx = S.nx - m.x, dy = S.ny - m.y, d = Math.hypot(dx, dy) || 1;
       const buff = m.buffT > 0 ? 1.35 : 1;
@@ -960,10 +988,15 @@ export function iniciarArcade({ bip, somAtivo }) {
         if (aliados.length) m.suporteFx = 0.25;
         const k = d < 100 ? -0.7 : d > 150 ? 0.4 : 0; vx = (dx / d) * k * m.vel; vy = (dy / d) * k * m.vel;
       }
-      m.x += vx * dt; m.y += vy * dt;
+      const lento = obstaculos.fatorLento(m.x, m.y); // campos de detritos deixam os monstros lentos e corpos sólidos barram o caminho
+      m.x += vx * dt * lento; m.y += vy * dt * lento;
+      obstaculos.empurrar(m, TIPOS[m.tipo].raio, { x: S.nx, y: S.ny }, m.vel * dt * 0.9);
       m.piscar = Math.max(0, m.piscar - dt);
     }
     S.inimigos = S.inimigos.filter((m) => m.tipo === 'chefe' || Math.hypot(m.x - S.nx, m.y - S.ny) < 520);
+    // a nave também esbarra nos corpos sólidos e fica lenta nos campos de detritos
+    const eu = { x: S.nx, y: S.ny }; obstaculos.empurrar(eu, RAIO_NAVE); S.nx = eu.x; S.ny = eu.y;
+    S.lentidao = obstaculos.fatorLento(S.nx, S.ny);
 
     // itens no chão
     for (let i = S.itens.length - 1; i >= 0; i--) {
@@ -984,7 +1017,7 @@ export function iniciarArcade({ bip, somAtivo }) {
       if (S.imaT > 0) { c.x += (dx / d) * 280 * dt; c.y += (dy / d) * 280 * dt; } // ímã: puxa todos de uma vez
       else if (d < S.raioIma) { const puxa = 70 + (S.raioIma - d) * 4; c.x += (dx / d) * puxa * dt; c.y += (dy / d) * puxa * dt; }
       if (d < RAIO_NAVE + S.raioPegar) {
-        S.xp += c.v * S.bonusXp;
+        S.xp += c.v * S.bonusXp * (S.buffXpT > 0 ? 2 : 1);
         S.cristais.splice(i, 1);
         particulas(c.x, c.y, 4, ['#8be6ff', '#ffffff'], 35);
         bip(740 + Math.min(c.v, 6) * 60, 0.05, 'square', 0.03);
@@ -1238,6 +1271,8 @@ export function iniciarArcade({ bip, somAtivo }) {
     if (!S.alien) S.t += dt;
     S.invul = Math.max(0, S.invul - dt); S.tremor = Math.max(0, S.tremor - dt); S.flash = Math.max(0, S.flash - dt);
     S.imaT = Math.max(0, S.imaT - dt); S.turboT = Math.max(0, S.turboT - dt); S.escudoT = Math.max(0, S.escudoT - dt);
+    S.buffVelT = Math.max(0, S.buffVelT - dt); S.buffXpT = Math.max(0, S.buffXpT - dt);
+    if (S.buffDanoT > 0) { S.buffDanoT -= dt; if (S.buffDanoT <= 0) { S.buffDanoT = 0; S.danoGlobal /= 1.5; } }
     S.aviso = Math.max(0, S.aviso - dt);
     if (S.comboT > 0) { S.comboT -= dt; if (S.comboT <= 0) S.combo = 0; }
     if (S.upgFx) { S.upgFx.t -= dt; if (S.upgFx.t <= 0) S.upgFx = null; }
@@ -1515,11 +1550,17 @@ export function iniciarArcade({ bip, somAtivo }) {
     g.strokeStyle = '#8a5cff'; g.lineWidth = 2; g.strokeRect(ARENA.x0 - 3, ARENA.y0 - 3, ARENA.x1 - ARENA.x0 + 6, ARENA.y1 - ARENA.y0 + 6);
   }
 
-  function indicador(wx, wy, ox, oy, cor) {
+  function indicador(wx, wy, ox, oy, cor, rotulo = '', alerta = false) {
     const dx = wx - (ox + L / 2), dy = wy - (oy + A / 2);
     const k = Math.min((L / 2 - 10) / (Math.abs(dx) || 1e-6), (A / 2 - 10) / (Math.abs(dy) || 1e-6));
     const sx = Math.round(L / 2 + dx * k), sy = Math.round(A / 2 + dy * k);
+    if (alerta && Math.floor(S.ta * 6) % 2 === 0) return; // quando está acabando o tempo, o pontinho pisca
     g.fillStyle = '#070a1a'; g.fillRect(sx - 3, sy - 3, 7, 7); g.fillStyle = cor; g.fillRect(sx - 2, sy - 2, 5, 5); g.fillStyle = '#ffffff'; g.fillRect(sx - 1, sy - 1, 3, 3);
+    if (rotulo) { // tempo que falta, ao lado do pontinho (para dentro da tela)
+      const esq = sx < L / 2; g.font = 'bold 8px monospace'; g.textAlign = esq ? 'left' : 'right';
+      const tx = sx + (esq ? 7 : -7), ty = Math.max(10, Math.min(A - 4, sy + 3));
+      g.fillStyle = '#070a1a'; g.fillText(rotulo, tx + 1, ty + 1); g.fillStyle = alerta ? '#ff9aa6' : cor; g.fillText(rotulo, tx, ty);
+    }
   }
 
   function desenhar() {
@@ -1559,7 +1600,13 @@ export function iniciarArcade({ bip, somAtivo }) {
       }
     }
     if (mundo) {
-      if (S.buraco && visivel(S.buraco.x, S.buraco.y, 30)) desenharBuracoNegro(g, S.buraco.x, S.buraco.y, S.ta, Math.min(1, S.buraco.vida / 3));
+      obstaculos.desenhar(g, ox, oy, L, A, t); // planetas, cadeias de rochas e campos de detritos
+      if (S.buraco && visivel(S.buraco.x, S.buraco.y, 30)) {
+        desenharBuracoNegro(g, S.buraco.x, S.buraco.y, S.ta, Math.min(1, S.buraco.vida / 3));
+        const tempo = `${Math.ceil(S.buraco.vida)}s`, bx = Math.round(S.buraco.x), by = Math.round(S.buraco.y) - 28; // quanto tempo falta para ele sumir
+        g.save(); g.font = 'bold 8px monospace'; g.textAlign = 'center'; g.fillStyle = '#070a1a'; g.fillText(tempo, bx + 1, by + 1);
+        g.fillStyle = S.buraco.vida < 8 && Math.floor(S.ta * 6) % 2 === 0 ? '#ff9aa6' : '#d9a8ff'; g.fillText(tempo, bx, by); g.restore();
+      }
       for (const r of S.rochas) {
         if (!visivel(r.x, r.y, 20)) continue;
         const rach = r.hp <= r.hpMax * 0.34 ? 2 : r.hp <= r.hpMax * 0.67 ? 1 : 0;
@@ -1570,6 +1617,7 @@ export function iniciarArcade({ bip, somAtivo }) {
       }
       for (const it of S.itens) {
         if (!visivel(it.x, it.y) || (it.vida < 4 && it.tipo !== 'moedaEsp' && Math.floor(S.ta * 8) % 2 === 0)) continue;
+        if (ESTRELAS[it.tipo]) { g.save(); g.globalAlpha = 0.22 + 0.14 * Math.sin(S.ta * 6 + it.fase); g.fillStyle = ESTRELAS[it.tipo].cor; g.beginPath(); g.arc(Math.round(it.x), Math.round(it.y), 10, 0, Math.PI * 2); g.fill(); g.restore(); }
         g.drawImage(itensSpr[it.tipo], Math.round(it.x - 6), Math.round(it.y - 6 + Math.sin(S.ta * 4 + it.fase)));
       }
       for (const c of S.cristais) { if (visivel(c.x, c.y)) g.drawImage(spriteCristal(c.v), Math.round(c.x - 3.5), Math.round(c.y - 4.5 + Math.sin(S.ta * 4 + c.fase))); }
@@ -1673,6 +1721,9 @@ export function iniciarArcade({ bip, somAtivo }) {
       g.globalAlpha = 1 - u; g.strokeStyle = '#ffe14a'; g.lineWidth = 2; g.beginPath(); g.arc(nx, ny, Math.max(0, 8 + u * 22), 0, Math.PI * 2); g.stroke();
       g.strokeStyle = '#ffffff'; g.lineWidth = 1; g.beginPath(); g.arc(nx, ny, Math.max(0, 5 + u * 14), 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
     }
+    for (const [t, cor, raio] of [[S.buffDanoT, '#ff3b4a', 14], [S.buffVelT, '#ffd23f', 16], [S.buffXpT, '#a56bff', 18]]) { // aura de cada bônus ativo (pisca no fim)
+      if (t > 0 && (t > 2.5 || Math.floor(S.ta * 8) % 2 === 0)) { g.save(); g.globalAlpha = 0.55; g.strokeStyle = cor; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath(); g.arc(nx, ny, raio + Math.sin(S.ta * 8) * 1.2, 0, Math.PI * 2); g.stroke(); g.restore(); }
+    }
     if (S.escudoT > 0 && (S.escudoT > 1.5 || Math.floor(S.ta * 10) % 2 === 0)) { g.strokeStyle = '#8bd3ff'; g.lineWidth = 2; g.beginPath(); g.arc(nx, ny, 11, 0, Math.PI * 2); g.stroke(); }
     if (S.barreira > 0) { g.strokeStyle = '#7dff9a'; g.lineWidth = 1; g.globalAlpha = 0.7; g.beginPath(); g.arc(nx, ny, 12 + (S.barreira > 1 ? 2 : 0), 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
     for (const o of orbesPos()) { const px = Math.round(o.x), py = Math.round(o.y); g.fillStyle = '#070a1a'; g.fillRect(px - 3, py - 3, 7, 7); g.fillStyle = '#ff3bd4'; g.fillRect(px - 2, py - 2, 5, 5); g.fillStyle = '#ffffff'; g.fillRect(px - 1, py - 1, 2, 2); }
@@ -1688,9 +1739,10 @@ export function iniciarArcade({ bip, somAtivo }) {
       g.globalAlpha = 0.55 + 0.35 * Math.sin(t * 6);
       for (const { c } of fora) { const dx = c.x - (ox + L / 2), dy = c.y - (oy + A / 2), k = Math.min((L / 2 - 10) / (Math.abs(dx) || 1e-6), (A / 2 - 10) / (Math.abs(dy) || 1e-6)); g.drawImage(spriteCristal(c.v), Math.round(L / 2 + dx * k - 3.5), Math.round(A / 2 + dy * k - 4.5)); }
       g.globalAlpha = 1;
-      if (S.buraco && !visivel(S.buraco.x, S.buraco.y, 2)) indicador(S.buraco.x, S.buraco.y, ox, oy, '#c43fff');
+      if (S.buraco && !visivel(S.buraco.x, S.buraco.y, 2)) indicador(S.buraco.x, S.buraco.y, ox, oy, '#c43fff', `${Math.ceil(S.buraco.vida)}s`, S.buraco.vida < 8);
       if (S.chefe && !visivel(S.chefe.x, S.chefe.y, 2)) indicador(S.chefe.x, S.chefe.y, ox, oy, '#ff3b4a');
       for (const it of S.itens) if (it.tipo === 'moedaEsp' && !visivel(it.x, it.y, 2)) indicador(it.x, it.y, ox, oy, '#38c8ff');
+      for (const it of S.itens) if (ESTRELAS[it.tipo] && !visivel(it.x, it.y, 2)) indicador(it.x, it.y, ox, oy, ESTRELAS[it.tipo].cor, `${Math.ceil(it.vida)}s`, it.vida < 5);
     }
     if (!S.alien) {
       const rotulo = (txt, x, y, cor, alinha = 'center') => { g.font = 'bold 8px monospace'; g.textAlign = alinha; g.fillStyle = '#070a1a'; g.fillText(txt, x + 1, y + 1); g.fillStyle = cor; g.fillText(txt, x, y); };
@@ -1710,7 +1762,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   function atualizarHud() {
     if (!S) return;
     const armaAtiva = S.arma >= 2 ? S.slots[S.arma - 2] : 'normal';
-    const efeitos = [S.imaT > 0 ? 'ÍMÃ' : '', S.escudoT > 0 ? `ESCUDO ${Math.ceil(S.escudoT)}` : '', S.turboT > 0 ? `TURBO ${Math.ceil(S.turboT)}` : '', armaAtiva === 'turbo' && S.boostE > 0 ? 'HIPERPROPULSOR' : '', S.driftT > 0 ? 'DRIFT ÍGNEO' : ''].filter(Boolean).join(' ');
+    const efeitos = [S.buffDanoT > 0 ? `DANO+ ${Math.ceil(S.buffDanoT)}` : '', S.buffVelT > 0 ? `VELOC+ ${Math.ceil(S.buffVelT)}` : '', S.buffXpT > 0 ? `XP×2 ${Math.ceil(S.buffXpT)}` : '', S.lentidao < 1 ? 'DETRITOS: LENTO' : '', S.imaT > 0 ? 'ÍMÃ' : '', S.escudoT > 0 ? `ESCUDO ${Math.ceil(S.escudoT)}` : '', S.turboT > 0 ? `TURBO ${Math.ceil(S.turboT)}` : '', armaAtiva === 'turbo' && S.boostE > 0 ? 'HIPERPROPULSOR' : '', S.driftT > 0 ? 'DRIFT ÍGNEO' : ''].filter(Boolean).join(' ');
     const chave = `${S.hp}/${S.maxHp}|${S.nivel}|${Math.floor(S.xp)}|${S.xpProx}|${S.kills}|${Math.floor(S.t)}|${S.onda}|${S.fase}|${S.aviso > 0}|${S.avisoTxt}|${efeitos}|${dados.moedas}|${!!S.alien}`;
     if (chave === hudCache) return;
     hudCache = chave;
@@ -1904,6 +1956,15 @@ export function iniciarArcade({ bip, somAtivo }) {
         fase: (n) => { S.onda = (n - 1) * 3; S.ondaEstado = 'calma'; S.proxOnda = 0; },
         regiao: (n) => { S.regiaoForcada = n; },
         subirNivel: () => { S.xp = S.xpProx; },
+        estrela: (tipo) => S.itens.push({ tipo, x: S.nx + 10, y: S.ny, vida: 24, fase: 0 }),
+        buffs: () => ({ dano: +S.buffDanoT.toFixed(1), vel: +S.buffVelT.toFixed(1), xp: +S.buffXpT.toFixed(1), escudo: +S.escudoT.toFixed(1), danoGlobal: +S.danoGlobal.toFixed(2), xpAtual: +S.xp.toFixed(1) }),
+        ir: (x, y) => { S.nx = x; S.ny = y; S.cx = x; S.cy = y; },
+        achar: () => { // procura um planeta, uma cadeia de rochas e um campo de detritos perto da partida
+          const r = {};
+          for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const c = obstaculos.celula(i, j); if (!r.planeta && c.planetas[0]) r.planeta = [Math.round(c.planetas[0].x), Math.round(c.planetas[0].y)]; if (!r.cadeia && c.rochas.length > 6) r.cadeia = [Math.round(c.rochas[Math.floor(c.rochas.length / 2)].x), Math.round(c.rochas[Math.floor(c.rochas.length / 2)].y), c.rochas.length]; if (!r.campo && c.zonas[0]) r.campo = [Math.round(c.zonas[0].x), Math.round(c.zonas[0].y), Math.round(c.zonas[0].r)]; }
+          return r;
+        },
+        lentidao: () => S.lentidao,
         projeteis: (n) => { S.projeteis = n; S.niveis.proj_canhao = Math.min(2, n - 1); },
         completar: () => { if (S.ondaEstado !== 'calma') terminarOnda(); },
         hp: (n) => { S.hp = n; },
@@ -1925,7 +1986,7 @@ export function iniciarArcade({ bip, somAtivo }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
+        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
       },
     };
   }
