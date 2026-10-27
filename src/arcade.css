@@ -57,3 +57,10 @@
   .arc-carta { width: 100%; }
   .arc-painel p { font-size: 12px; }
 }
+
+/* aviso de onda e contagem no HUD */
+.arc-aviso { position: absolute; top: 12%; left: 0; right: 0; z-index: 2; text-align: center; pointer-events: none; font-size: clamp(14px, 3vw, 28px); letter-spacing: 3px; color: #ff3b4a; animation: arc-pisca 0.35s steps(2) infinite;
+  text-shadow: 2px 0 #070a1a, -2px 0 #070a1a, 0 2px #070a1a, 0 -2px #070a1a, 2px 2px #070a1a, -2px -2px #070a1a, 2px -2px #070a1a, -2px 2px #070a1a; }
+@keyframes arc-pisca { 50% { opacity: 0.2; } }
+.arc-onda { color: #ffb36b; }
+.arc-onda.alerta { color: #ff3b4a; animation: arc-pisca 0.5s steps(2) infinite; }
