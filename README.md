@@ -18,6 +18,7 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 
 ### Moedas e Nave Arcade (resumo dos extras do jogo de nave)
 
+- **Planeta inicial**: as sete estações são pequenas, ficam bem espaçadas (quatro num anel perto da partida e três atrás) e foram refeitas com mais detalhes: chalé com chaminé e venezianas, torre de escritórios com toldo e caixa-d'água, base de lançamento com torre de serviço, monumento de estrela com satélites, caça-níquel com letreiro de lâmpadas, nave pousada e caixa de correio de rua. Cada plataforma tem postes de luz e só o monumento da estrela flutua.
 - **Obstáculos no mapa**: planetas e luas (sólidos, ninguém atravessa), cadeias de rochas escuras (muralhas curvas com brechas para passar) e campos de detritos (poeira e cascalho que deixam lento quem estiver dentro, a nave e os monstros). A região de partida fica livre.
 - **Estrelas de poder**: de tempos em tempos surge uma estrela perto da nave (com um pontinho de aviso quando está fora da tela, mostrando os segundos que faltam): vermelha = dano +50% por 12 s, amarela = velocidade +50% por 12 s, azul = escudo por 9 s, roxa = XP em dobro por 15 s.
 - **Buraco negro com tempo**: ele some depois de 28 s; o tempo que falta aparece em cima dele e ao lado do pontinho que aponta para ele (que pisca nos últimos 8 s).

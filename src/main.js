@@ -8,17 +8,22 @@ import { iniciarArcade } from './arcade.js';
 const R = 5; // raio do planeta
 const K = 6.5 / R; // os raios em rad foram pensados para R=6,5; K corrige para o tamanho atual
 const VEL = 0.7; // rad/s caminhando (3,5 unidades/s)
-const ALCANCE = 0.42 * K; // rad (do personagem até a estação) para abrir o painel
-const RAIO_ESTACAO = 0.27 * K; // rad que o personagem não consegue atravessar
 const CIMA = new THREE.Vector3(0, 1, 0); // onde o personagem pisa (topo do planeta)
 
-// onde cada estação fica no planeta: [leste-oeste, norte-sul] em radianos; norte = para o fundo da tela
-const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6], [0.1, -0.95], [1.15, -0.8]];
+// onde cada estação fica no planeta: [distância angular do ponto de partida (rad), direção em graus: 0 = leste, 90 = norte (fundo da tela)]
+// bem espalhadas: quatro num anel perto da partida e três no anel de trás, todas a mais de 1,3 rad umas das outras
+const POSICOES = [[0.95, 30], [1.1, 120], [1.1, 210], [1.1, 300], [2.15, 75], [2.15, 195], [2.15, 315]];
 function posicaoZona(i) {
-  const [lon, lat] = POSICOES[i] ?? [i * 2.4, (((i * 0.37) % 1) - 0.5) * 1.6]; // zonas extras: espalha em espiral
-  return new THREE.Vector3(Math.sin(lon) * Math.cos(lat), Math.cos(lon) * Math.cos(lat), -Math.sin(lat));
+  const [pol, graus] = POSICOES[i] ?? [1.2 + (i % 3) * 0.5, i * 137.5]; // zonas extras: espalha em espiral
+  const az = (graus * Math.PI) / 180;
+  return new THREE.Vector3(Math.sin(pol) * Math.cos(az), Math.cos(pol), -Math.sin(pol) * Math.sin(az));
 }
 const dirsZonas = zonas.map((_, i) => posicaoZona(i));
+// estações pequenas: o tamanho vem da zona (z.escala) ou é este; o personagem não atravessa a plataforma e o painel abre um pouco antes
+const ESCALA_ESTACAO = 0.6;
+const escalaZona = (z) => z.escala ?? ESCALA_ESTACAO;
+const raioBloqueio = zonas.map((z) => (1.85 * escalaZona(z)) / R + 0.03); // rad que o personagem não consegue atravessar
+const alcanceZona = raioBloqueio.map((r) => r + 0.22); // rad (do personagem até a estação) para abrir o painel
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -233,7 +238,7 @@ const obstaculos = [];
     for (let t = 0; t < 40; t++) {
       dir.set(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
       if (dir.angleTo(CIMA) < 0.3 * K) continue; // deixa livre a área de partida
-      if (dirsZonas.some((d) => dir.angleTo(d) < 0.38 * K)) continue; // e o entorno das estações
+      if (dirsZonas.some((d, k) => dir.angleTo(d) < raioBloqueio[k] + 0.2)) continue; // e o entorno das estações
       if (altura(dir) < NIVEL_MAR + 0.05) continue; // só em terra
       return dir.clone();
     }
@@ -310,66 +315,107 @@ function estrelaForma(raio) {
 
 function modelo(tipo, cor) {
   const g = new THREE.Group();
-  const claro = mat(cor, { emissive: cor, emissiveIntensity: 0.12 });
-  const escuro = mat(new THREE.Color(cor).multiplyScalar(0.55));
+  const c = new THREE.Color(cor);
+  const claro = mat(cor, { emissive: cor, emissiveIntensity: 0.1 });
+  const medio = mat(c.clone().multiplyScalar(0.78));
+  const escuro = mat(c.clone().multiplyScalar(0.5));
+  const pedra = mat(0x9aa0b4), pedraEscura = mat(0x5a6078), madeira = mat(0x9a6a3c), madeiraEscura = mat(0x5a3a22);
+  const branco = mat(0xf1f3fb), metal = mat(0xc9cdd8), preto = mat(0x1b1d2e), vermelho = mat(0xe0364a), amarelo = mat(0xffc83d);
   const luz = new THREE.MeshStandardMaterial({ color: 0xfff6c8, emissive: 0xffe9a0, emissiveIntensity: 1.2 });
   const add = (geo, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
+  const caixa = (w, h, d, m, x, y, z) => add(new THREE.BoxGeometry(w, h, d), m, x, y, z);
+  const cil = (r1, r2, h, m, x, y, z, seg = 12) => add(new THREE.CylinderGeometry(r1, r2, h, seg), m, x, y, z);
+  const esfera = (r, m, x, y, z) => add(new THREE.SphereGeometry(r, 10, 8), m, x, y, z);
   switch (tipo) {
-    case 'casa':
-      add(new THREE.BoxGeometry(2, 1.4, 1.7), claro, 0, 0.7);
-      add(new THREE.ConeGeometry(1.75, 1, 4), escuro, 0, 1.9).rotation.y = Math.PI / 4;
-      add(new THREE.BoxGeometry(0.45, 0.8, 0.1), escuro, 0, 0.4, 0.86);
-      add(new THREE.BoxGeometry(0.4, 0.4, 0.1), luz, -0.65, 0.85, 0.86);
-      add(new THREE.BoxGeometry(0.4, 0.4, 0.1), luz, 0.65, 0.85, 0.86);
-      add(new THREE.BoxGeometry(0.3, 0.7, 0.3), escuro, 0.6, 2.2, -0.2);
-      break;
-    case 'predio':
-      add(new THREE.BoxGeometry(1.7, 3.4, 1.7), claro, 0, 1.7);
-      add(new THREE.BoxGeometry(1.9, 0.2, 1.9), escuro, 0, 3.45);
-      for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
-        add(new THREE.BoxGeometry(0.28, 0.4, 0.06), (r + c) % 3 ? luz : escuro, -0.5 + c * 0.5, 0.9 + r * 0.7, 0.86);
+    case 'casa': { // chalé de duas águas, com chaminé, porta com degraus, janelas com venezianas e um pequeno jardim
+      caixa(2.5, 0.22, 2.0, pedra, 0, 0.11, 0); // fundação de pedra
+      caixa(2.2, 1.25, 1.7, claro, 0, 0.84, 0); // paredes
+      for (const s of [-1, 1]) { const t = caixa(2.5, 0.12, 1.15, escuro, 0, 1.78, s * 0.5); t.rotation.x = s * 0.62; } // telhado
+      caixa(2.56, 0.14, 0.16, mat(c.clone().multiplyScalar(0.35)), 0, 2.13, 0); // cumeeira
+      const tri = new THREE.Shape(); tri.moveTo(-0.85, 0); tri.lineTo(0.85, 0); tri.lineTo(0, 0.62); tri.closePath();
+      for (const s of [-1, 1]) { const e = add(new THREE.ExtrudeGeometry(tri, { depth: 0.06, bevelEnabled: false }), claro, s * 1.1 - 0.03, 1.46, 0); e.rotation.y = Math.PI / 2; } // empenas
+      caixa(0.3, 0.8, 0.3, pedraEscura, 0.65, 2.0, -0.28); caixa(0.4, 0.08, 0.4, pedra, 0.65, 2.42, -0.28); // chaminé
+      caixa(0.62, 1.0, 0.04, branco, 0, 0.72, 0.86); caixa(0.5, 0.9, 0.06, madeiraEscura, 0, 0.67, 0.88); esfera(0.04, metal, 0.16, 0.65, 0.93); // porta
+      caixa(0.9, 0.12, 0.4, pedra, 0, 0.1, 1.2); // degrau
+      for (const x of [-0.72, 0.72]) { // janelas da frente
+        caixa(0.55, 0.55, 0.05, branco, x, 0.98, 0.86); caixa(0.42, 0.42, 0.06, luz, x, 0.98, 0.88);
+        caixa(0.04, 0.42, 0.07, branco, x, 0.98, 0.89); caixa(0.42, 0.04, 0.07, branco, x, 0.98, 0.89);
+        for (const s of [-1, 1]) caixa(0.14, 0.5, 0.04, medio, x + s * 0.38, 0.98, 0.88); // venezianas
       }
-      add(new THREE.BoxGeometry(0.5, 0.7, 0.1), escuro, 0, 0.35, 0.86);
+      for (const s of [-1, 1]) { caixa(0.05, 0.5, 0.5, branco, s * 1.11, 0.95, 0.1); caixa(0.06, 0.38, 0.38, luz, s * 1.12, 0.95, 0.1); } // janelas laterais
+      esfera(0.07, luz, 0.5, 1.2, 0.92); // lampião da varanda
+      cil(0.04, 0.04, 0.5, madeira, 1.55, 0.45, 1.1, 6); caixa(0.32, 0.22, 0.22, vermelho, 1.55, 0.8, 1.1); // caixa de correio
+      caixa(0.7, 0.12, 0.22, madeiraEscura, -0.85, 0.28, 1.2); // canteiro
+      [[-1.1, vermelho], [-0.9, amarelo], [-0.7, mat(0xff8ad0)], [-0.55, vermelho]].forEach(([x, m]) => esfera(0.07, m, x, 0.4, 1.2));
       break;
-    case 'foguete':
-      add(new THREE.CylinderGeometry(0.55, 0.62, 2.4, 14), mat(0xf3f4fb), 0, 1.9);
-      add(new THREE.ConeGeometry(0.55, 1, 14), claro, 0, 3.6);
-      add(new THREE.SphereGeometry(0.28, 12, 12), mat(0x4aa8ff, { emissive: 0x2c78d0, emissiveIntensity: 0.6 }), 0, 2.4, 0.5);
+    }
+    case 'predio': { // torre de escritórios com térreo, coroamento recuado, janelas em grade, toldo e caixa-d'água no teto
+      caixa(2.4, 0.2, 2.2, pedraEscura, 0, 0.1, 0); // calçada
+      caixa(2.0, 0.7, 1.8, escuro, 0, 0.55, 0); // térreo
+      caixa(1.7, 2.6, 1.5, claro, 0, 2.15, 0); // torre
+      caixa(1.2, 0.5, 1.05, medio, 0, 3.7, 0); // coroamento recuado
+      for (let r = 0; r < 5; r++) for (let col = 0; col < 3; col++) caixa(0.34, 0.36, 0.05, (r * 2 + col) % 5 === 0 ? escuro : luz, -0.5 + col * 0.5, 1.2 + r * 0.5, 0.77);
+      for (let r = 0; r < 5; r++) for (const s of [-1, 1]) for (let col = 0; col < 2; col++) caixa(0.05, 0.36, 0.34, (r + col) % 3 === 0 ? escuro : luz, s * 0.86, 1.2 + r * 0.5, -0.3 + col * 0.6);
+      for (const y of [1.0, 3.45]) caixa(1.78, 0.07, 1.58, escuro, 0, y, 0); // faixas
+      caixa(0.7, 0.55, 0.05, luz, 0, 0.45, 0.93); caixa(0.04, 0.55, 0.06, escuro, 0, 0.45, 0.94); // porta de vidro
+      caixa(1.2, 0.08, 0.55, vermelho, 0, 0.86, 1.12); for (const s of [-1, 1]) cil(0.03, 0.03, 0.62, metal, s * 0.55, 0.55, 1.36, 6); // toldo
+      caixa(0.9, 0.14, 0.05, luz, 0, 3.7, 0.54); // letreiro
+      cil(0.22, 0.22, 0.5, madeira, 0.3, 4.2, 0.1); add(new THREE.ConeGeometry(0.26, 0.2, 10), madeiraEscura, 0.3, 4.55, 0.1); // caixa-d'água
+      caixa(0.3, 0.2, 0.3, pedra, -0.3, 4.05, 0.25); // ar-condicionado
+      cil(0.025, 0.025, 0.9, metal, -0.3, 4.4, -0.2, 6); esfera(0.07, mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.9 }), -0.3, 4.88, -0.2); // antena
+      break;
+    }
+    case 'foguete': { // plataforma de lançamento com torre de serviço, tanque e o foguete com janelinha e aletas
+      caixa(2.4, 0.16, 2.4, pedraEscura, 0, 0.08, 0); // plataforma
+      for (let i = 0; i < 9; i++) caixa(0.26, 0.05, 0.12, i % 2 ? preto : amarelo, -1.04 + i * 0.26, 0.18, 1.12); // faixas de alerta
+      cil(0.5, 0.56, 2.3, branco, 0, 1.9, 0, 16); add(new THREE.ConeGeometry(0.5, 1.0, 16), claro, 0, 3.55, 0);
+      cil(0.52, 0.52, 0.16, vermelho, 0, 2.95, 0, 16); cil(0.58, 0.58, 0.1, escuro, 0, 0.8, 0, 16); // faixa e anel da base
+      add(new THREE.TorusGeometry(0.21, 0.045, 8, 18), metal, 0, 2.4, 0.5); esfera(0.18, mat(0x4aa8ff, { emissive: 0x2c78d0, emissiveIntensity: 0.7 }), 0, 2.4, 0.5); // janelinha
       for (let i = 0; i < 3; i++) {
-        const f = add(new THREE.BoxGeometry(0.08, 0.9, 0.7), claro, 0, 1, 0);
-        const piv = new THREE.Group();
-        piv.rotation.y = (i / 3) * Math.PI * 2;
-        f.position.set(0.62, 1, 0);
-        f.parent.remove(f); piv.add(f); g.add(piv);
+        const f = caixa(0.08, 0.9, 0.7, claro, 0, 1, 0);
+        const piv = new THREE.Group(); piv.rotation.y = (i / 3) * Math.PI * 2 + 0.5; f.position.set(0.62, 1, 0); f.parent.remove(f); piv.add(f); g.add(piv);
       }
-      add(new THREE.ConeGeometry(0.35, 0.9, 10), mat(0xffb02e, { emissive: 0xff7a1a, emissiveIntensity: 1 }), 0, 0.45).rotation.x = Math.PI;
-      break;
-    case 'estrela': {
-      add(new THREE.CylinderGeometry(0.08, 0.12, 2, 8), escuro, 0, 1);
-      const e = add(new THREE.ExtrudeGeometry(estrelaForma(1.1), { depth: 0.35, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 1 }), mat(cor, { emissive: cor, emissiveIntensity: 0.55 }), 0, 3.1, -0.17);
-      e.name = 'gira';
+      add(new THREE.ConeGeometry(0.34, 0.8, 10), mat(0xffb02e, { emissive: 0xff7a1a, emissiveIntensity: 1 }), 0, 0.5, 0).rotation.x = Math.PI; // chama
+      for (const z of [-0.35, 0.35]) caixa(0.1, 3.5, 0.1, metal, 1.1, 1.9, z); // torre de serviço
+      for (const y of [0.7, 1.5, 2.3, 3.1]) caixa(0.08, 0.08, 0.7, metal, 1.1, y, 0);
+      caixa(0.75, 0.1, 0.12, metal, 0.75, 2.6, 0); esfera(0.07, luz, 1.1, 3.7, 0); // braço e luz da torre
+      add(new THREE.CylinderGeometry(0.22, 0.22, 0.9, 12), branco, -1.0, 0.4, 0.7).rotation.z = Math.PI / 2; // tanque de combustível
+      for (const x of [-1.3, -0.7]) caixa(0.08, 0.2, 0.3, metal, x, 0.25, 0.7);
       break;
     }
-    case 'cassino': {
+    case 'estrela': { // monumento: pedestal em degraus, coluna e uma estrela girando com satélites
+      cil(1.15, 1.3, 0.2, pedra, 0, 0.1, 0, 20); cil(0.8, 0.95, 0.22, pedraEscura, 0, 0.31, 0, 20); // degraus
+      cil(0.16, 0.22, 1.5, metal, 0, 1.15, 0); cil(0.3, 0.3, 0.1, metal, 0, 1.95, 0); // coluna e capitel
+      const gira = new THREE.Group(); gira.name = 'gira'; gira.position.y = 2.85; g.add(gira);
+      const estrelaM = new THREE.Mesh(new THREE.ExtrudeGeometry(estrelaForma(0.95), { depth: 0.3, bevelEnabled: true, bevelSize: 0.07, bevelThickness: 0.07, bevelSegments: 1 }), mat(cor, { emissive: cor, emissiveIntensity: 0.55 }));
+      estrelaM.position.z = -0.15; gira.add(estrelaM);
+      const aro = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.03, 8, 40), mat(cor, { emissive: cor, emissiveIntensity: 0.6 })); aro.rotation.x = Math.PI / 2; gira.add(aro);
+      [0, 2.1, 4.2].forEach((a, k) => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mat([0xff5d8f, 0x58d6ff, 0xffe14a][k], { emissive: [0xff5d8f, 0x58d6ff, 0xffe14a][k], emissiveIntensity: 0.7 })); s.position.set(Math.cos(a) * 1.25, 0, Math.sin(a) * 1.25); gira.add(s); });
+      break;
+    }
+    case 'cassino': { // máquina caça-níquel: corpo cromado, letreiro com lâmpadas, rolos, botões, bandeja e alavanca
       const prata = mat(0xcfd6df, { emissive: 0x3a4250, emissiveIntensity: 0.25 });
-      const rolo = (cx, cor) => add(new THREE.BoxGeometry(0.36, 0.5, 0.06), mat(cor, { emissive: cor, emissiveIntensity: 0.7 }), cx, 2.05, 0.66);
-      add(new THREE.BoxGeometry(2.2, 0.3, 1.6), escuro, 0, 0.15); // base
-      add(new THREE.BoxGeometry(1.8, 2.7, 1.3), prata, 0, 1.65); // corpo cromado
-      add(new THREE.BoxGeometry(2.0, 0.55, 1.4), escuro, 0, 3.2); // letreiro
-      add(new THREE.BoxGeometry(1.6, 0.3, 0.08), luz, 0, 3.2, 0.72);
-      add(new THREE.BoxGeometry(1.45, 0.75, 0.1), mat(0x15152b), 0, 2.05, 0.62); // janela dos rolos
+      const rolo = (cx, cr) => caixa(0.36, 0.5, 0.06, mat(cr, { emissive: cr, emissiveIntensity: 0.7 }), cx, 2.05, 0.66);
+      cil(1.3, 1.4, 0.16, pedraEscura, 0, 0.08, 0, 20); // pedestal
+      caixa(2.2, 0.3, 1.6, escuro, 0, 0.3, 0); // base
+      caixa(1.8, 2.7, 1.3, prata, 0, 1.8, 0); // corpo cromado
+      caixa(2.0, 0.55, 1.4, escuro, 0, 3.35, 0); caixa(1.6, 0.3, 0.08, luz, 0, 3.35, 0.72); // letreiro
+      for (let i = 0; i < 9; i++) esfera(0.06, i % 2 ? luz : vermelho, -0.96 + i * 0.24, 3.66, 0.68); // lâmpadas do letreiro
+      caixa(1.45, 0.75, 0.1, mat(0x15152b), 0, 2.2, 0.62); // janela dos rolos
       rolo(-0.46, 0xff3b4a); rolo(0, 0xffe14a); rolo(0.46, 0x58d6ff);
-      add(new THREE.BoxGeometry(1.2, 0.28, 0.45), escuro, 0, 0.8, 0.8); // bandeja de fichas
-      add(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), mat(0xc9cdd8), 1.05, 2.0, 0); // alavanca
-      add(new THREE.SphereGeometry(0.2, 12, 12), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.5 }), 1.05, 2.65, 0);
+      for (const [x, cr] of [[-0.45, 0xff3b4a], [0, 0x58d68a], [0.45, 0x58a8ff]]) cil(0.1, 0.1, 0.08, mat(cr, { emissive: cr, emissiveIntensity: 0.5 }), x, 1.55, 0.68, 10).rotation.x = Math.PI / 2; // botões
+      caixa(0.5, 0.06, 0.04, preto, 0, 1.3, 0.66); // fenda das fichas
+      caixa(1.2, 0.28, 0.45, escuro, 0, 0.95, 0.8); // bandeja de fichas
+      cil(0.06, 0.06, 1.1, metal, 1.12, 2.1, 0, 8); esfera(0.2, mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.5 }), 1.12, 2.75, 0); // alavanca
       break;
     }
-    case 'nave': {
+    case 'nave': { // nave pousada, com pernas, aletas, cabine de vidro e antena
       const casco = mat(0x4aa8ff, { emissive: 0x1d56b8, emissiveIntensity: 0.4 });
       const vidro = mat(0x8bd3ff, { emissive: 0x4aa8ff, emissiveIntensity: 0.6 });
       const aleta = mat(0xff7a59, { emissive: 0x8a3a20, emissiveIntensity: 0.3 });
-      add(new THREE.SphereGeometry(0.95, 14, 12), casco, 0, 1.85, 0).scale.set(1, 0.85, 1); // casco redondo, como no sprite
-      add(new THREE.SphereGeometry(0.58, 12, 10), vidro, 0, 2.15, 0.35); // cabine
+      add(new THREE.SphereGeometry(0.95, 16, 12), casco, 0, 1.85, 0).scale.set(1, 0.85, 1); // casco redondo, como no sprite
+      add(new THREE.TorusGeometry(0.92, 0.05, 8, 28), metal, 0, 1.85, 0).rotation.x = Math.PI / 2; // anel do casco
+      add(new THREE.SphereGeometry(0.58, 14, 10), vidro, 0, 2.15, 0.35); // cabine
       add(new THREE.SphereGeometry(0.2, 8, 8), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.9 }), 0.1, 2.35, 0.8); // brilho no vidro
       for (let k = 0; k < 4; k++) { // quatro aletas laranjas
         const ang = (k * Math.PI) / 2;
@@ -378,51 +424,62 @@ function modelo(tipo, cor) {
       }
       for (let k = 0; k < 3; k++) { // pernas de pouso
         const ang = (k * Math.PI * 2) / 3 + 0.4;
-        const p = add(new THREE.CylinderGeometry(0.05, 0.07, 1, 8), mat(0xc9cdd8), Math.cos(ang) * 0.62, 0.62, Math.sin(ang) * 0.62);
+        const p = add(new THREE.CylinderGeometry(0.05, 0.07, 1, 8), metal, Math.cos(ang) * 0.62, 0.62, Math.sin(ang) * 0.62);
         p.rotation.z = Math.cos(ang) * 0.3; p.rotation.x = -Math.sin(ang) * 0.3;
-        add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), mat(0xc9cdd8), Math.cos(ang) * 0.78, 0.12, Math.sin(ang) * 0.78);
+        add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), metal, Math.cos(ang) * 0.78, 0.12, Math.sin(ang) * 0.78);
       }
       add(new THREE.ConeGeometry(0.3, 0.55, 10), mat(0xffd23f, { emissive: 0xff7a3a, emissiveIntensity: 1 }), 0, 1.05, 0).rotation.x = Math.PI; // chama do motor
-      add(new THREE.CylinderGeometry(0.03, 0.03, 0.6, 6), mat(0xc9cdd8), 0, 2.95, 0); // antena
-      add(new THREE.SphereGeometry(0.1, 8, 8), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.8 }), 0, 3.28, 0);
+      cil(0.03, 0.03, 0.6, metal, 0, 2.95, 0, 6); // antena
+      esfera(0.1, mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.8 }), 0, 3.28, 0);
       break;
     }
-    case 'carta':
-      add(new THREE.CylinderGeometry(0.1, 0.14, 1.1, 8), escuro, 0, 0.55);
-      add(new THREE.BoxGeometry(2.2, 1.4, 0.35), claro, 0, 1.75);
-      {
-        const sh = new THREE.Shape();
-        sh.moveTo(-1.1, 0.7); sh.lineTo(1.1, 0.7); sh.lineTo(0, -0.1); sh.closePath();
-        const tampa = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.06, bevelEnabled: false }), escuro);
-        tampa.position.set(0, 1.75, 0.18);
-        g.add(tampa);
-      }
-      add(new THREE.SphereGeometry(0.17, 12, 12), mat(0xff3b5c, { emissive: 0xff3b5c, emissiveIntensity: 0.5 }), 0, 1.7, 0.3);
+    case 'carta': { // caixa de correio grande de rua: poste, corpo com tampa arredondada, bandeirinha, envelope e poste de luz
+      cil(0.26, 0.32, 0.4, pedra, 0, 0.2, 0, 10); // base de pedra
+      cil(0.12, 0.15, 1.0, metal, 0, 0.9, 0, 8); // poste
+      caixa(1.7, 0.9, 0.9, claro, 0, 1.85, 0);
+      const tampa = add(new THREE.CylinderGeometry(0.45, 0.45, 1.7, 16, 1, false, 0, Math.PI), mat(cor, { emissive: cor, emissiveIntensity: 0.1, side: THREE.DoubleSide }), 0, 2.3, 0); tampa.rotation.z = Math.PI / 2; // tampa arredondada
+      caixa(1.0, 0.07, 0.05, preto, 0, 2.02, 0.46); // fenda das cartas
+      caixa(1.5, 0.5, 0.04, medio, 0, 1.62, 0.46); caixa(0.4, 0.26, 0.03, branco, -0.42, 1.62, 0.49); esfera(0.05, vermelho, -0.42, 1.62, 0.52); // porta e envelope
+      cil(0.025, 0.025, 0.7, metal, 0.9, 2.0, 0, 6); caixa(0.32, 0.22, 0.04, vermelho, 1.05, 2.28, 0); // bandeirinha
+      cil(0.035, 0.045, 1.9, metal, -1.2, 0.95, 0.5, 6); esfera(0.1, luz, -1.2, 1.95, 0.5); caixa(0.3, 0.04, 0.04, metal, -1.08, 1.9, 0.5); // poste de luz
       break;
+    }
   }
   return g;
 }
 
+// altura (nas unidades do modelo) onde o rótulo da estação fica ancorado
+const ALTURA_ROTULO = { casa: 3.5, predio: 5.0, foguete: 4.9, estrela: 4.7, cassino: 4.4, nave: 3.9, carta: 3.5 };
+const luzPoste = new THREE.MeshStandardMaterial({ color: 0xfff6c8, emissive: 0xffe9a0, emissiveIntensity: 1.3 });
 const estacoes = zonas.map((z, i) => {
   const raiz = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.75, 0.14, 24), mat(new THREE.Color(z.cor).multiplyScalar(0.5)));
-  base.position.y = 0.04;
+  const baseG = new THREE.Group();
+  const prato = new THREE.Mesh(new THREE.CylinderGeometry(1.85, 1.95, 0.12, 28), mat(0x3b4058)); prato.position.y = 0.04;
+  const piso = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.65, 0.14, 28), mat(new THREE.Color(z.cor).multiplyScalar(0.45))); piso.position.y = 0.1;
+  baseG.add(prato, piso);
+  for (let k = 0; k < 6; k++) { // postes de luz em volta da plataforma
+    const ang = (k / 6) * Math.PI * 2 + 0.5, px = Math.cos(ang) * 1.74, pz = Math.sin(ang) * 1.74;
+    const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 6), mat(0xc9cdd8)); poste.position.set(px, 0.38, pz);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), luzPoste); lamp.position.set(px, 0.7, pz);
+    baseG.add(poste, lamp);
+  }
   const anel = new THREE.Mesh(
-    new THREE.TorusGeometry(1.95, 0.07, 8, 48),
+    new THREE.TorusGeometry(2.08, 0.07, 8, 48),
     new THREE.MeshBasicMaterial({ color: z.cor, transparent: true, opacity: 0 }),
   );
   anel.rotation.x = Math.PI / 2;
   anel.position.y = 0.1;
   const icone = modelo(z.icone, z.cor);
-  icone.position.y = 0.1;
+  icone.position.y = 0.17;
   const topo = new THREE.Object3D(); // ponto acima da estação onde o rótulo HTML fica ancorado
-  topo.position.y = 4.4 + (z.escala ? 1.3 : 0); // estação menor: rótulo mais alto para não cobrir o modelo
-  raiz.add(base, anel, icone, topo);
+  topo.position.y = ALTURA_ROTULO[z.icone] ?? 4.5;
+  raiz.add(baseG, anel, icone, topo);
   sombrear(raiz);
-  base.castShadow = false;
-  raiz.scale.setScalar(z.escala ?? 0.8); // a maquininha do cassino é menor que as outras estações
+  baseG.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+  raiz.scale.setScalar(escalaZona(z));
   fincar(raiz, dirsZonas[i], 0);
-  return { raiz, anel, icone, topo, gira: icone.getObjectByName('gira') };
+  const gira = icone.getObjectByName('gira');
+  return { raiz, anel, icone, topo, gira, giraY: gira ? gira.position.y : 0 };
 });
 
 // ---------- personagem (sprite 2D, 4 direções) ----------
@@ -707,7 +764,7 @@ function posicionarMoeda(moeda) {
     dir.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
     if (altura(dir) < NIVEL_MAR + 0.06) continue; // só em terra
     if (pontoMundo.copy(dir).applyQuaternion(q).angleTo(CIMA) < 0.45 * K) continue; // não nasce em cima do personagem
-    if (dirsZonas.some((z) => dir.angleTo(z) < 0.36 * K)) continue; // longe das estações
+    if (dirsZonas.some((z, k) => dir.angleTo(z) < raioBloqueio[k] + 0.2)) continue; // longe das estações
     if (obstaculos.some((o) => dir.angleTo(o.d) < o.r + 0.09 * K)) continue; // e de árvores e pedras
     if (moedas.some((o) => o !== moeda && o.ativa && o.d.angleTo(dir) < 0.25)) continue;
     moeda.d.copy(dir);
@@ -793,7 +850,7 @@ renderer.setAnimationLoop(() => {
     q.premultiply(dq);
     andou = true;
   }
-  for (const d of dirsZonas) empurrar(d, RAIO_ESTACAO);
+  dirsZonas.forEach((d, k) => empurrar(d, raioBloqueio[k]));
   for (const o of obstaculos) if (!(o.baixo && alturaPulo > 0.5)) empurrar(o.d, o.r);
   q.normalize();
   if (andou) $('#dica').classList.add('some');
@@ -847,16 +904,18 @@ renderer.setAnimationLoop(() => {
   nuvens.rotation.y = Math.sin(tempo * 0.1) * 0.4;
 
   // estações
-  let ativa = -1, menor = ALCANCE;
+  let ativa = -1, menor = Infinity;
   dirsZonas.forEach((d, i) => {
     const a = angulo(d);
-    if (a < menor) { menor = a; ativa = i; }
+    if (a < alcanceZona[i] && a < menor) { menor = a; ativa = i; }
   });
   estacoes.forEach((e, i) => {
     const on = i === ativa;
     e.anel.material.opacity = damp(e.anel.material.opacity, on ? 0.55 + Math.sin(tempo * 4) * 0.25 : 0, 8, dt);
-    e.icone.position.y = 0.1 + Math.sin(tempo * 1.6 + i) * (on ? 0.12 : 0.04);
-    if (e.gira) e.gira.rotation.y += dt * (on ? 2.4 : 0.8);
+    if (e.gira) { // só o monumento da estrela gira e flutua; as construções ficam firmes no chão
+      e.gira.rotation.y += dt * (on ? 2.4 : 0.8);
+      e.gira.position.y = e.giraY + Math.sin(tempo * 1.6 + i) * (on ? 0.12 : 0.06);
+    }
   });
   estacaoAtiva = ativa;
   mostrarPainel(ativa);

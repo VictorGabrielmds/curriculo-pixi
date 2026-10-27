@@ -72,7 +72,7 @@ export const zonas = [
     icone: 'cassino',
     cor: 0xffc83d,
     jogo: 'cassino', // abre o minijogo (tecla E ou botão do painel)
-    escala: 0.58, // tamanho da estação no mundo (as outras usam 0,8)
+    escala: 0.54, // tamanho da estação no mundo (as outras usam 0,6)
     titulo: 'Cassino da Sorte',
     linhas: [
       'Um caça-níquel de brincadeira: só fichas virtuais, sem dinheiro de verdade.',
@@ -85,7 +85,7 @@ export const zonas = [
     icone: 'nave', // o ícone da estação é a própria nave do jogo
     cor: 0x8a5cff,
     jogo: 'arcade', // abre o jogo de nave (tecla E ou botão do painel)
-    escala: 0.6,
+    escala: 0.54,
     titulo: 'Nave Arcade',
     linhas: [
       'A nave atira sozinha e você a pilota pelo espaço enquanto monstrinhos chegam pelos lados.',
