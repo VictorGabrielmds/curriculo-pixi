@@ -66,7 +66,10 @@ const MELHORIAS = [
   { id: 'recarga_geral', grupo: 'ARSENAL', raridade: 'INCOMUM', icone: '↻', cor: '#7dff9a', nome: 'Sincronizador de recarga', desc: '+12% de cadência e recarga para TODAS as armas.', max: 4, peso: 2.2, aplicar: (s) => { s.recargaGlobal *= 1.12; } },
   { id: 'cadencia_canhao', grupo: 'CANHÃO [1]', raridade: 'INCOMUM', icone: '↻', cor: '#ffe14a', nome: 'Alimentador rápido', desc: '+13% de cadência exclusiva do canhão.', max: 5, peso: 2.4, aplicar: (s) => { s.cadencia *= 1.13; } },
   { id: 'perfurar', grupo: 'CANHÃO [1]', raridade: 'COMUM', icone: '»', cor: '#c9cdf5', nome: 'Munição perfurante', desc: 'Os tiros do canhão atravessam +1 inimigo.', max: 3, peso: 2.5, aplicar: (s) => { s.perfura += 1; } },
-  { id: 'proj_canhao', grupo: 'CANHÃO [1]', raridade: 'RARO', icone: '⁝', cor: '#ffe14a', nome: 'Cano adicional', desc: '+1 projétil por disparo do canhão (até 3 vezes).', max: 3, peso: 2.6, aplicar: (s) => { s.projeteis += 1; } },
+  // +1 projétil é muito forte: o primeiro pode aparecer logo, o segundo é bem mais raro e o quarto cano só vem junto com um bônus (e é raríssimo)
+  { id: 'proj_canhao', grupo: 'CANHÃO [1]', raridade: (s) => ((s.niveis.proj_canhao | 0) === 0 ? 'RARO' : 'LENDÁRIO'), icone: '⁝', cor: '#ffe14a', nome: 'Cano adicional', desc: '+1 projétil por disparo do canhão (o primeiro é comum; o segundo é raro).', max: 2, peso: (s) => [2.6, 0.6][s.niveis.proj_canhao | 0] ?? 0.6, requer: (s) => s.projeteis < 3, aplicar: (s) => { s.projeteis += 1; } },
+  { id: 'proj_quad_cad', grupo: 'CANHÃO [1]', raridade: 'LENDÁRIO', icone: '⁞', cor: '#ff7a59', nome: 'Cano quádruplo · Aceleração', desc: '+1 projétil (chega a 4 por disparo) e +30% de cadência do canhão.', max: 1, peso: 0.45, requer: (s) => s.projeteis === 3, aplicar: (s) => { s.projeteis += 1; s.cadencia *= 1.3; } },
+  { id: 'proj_quad_perf', grupo: 'CANHÃO [1]', raridade: 'LENDÁRIO', icone: '⁞', cor: '#c9cdf5', nome: 'Cano quádruplo · Perfuração', desc: '+1 projétil (chega a 4 por disparo) e os tiros atravessam +2 inimigos.', max: 1, peso: 0.45, requer: (s) => s.projeteis === 3, aplicar: (s) => { s.projeteis += 1; s.perfura += 2; } },
   { id: 'vel_tiro', grupo: 'CANHÃO [1]', raridade: 'COMUM', icone: '›', cor: '#c9cdf5', nome: 'Pólvora estável', desc: '+10% de velocidade dos projéteis. É útil, mas não faz milagres.', max: 5, peso: 3.2, aplicar: (s) => { s.velTiro *= 1.1; } },
   { id: 'critico', grupo: 'CANHÃO [1]', raridade: 'INCOMUM', icone: '✹', cor: '#ff9a3a', nome: 'Mira oportunista', desc: '+4% de chance de um tiro causar dano dobrado.', max: 4, peso: 1.8, aplicar: (s) => { s.critico += 0.04; } },
   { id: 'ima', grupo: 'SISTEMA', raridade: 'COMUM', icone: '⌁', cor: '#6fe8ff', nome: 'Ímã de cristais', desc: '+45% de alcance para atrair cristais de XP.', max: 4, peso: 1.7, aplicar: (s) => { s.raioIma *= 1.45; } },
@@ -1269,8 +1272,9 @@ export function iniciarArcade({ bip, somAtivo }) {
   function sortearOpcoes(disponiveis, quantidade = 3) {
     const pool = [...disponiveis], saida = [];
     while (pool.length && saida.length < quantidade) {
-      const total = pool.reduce((s, m) => s + (m.peso || 1), 0); let r = Math.random() * total, escolhido = 0;
-      for (let i = 0; i < pool.length; i++) { r -= pool[i].peso || 1; if (r <= 0) { escolhido = i; break; } }
+      const peso = (m) => (typeof m.peso === 'function' ? m.peso(S) : m.peso) || 1;
+      const total = pool.reduce((s, m) => s + peso(m), 0); let r = Math.random() * total, escolhido = 0;
+      for (let i = 0; i < pool.length; i++) { r -= peso(pool[i]); if (r <= 0) { escolhido = i; break; } }
       saida.push(pool.splice(escolhido, 1)[0]);
     }
     return saida;
@@ -1293,7 +1297,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     const lista = el('div', 'arc-cartas');
     opcoes.forEach((m, i) => {
       const atual = nivelMelhoria(m), b = el('button', 'arc-carta'); b.style.setProperty('--cor', m.cor || '#4aa8ff');
-      const topoCarta = el('span', 'arc-carta-topo'); topoCarta.append(el('i', null, m.icone || '▲'), el('small', null, m.grupo || 'UPGRADE'), el('em', null, m.raridade || 'COMUM'));
+      const topoCarta = el('span', 'arc-carta-topo'); topoCarta.append(el('i', null, m.icone || '▲'), el('small', null, m.grupo || 'UPGRADE'), el('em', null, (typeof m.raridade === 'function' ? m.raridade(S) : m.raridade) || 'COMUM'));
       const pips = el('span', 'arc-up-pips'); for (let n = 1; n <= m.max; n++) pips.append(el('i', n <= atual ? 'on' : n === atual + 1 ? 'prox' : ''));
       b.append(topoCarta, el('b', null, m.nome), el('span', 'arc-desc', m.desc), pips, el('strong', null, `[${i + 1}] ESCOLHER · N${atual} → N${atual + 1}`));
       b.onclick = () => escolher(i);
@@ -1900,6 +1904,7 @@ export function iniciarArcade({ bip, somAtivo }) {
         fase: (n) => { S.onda = (n - 1) * 3; S.ondaEstado = 'calma'; S.proxOnda = 0; },
         regiao: (n) => { S.regiaoForcada = n; },
         subirNivel: () => { S.xp = S.xpProx; },
+        projeteis: (n) => { S.projeteis = n; S.niveis.proj_canhao = Math.min(2, n - 1); },
         completar: () => { if (S.ondaEstado !== 'calma') terminarOnda(); },
         hp: (n) => { S.hp = n; },
         tempo: (n) => { S.t = n; S.proxBuraco = n + 999; },

@@ -31,7 +31,7 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 
 - **Rochas espaciais** (poucas) quebram com alguns tiros e soltam itens: ímã (puxa todos os cristais por 3 s), explosão (fere todos os monstros da tela), coração, escudo e turbo.
 - **Buracos negros** aparecem de vez em quando: entrar leva a uma luta contra um **alienígena** com ataques variados (rajadas, leques, teletransporte, invocação, investida corpo a corpo, raio direto e bombas); vencer dá um poder (orbes, pulso, laser ou drone) e perder só expulsa do buraco negro.
-- **Derrotar um alienígena** dá o ímã (puxa todos os cristais por 3 s). O canhão ganha +1 projétil (até 3 vezes) pelo upgrade "Cano adicional", que aparece ao subir de nível. O curandeiro e o amplificador só afetam os inimigos que estão perto deles (o alcance aparece como um círculo pontilhado).
+- **Derrotar um alienígena** dá o ímã (puxa todos os cristais por 3 s). O +1 projétil do canhão é um upgrade de nível, mas é forte e por isso raro: o primeiro "Cano adicional" pode aparecer cedo, o segundo é bem mais raro, e o quarto cano só vem como "Cano quádruplo" (lendário), junto com +30% de cadência ou +2 de perfuração, à sua escolha. O curandeiro e o amplificador só afetam os inimigos que estão perto deles (o alcance aparece como um círculo pontilhado).
 - **Chefões** (nave enorme que persegue a nave, atira em várias direções e joga de 1 a 3 bombas por vez em áreas) soltam **moedas espaciais**, que compram melhorias permanentes na **Oficina**.
 - A cada 3 ondas começa uma nova **fase**, e os monstros ganham outra "skin" (cores, chifres, espinhos, três olhos); há monstros que atiram e bandos de insetos.
 
