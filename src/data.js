@@ -69,4 +69,16 @@ export const zonas = [
       'Ganhe skins para o planeta, as árvores e o céu e deixe o mundo do seu jeito.',
     ],
   },
+  {
+    id: 'plinko',
+    icone: 'plinko',
+    cor: 0x4f8dff,
+    jogo: 'plinko', // abre o minijogo (tecla E ou botão do painel)
+    escala: 0.58,
+    titulo: 'Plinko',
+    linhas: [
+      'Solte a bolinha e veja ela quicar pelos pinos até cair num prêmio. Fichas virtuais, sem dinheiro de verdade.',
+      'Nas pontas do tabuleiro ficam as skins mais raras.',
+    ],
+  },
 ];

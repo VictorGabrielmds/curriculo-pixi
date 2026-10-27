@@ -2,6 +2,7 @@
 // Três iguais dão fichas e uma skin para o mundo (planeta, árvores ou céu); a coleção permite equipar as skins.
 import './cassino.css';
 import { CATEGORIAS, RARIDADES, SKINS, skinPorId, skinPadrao, hex } from './skins.js';
+import { criarPlinko } from './plinko.js';
 
 const CHAVE = 'curriculo-cassino-v1';
 const CUSTO = 10;
@@ -25,7 +26,7 @@ const ORDEM_TIERS = ['comum', 'rara', 'epica', 'lendaria'];
 function estadoPadrao() {
   const equipadas = {};
   for (const c of CATEGORIAS) equipadas[c.id] = skinPadrao(c.id).id;
-  return { fichas: FICHAS_INICIAIS, giros: 0, semTrio: 0, skins: [], equipadas, som: true };
+  return { fichas: FICHAS_INICIAIS, giros: 0, semTrio: 0, semSkinPlinko: 0, skins: [], equipadas, som: true };
 }
 function carregar() {
   const base = estadoPadrao();
@@ -39,7 +40,7 @@ function carregar() {
         const s = id && skinPorId(id);
         if (s && s.cat === c.id && (s.padrao || skins.includes(id))) equipadas[c.id] = id;
       }
-      return { ...base, fichas: Math.max(0, Math.floor(j.fichas)), giros: j.giros | 0, semTrio: j.semTrio | 0, skins, equipadas, som: j.som !== false };
+      return { ...base, fichas: Math.max(0, Math.floor(j.fichas)), giros: j.giros | 0, semTrio: j.semTrio | 0, semSkinPlinko: j.semSkinPlinko | 0, skins, equipadas, som: j.som !== false };
     }
   } catch { /* sem armazenamento: joga sem salvar */ }
   return base;
@@ -250,10 +251,24 @@ export function iniciarCassino({ aoMudarSkins }) {
   const colecao = el('div', 'cas-colecao');
   colBox.append(colecao);
 
-  raiz.append(maq, colBox);
-  document.body.append(raiz);
+  let aberto = false, girando = false, naColecao = false, jogoAtual = 'cassino';
 
-  let aberto = false, girando = false, naColecao = false;
+  const darFichasGratis = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); bip(estado, 880, 0.1); };
+  const plinko = criarPlinko({
+    estado, salvar, el, CUSTO, FICHAS_GRATIS, RARIDADES, CATEGORIAS, ORDEM_TIERS,
+    bip: (...a) => bip(estado, ...a),
+    bloqueadasDoTier: (tier) => bloqueadasDoTier(estado, tier),
+    sortearSkin: (tier) => { const pool = bloqueadasDoTier(estado, tier); return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null; },
+    equipar: (skin) => equipar(skin),
+    onMudou: () => atualizar(),
+    abrirColecao: () => alternarColecao(true),
+    fechar: () => fecharJanela(),
+    alternarSom: () => { estado.som = !estado.som; salvar(); atualizar(); bip(estado, 660, 0.06); },
+    darFichasGratis,
+  });
+
+  raiz.append(maq, plinko.raiz, colBox);
+  document.body.append(raiz);
 
   function desenharRolo(i, simbolo) {
     const ctx = rolos[i].getContext('2d');
@@ -267,6 +282,7 @@ export function iniciarCassino({ aoMudarSkins }) {
     alavanca.disabled = girando || semFicha;
     btnGratis.hidden = !semFicha || girando;
     btnSom.textContent = estado.som ? 'SOM ON' : 'SOM OFF';
+    plinko.atualizar();
   }
   function mostrarMensagem(txt, cls = '') { mensagem.textContent = txt; mensagem.className = 'cas-msg ' + cls; }
 
@@ -309,9 +325,10 @@ export function iniciarCassino({ aoMudarSkins }) {
   }
   function alternarColecao(ligar) {
     naColecao = ligar;
-    maq.hidden = ligar;
+    maq.hidden = ligar || jogoAtual !== 'cassino';
+    plinko.raiz.hidden = ligar || jogoAtual !== 'plinko';
     colBox.hidden = !ligar;
-    if (ligar) renderColecao(); else btnGirar.focus();
+    if (ligar) renderColecao(); else if (jogoAtual === 'plinko') plinko.foco(); else btnGirar.focus();
   }
 
   function girar() {
@@ -383,17 +400,17 @@ export function iniciarCassino({ aoMudarSkins }) {
     girar();
   }
 
-  function abrir() {
+  function abrir(jogo = 'cassino') {
     if (aberto) return;
+    jogoAtual = jogo === 'plinko' ? 'plinko' : 'cassino';
     aberto = true;
     raiz.classList.add('aberto');
     tabela.hidden = true;
     alternarColecao(false);
     atualizar();
-    btnGirar.focus();
   }
   function fecharJanela() {
-    if (!aberto || girando) return;
+    if (!aberto || girando || plinko.ocupado()) return;
     aberto = false;
     raiz.classList.remove('aberto');
   }
@@ -403,13 +420,13 @@ export function iniciarCassino({ aoMudarSkins }) {
   btnAjuda.onclick = () => { tabela.hidden = !tabela.hidden; };
   btnColecao.onclick = () => alternarColecao(true);
   fechar.onclick = fecharJanela;
-  btnGratis.onclick = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); mostrarMensagem('FICHAS DE CORTESIA!'); bip(estado, 880, 0.1); };
+  btnGratis.onclick = () => { darFichasGratis(); mostrarMensagem('FICHAS DE CORTESIA!'); };
   btnSom.onclick = () => { estado.som = !estado.som; salvar(); atualizar(); bip(estado, 660, 0.06); };
   raiz.addEventListener('pointerdown', (e) => { if (e.target === raiz) fecharJanela(); });
   window.addEventListener('keydown', (e) => {
     if (!aberto) return;
     if (e.code === 'Escape') { e.preventDefault(); if (naColecao) alternarColecao(false); else fecharJanela(); }
-    else if (e.code === 'Space' && !naColecao && document.activeElement !== btnColecao && document.activeElement !== btnAjuda) { e.preventDefault(); puxar(); }
+    else if (e.code === 'Space' && !naColecao && !['SKINS', '?'].includes(document.activeElement?.textContent)) { e.preventDefault(); if (jogoAtual === 'plinko') plinko.soltar(); else puxar(); }
     else if (e.code === 'KeyC') { e.preventDefault(); alternarColecao(!naColecao); }
   }, true);
 
