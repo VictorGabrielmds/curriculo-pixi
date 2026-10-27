@@ -481,8 +481,8 @@ export function iniciarArcade({ bip }) {
   function entrarBuraco() {
     S.alienIdx = (S.alienIdx + 1 + Math.floor(Math.random() * (ALIENS.length - 1))) % ALIENS.length; // alienígena diferente a cada buraco
     S.mundoSalvo = { nx: S.nx, ny: S.ny, cx: S.cx, cy: S.cy, inimigos: S.inimigos, tirosInimigos: S.tirosInimigos, campos: S.campos, hp: S.hp, buraco: S.buraco, chefe: S.chefe };
-    const hpAlien = Math.round(48 * (1 + S.aliensVencidos * 0.5 + (S.fase - 1) * 0.2));
-    const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: S.alienIdx, cd: 2, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0 };
+    const hpAlien = Math.round(95 * (1 + S.aliensVencidos * 0.6 + (S.fase - 1) * 0.25));
+    const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: S.alienIdx, cd: 2, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0, combo: 0, modo: 'investida', dashMax: 0.75, padrao: null };
     S.hp = S.maxHp; S.invul = 1; // dentro do buraco negro a nave luta com a vida cheia
     S.inimigos = [al]; S.tirosInimigos = []; S.campos = []; S.raios = []; S.tiros = []; S.misseis = []; S.chefe = null;
     S.alien = al; S.nx = CX; S.ny = A - 40; S.cx = CX; S.cy = CY;
@@ -507,69 +507,138 @@ export function iniciarArcade({ bip }) {
       bip(120, 0.3, 'sawtooth', 0.05);
     }
   }
+  const NOMES_ATAQUE = { rajada: 'RAJADA', mira: 'MIRA', teleporte: 'TELEPORTE', invocar: 'INVOCAR', investida: 'INVESTIDA', raio: 'RAIO', bombas: 'BOMBAS', espiral: 'ESPIRAL', chuva: 'CHUVA', varredura: 'VARREDURA', aneis: 'ANÉIS', cerco: 'CERCO', tentaculos: 'TENTÁCULOS', olhar: 'OLHAR', psiquico: 'PSÍQUICO', foice: 'FOICE', corte: 'CORTE', ovnis: 'OVNIS' };
+  const DURACAO = { espiral: 2.6, chuva: 3.2, aneis: 2.4, cerco: 2.2 };
+  // pesos de cada ataque; os 0 são golpes exclusivos que só alguns alienígenas têm (ver ALIENS)
+  const ATAQUES_BASE = [['rajada', 3], ['mira', 3], ['teleporte', 2], ['invocar', 1], ['investida', 3], ['raio', 3], ['bombas', 2], ['espiral', 2], ['chuva', 2], ['varredura', 2], ['aneis', 2], ['cerco', 2], ['tentaculos', 0], ['olhar', 0], ['psiquico', 0], ['foice', 0], ['corte', 0], ['ovnis', 0]];
+
   function atualizarAlien(dt) {
     const al = S.alien;
-    al.ta += dt; al.fase += dt;
+    const furioso = al.hp < al.hpMax * 0.5, desespero = al.hp < al.hpMax * 0.25;
+    const ritmo = desespero ? 2 : furioso ? 1.6 : 1.25; // quanto mais ferido, menos descanso entre ataques
+    const rapido = desespero ? 1.5 : furioso ? 1.35 : 1.2; // e mais rápidos os tiros
+    const vb = (v) => v * rapido;
+    al.ta += dt * (desespero ? 2 : furioso ? 1.7 : 1.3); al.fase += dt;
     al.sumido = Math.max(0, al.sumido - dt);
-    const furioso = al.hp < al.hpMax * 0.5;
+    if (furioso && !al.furiaDita) { al.furiaDita = true; mostrarAviso('!! FÚRIA !!', 1.6); S.flash = 0.2; bip(80, 0.4, 'sawtooth', 0.06); }
+    if (desespero && !al.desesperoDito) { al.desesperoDito = true; mostrarAviso('!! DESESPERO !!', 1.6); S.flash = 0.25; bip(60, 0.5, 'sawtooth', 0.07); }
     const rotaX = () => CX + Math.sin(al.ta * 0.7) * 95, rotaY = () => 48 + Math.sin(al.ta * 1.3) * 12;
-    const mover = al.estado === 'espera' || al.estado === 'carga' || al.estado === 'salvas';
+    const mover = al.estado === 'espera' || al.estado === 'carga' || al.estado === 'salvas' || al.estado === 'padrao';
     if (mover && al.sumido <= 0) { al.x = rotaX(); al.y = rotaY(); }
+    const noArena = (x, y) => [Math.max(ARENA.x0 + 6, Math.min(ARENA.x1 - 6, x)), Math.max(ARENA.y0 + 6, Math.min(ARENA.y1 - 6, y))];
+    const mirarInvestida = () => { // treme e mostra por onde vai passar
+      const dx = S.nx - al.x, dy = S.ny - al.y, d = Math.hypot(dx, dy) || 1;
+      al.dirX = dx / d; al.dirY = dy / d; al.dashMax = 0.75; al.estado = 'aviso'; al.carga = 0.8;
+    };
+    const prepararCorte = () => { // corte: sai de um lado da arena, na altura da nave, e atravessa tudo em linha reta
+      const daDireita = S.nx < CX;
+      al.x = daDireita ? ARENA.x1 - 4 : ARENA.x0 + 4; al.y = noArena(0, S.ny)[1];
+      al.dirX = daDireita ? -1 : 1; al.dirY = 0; al.dashMax = 1.15; al.estado = 'aviso'; al.carga = 0.75;
+    };
 
     if (al.estado === 'espera') {
-      al.cd -= dt;
+      al.cd -= dt * ritmo;
       if (al.cd <= 0) {
-        const gosto = ALIENS[al.v].pesos; // cada alienígena prefere alguns ataques
-        al.ataque = sorteio([['rajada', 3], ['mira', 3], ['teleporte', 2], ['invocar', furioso ? 2 : 1], ['investida', 3], ['raio', 3], ['bombas', 2]].map(([k, p]) => [k, p + (gosto[k] || 0)]));
-        al.estado = 'carga'; al.carga = al.ataque === 'investida' ? 0.5 : 0.55;
+        const gosto = ALIENS[al.v].pesos; // cada alienígena prefere alguns ataques e tem os seus golpes exclusivos
+        al.ataque = sorteio(ATAQUES_BASE.map(([k, p]) => [k, p + (gosto[k] || 0)]).filter(([, p]) => p > 0));
+        al.estado = 'carga'; al.carga = 0.5;
+        texto(al.x, Math.max(12, al.y - 24), NOMES_ATAQUE[al.ataque] || '', '#ff7ab8');
       }
     } else if (al.estado === 'carga') {
       al.carga -= dt;
       if (al.carga <= 0) {
-        if (al.ataque === 'rajada') { const n = furioso ? 22 : 16, rot = Math.random() * 6; for (let i = 0; i < n; i++) atirarInimigo(al.x, al.y, rot + (i * Math.PI * 2) / n, 62); al.estado = 'espera'; al.cd = furioso ? 1.4 : 2.1; }
-        else if (al.ataque === 'mira') { al.salvas = furioso ? 4 : 3; al.cdSalva = 0; al.estado = 'salvas'; }
-        else if (al.ataque === 'teleporte') { al.sumido = 0.7; al.estado = 'teleporte'; al.carga = 0.7; }
-        else if (al.ataque === 'invocar') { const insetos = S.inimigos.filter((m) => m.tipo === 'inseto').length; for (let i = 0; i < 3 && insetos + i < 9; i++) criarInimigo('inseto', al.x + (i - 1) * 12, al.y + 14); al.estado = 'espera'; al.cd = 2; bip(300, 0.2, 'triangle', 0.05); }
-        else if (al.ataque === 'investida') { // mostra por onde vai passar e depois dispara em linha reta
-          const dx = S.nx - al.x, dy = S.ny - al.y, d = Math.hypot(dx, dy) || 1;
-          al.dirX = dx / d; al.dirY = dy / d; al.estado = 'aviso'; al.carga = 0.8;
-        } else if (al.ataque === 'raio') { // raios que miram a nave: linha de aviso e depois o raio de verdade
-          const a0 = Math.atan2(S.ny - al.y, S.nx - al.x), angs = furioso ? [a0 - 0.5, a0, a0 + 0.5] : [a0];
-          for (const ang of angs) S.raios.push({ x: al.x, y: al.y + 8, ang, aviso: 1, vida: 0.55, tick: 0, ligou: false });
-          al.estado = 'espera'; al.cd = 2.4; bip(500, 0.3, 'sine', 0.05);
-        } else if (al.ataque === 'bombas') { lancarBombas(al.x, al.y, furioso ? 4 : 3, 1.2); al.estado = 'espera'; al.cd = 2.2; }
-        else al.estado = 'espera';
+        const a = al.ataque;
+        if (a === 'rajada') { const n = desespero ? 30 : furioso ? 24 : 18, rot = Math.random() * 6; for (let i = 0; i < n; i++) atirarInimigo(al.x, al.y, rot + (i * Math.PI * 2) / n, vb(62)); al.estado = 'espera'; al.cd = 2; }
+        else if (a === 'mira') { al.salvas = desespero ? 6 : furioso ? 5 : 4; al.cdSalva = 0; al.estado = 'salvas'; }
+        else if (a === 'teleporte') { al.sumido = 0.6; al.estado = 'teleporte'; al.carga = 0.6; }
+        else if (a === 'invocar') { const insetos = S.inimigos.filter((m) => m.tipo === 'inseto').length; for (let i = 0; i < 4 && insetos + i < 10; i++) criarInimigo('inseto', al.x + (i - 1.5) * 12, al.y + 14); al.estado = 'espera'; al.cd = 1.8; bip(300, 0.2, 'triangle', 0.05); }
+        else if (a === 'ovnis') { const n = S.inimigos.filter((m) => m.tipo === 'atirador').length; for (let i = 0; i < 2 && n + i < 3; i++) criarInimigo('atirador', al.x + (i ? 16 : -16), al.y + 14); al.estado = 'espera'; al.cd = 2; bip(300, 0.25, 'triangle', 0.05); }
+        else if (a === 'investida') { al.combo = desespero ? 1 : 0; al.modo = 'investida'; mirarInvestida(); }
+        else if (a === 'foice') { al.combo = desespero ? 3 : furioso ? 2 : 1; al.modo = 'investida'; mirarInvestida(); } // várias investidas seguidas
+        else if (a === 'corte') { al.combo = desespero ? 2 : furioso ? 1 : 0; al.modo = 'corte'; prepararCorte(); }
+        else if (a === 'raio') { // raios que miram a nave: linha de aviso e depois o raio de verdade
+          const a0 = Math.atan2(S.ny - al.y, S.nx - al.x), angs = desespero ? [a0 - 0.7, a0 - 0.35, a0, a0 + 0.35, a0 + 0.7] : furioso ? [a0 - 0.5, a0, a0 + 0.5] : [a0];
+          for (const ang of angs) S.raios.push({ x: al.x, y: al.y + 8, ang, aviso: 0.9, vida: 0.55, tick: 0, ligou: false });
+          al.estado = 'espera'; al.cd = 2.2; bip(500, 0.3, 'sine', 0.05);
+        } else if (a === 'olhar') { // leque de raios saindo dos olhos
+          const a0 = Math.atan2(S.ny - al.y, S.nx - al.x), n = desespero ? 7 : furioso ? 6 : 5;
+          for (let i = 0; i < n; i++) S.raios.push({ x: al.x, y: al.y + 8, ang: a0 + (i - (n - 1) / 2) * 0.4, aviso: 0.9, vida: 0.5, tick: 0, ligou: false });
+          al.estado = 'espera'; al.cd = 2.4; bip(520, 0.3, 'sine', 0.05);
+        } else if (a === 'varredura') { // um raio que gira como ponteiro de relógio
+          const sentido = Math.random() < 0.5 ? 1 : -1, a0 = Math.atan2(S.ny - al.y, S.nx - al.x) - 1.0 * sentido;
+          for (let k = 0; k < (furioso ? 2 : 1); k++) S.raios.push({ x: al.x, y: al.y + 8, ang: a0 + k * Math.PI, giro: 1.15 * sentido * (desespero ? 1.3 : 1), seg: true, aviso: 0.9, vida: 1.7, tick: 0, ligou: false });
+          al.estado = 'espera'; al.cd = 2.6; bip(480, 0.3, 'sine', 0.05);
+        } else if (a === 'tentaculos') { // quatro raios girando em cruz
+          const base = Math.random() * 6.28, sentido = Math.random() < 0.5 ? 1 : -1, n = furioso ? 6 : 4;
+          for (let k = 0; k < n; k++) S.raios.push({ x: al.x, y: al.y + 8, ang: base + (k * Math.PI * 2) / n, giro: 0.9 * sentido, seg: true, aviso: 0.8, vida: 2.2, tick: 0, ligou: false });
+          al.estado = 'espera'; al.cd = 3; bip(420, 0.3, 'sine', 0.05);
+        } else if (a === 'bombas') { lancarBombas(al.x, al.y, desespero ? 6 : furioso ? 5 : 4, 1.1); al.estado = 'espera'; al.cd = 2; }
+        else if (a === 'psiquico') { // bombas em círculo ao redor da nave, fechando o cerco
+          const ang0 = Math.random() * 6.28, n = furioso ? 6 : 5;
+          for (let i = 0; i < n; i++) { const [x, y] = noArena(S.nx + Math.cos(ang0 + (i * Math.PI * 2) / n) * 40, S.ny + Math.sin(ang0 + (i * Math.PI * 2) / n) * 40); S.campos.push({ x, y, r: 24, aviso: 1.1 + i * 0.08, avisoMax: 1.1 + i * 0.08, vida: 3.5, tick: 0, ox: al.x, oy: al.y }); }
+          S.campos.push({ x: S.nx, y: S.ny, r: 22, aviso: 1.4, avisoMax: 1.4, vida: 3.5, tick: 0, ox: al.x, oy: al.y });
+          al.estado = 'espera'; al.cd = 2.2; bip(200, 0.1, 'square', 0.04); bip(160, 0.1, 'square', 0.04, 0.1);
+        } else if (DURACAO[a]) { // ataques que disparam por alguns segundos: espiral, chuva, anéis, cerco
+          al.padrao = { tipo: a, t: DURACAO[a] * (furioso ? 1.25 : 1), acc: 0, ang: Math.random() * 6.28 }; al.estado = 'padrao';
+        } else al.estado = 'espera';
         bip(220, 0.12, 'square', 0.05);
       }
+    } else if (al.estado === 'padrao') {
+      const p = al.padrao; p.t -= dt; p.acc -= dt;
+      if (p.acc <= 0) {
+        if (p.tipo === 'espiral') {
+          p.acc = 0.075; p.ang += 0.38; const bracos = desespero ? 4 : furioso ? 3 : 2;
+          for (let k = 0; k < bracos; k++) atirarInimigo(al.x, al.y + 6, p.ang + (k * Math.PI * 2) / bracos, vb(58));
+          som('espiral', 90, () => bip(330 + Math.random() * 40, 0.04, 'square', 0.02));
+        } else if (p.tipo === 'chuva') { // linhas de tiros caindo, com buracos para passar
+          p.acc = desespero ? 0.45 : 0.6;
+          const gaps = [ARENA.x0 + 24 + Math.random() * (ARENA.x1 - ARENA.x0 - 48)]; if (furioso) gaps.push(ARENA.x0 + 24 + Math.random() * (ARENA.x1 - ARENA.x0 - 48));
+          for (let x = ARENA.x0 + 4; x <= ARENA.x1 - 4; x += 13) if (gaps.every((g0) => Math.abs(x - g0) > 19)) atirarInimigo(x, ARENA.y0, Math.PI / 2, vb(58));
+          bip(240, 0.08, 'square', 0.03);
+        } else if (p.tipo === 'aneis') { // anéis de tiros, cada um com uma abertura
+          p.acc = 0.55; const n = 24, gap = Math.random() * Math.PI * 2;
+          for (let i = 0; i < n; i++) { const an = (i * Math.PI * 2) / n; if (Math.abs(Math.atan2(Math.sin(an - gap), Math.cos(an - gap))) > 0.42) atirarInimigo(al.x, al.y, an, vb(55)); }
+          bip(280, 0.08, 'triangle', 0.03);
+        } else if (p.tipo === 'cerco') { // tiros vindos das laterais, mirando na nave
+          p.acc = desespero ? 0.08 : 0.12; const x = Math.random() < 0.5 ? ARENA.x0 : ARENA.x1, y = ARENA.y0 + Math.random() * (ARENA.y1 - ARENA.y0);
+          atirarInimigo(x, y, Math.atan2(S.ny - y, S.nx - x) + (Math.random() - 0.5) * 0.3, vb(72));
+          som('cerco', 90, () => bip(360, 0.04, 'square', 0.02));
+        }
+      }
+      if (p.t <= 0) { al.estado = 'espera'; al.cd = 1.8; }
     } else if (al.estado === 'salvas') {
       al.cdSalva -= dt;
       if (al.cdSalva <= 0) {
         const a = Math.atan2(S.ny - al.y, S.nx - al.x);
-        for (let i = -1; i <= 1; i++) atirarInimigo(al.x, al.y + 12, a + i * 0.22, 95);
-        al.salvas -= 1; al.cdSalva = 0.28; bip(260, 0.06, 'square', 0.04);
-        if (al.salvas <= 0) { al.estado = 'espera'; al.cd = furioso ? 1.2 : 1.8; }
+        for (let i = -1; i <= 1; i++) atirarInimigo(al.x, al.y + 12, a + i * 0.22, vb(95));
+        al.salvas -= 1; al.cdSalva = 0.26; bip(260, 0.06, 'square', 0.04);
+        if (al.salvas <= 0) { al.estado = 'espera'; al.cd = 1.6; }
       }
     } else if (al.estado === 'aviso') { // treme antes da investida
       al.carga -= dt;
       al.x += (Math.random() - 0.5) * 1.6; al.y += (Math.random() - 0.5) * 1.6;
-      if (al.carga <= 0) { al.estado = 'investida'; al.dashT = furioso ? 0.85 : 0.7; bip(150, 0.25, 'sawtooth', 0.06); }
+      if (al.carga <= 0) { al.estado = 'investida'; al.dashT = al.dashMax * (furioso ? 1.1 : 1); bip(150, 0.25, 'sawtooth', 0.06); }
     } else if (al.estado === 'investida') { // corpo a corpo: avança em linha reta; encostar na nave machuca
-      const v = furioso ? 330 : 280;
+      const v = desespero ? 400 : furioso ? 350 : 310;
       al.x += al.dirX * v * dt; al.y += al.dirY * v * dt; al.dashT -= dt;
       const fora = al.x < ARENA.x0 || al.x > ARENA.x1 || al.y < ARENA.y0 || al.y > ARENA.y1;
       al.x = Math.max(ARENA.x0, Math.min(ARENA.x1, al.x)); al.y = Math.max(ARENA.y0 - 10, Math.min(ARENA.y1, al.y));
-      if (al.dashT <= 0 || fora) { al.estado = 'volta'; S.tremor = Math.max(S.tremor, fora ? 0.2 : 0); }
+      if (al.dashT <= 0 || fora) {
+        S.tremor = Math.max(S.tremor, fora ? 0.2 : 0);
+        if (al.combo > 0) { al.combo -= 1; if (al.modo === 'corte') prepararCorte(); else mirarInvestida(); al.carga = 0.4; } // outra investida logo em seguida
+        else al.estado = 'volta';
+      }
     } else if (al.estado === 'volta') { // volta para a rota normal
       const tx = rotaX(), ty = rotaY(), dx = tx - al.x, dy = ty - al.y, d = Math.hypot(dx, dy) || 1;
-      al.x += (dx / d) * Math.min(d, 210 * dt); al.y += (dy / d) * Math.min(d, 210 * dt);
-      if (d < 5) { al.estado = 'espera'; al.cd = furioso ? 1.1 : 1.6; }
+      al.x += (dx / d) * Math.min(d, 260 * dt); al.y += (dy / d) * Math.min(d, 260 * dt);
+      if (d < 5) { al.estado = 'espera'; al.cd = 1.2; }
     } else if (al.estado === 'teleporte') {
       al.carga -= dt;
       if (al.carga <= 0) {
         al.x = ARENA.x0 + 20 + Math.random() * (ARENA.x1 - ARENA.x0 - 40); al.y = ARENA.y0 + 10 + Math.random() * 40; al.sumido = 0;
-        for (let i = 0; i < 10; i++) atirarInimigo(al.x, al.y, (i * Math.PI * 2) / 10, 70);
+        const n = desespero ? 16 : 12; for (let i = 0; i < n; i++) atirarInimigo(al.x, al.y, (i * Math.PI * 2) / n, vb(70));
         al.ta = Math.asin(Math.max(-1, Math.min(1, (al.x - CX) / 95))) / 0.7;
-        al.estado = 'espera'; al.cd = 1.5; bip(440, 0.1, 'square', 0.05);
+        al.estado = 'espera'; al.cd = 1.3; bip(440, 0.1, 'square', 0.05);
       }
     }
   }
@@ -809,7 +878,7 @@ export function iniciarArcade({ bip }) {
     for (let i = S.tirosInimigos.length - 1; i >= 0; i--) {
       const b = S.tirosInimigos[i];
       b.x += b.vx * dt; b.y += b.vy * dt; b.vida -= dt;
-      if (b.vida <= 0 || Math.hypot(b.x - S.nx, b.y - S.ny) > 420) { S.tirosInimigos.splice(i, 1); continue; }
+      if (b.vida <= 0 || Math.hypot(b.x - S.nx, b.y - S.ny) > 420 || (S.alien && (b.x < ARENA.x0 - 40 || b.x > ARENA.x1 + 40 || b.y < ARENA.y0 - 40 || b.y > ARENA.y1 + 40))) { S.tirosInimigos.splice(i, 1); continue; }
       if (Math.hypot(b.x - S.nx, b.y - S.ny) < RAIO_NAVE + 1.5) { ferirNave(b.dano); particulas(b.x, b.y, 4, ['#ff5a8a', '#ffffff'], 50); S.tirosInimigos.splice(i, 1); }
     }
     for (let i = S.raios.length - 1; i >= 0; i--) { // raios do alienígena: aviso fino e depois o raio
@@ -817,6 +886,8 @@ export function iniciarArcade({ bip }) {
       if (r.aviso > 0) { r.aviso -= dt; continue; }
       if (!r.ligou) { r.ligou = true; S.tremor = Math.max(S.tremor, 0.2); bip(110, 0.4, 'sawtooth', 0.06); }
       r.vida -= dt; r.tick -= dt;
+      if (r.giro) r.ang += r.giro * dt;
+      if (r.seg && S.alien) { r.x = S.alien.x; r.y = S.alien.y + 8; } // alguns raios acompanham o alienígena
       const dx = S.nx - r.x, dy = S.ny - r.y, ao = dx * Math.cos(r.ang) + dy * Math.sin(r.ang), pe = Math.abs(-dx * Math.sin(r.ang) + dy * Math.cos(r.ang));
       if (ao > 0 && ao < 400 && pe < 8 && r.tick <= 0) { ferirNave(1); r.tick = 0.3; }
       if (r.vida <= 0) S.raios.splice(i, 1);

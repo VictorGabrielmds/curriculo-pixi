@@ -308,13 +308,13 @@ const medusa = () => dois(34, 40, (s, f) => {
   for (let x = 6; x < 30; x += 4) s.disco(x, 22 + f, 1, '#ff7ab8');
 });
 export const ALIENS = [
-  { nome: 'CINZENTO', pesos: {}, criar: criarAlien },
-  { nome: 'POLVO CÓSMICO', pesos: { bombas: 2, invocar: 1 }, criar: polvo },
-  { nome: 'CÉREBRO MECÂNICO', pesos: { mira: 2, raio: 2 }, criar: cerebro },
-  { nome: 'CEIFADOR', pesos: { teleporte: 3, investida: 1 }, criar: ceifador },
-  { nome: 'OLHO MESTRE', pesos: { raio: 3, rajada: 1 }, criar: olhoMestre },
-  { nome: 'LOUVA-A-DEUS', pesos: { investida: 3, mira: 1 }, criar: louva },
-  { nome: 'MEDUSA ESTELAR', pesos: { rajada: 3, invocar: 1 }, criar: medusa },
+  { nome: 'CINZENTO', pesos: { ovnis: 4, aneis: 1 }, criar: criarAlien },
+  { nome: 'POLVO CÓSMICO', pesos: { tentaculos: 4, bombas: 2, espiral: 1 }, criar: polvo },
+  { nome: 'CÉREBRO MECÂNICO', pesos: { psiquico: 4, mira: 2, cerco: 2 }, criar: cerebro },
+  { nome: 'CEIFADOR', pesos: { foice: 4, teleporte: 3, aneis: 1 }, criar: ceifador },
+  { nome: 'OLHO MESTRE', pesos: { olhar: 4, varredura: 2, raio: 2 }, criar: olhoMestre },
+  { nome: 'LOUVA-A-DEUS', pesos: { corte: 4, investida: 2, cerco: 1 }, criar: louva },
+  { nome: 'MEDUSA ESTELAR', pesos: { chuva: 4, espiral: 2, rajada: 2 }, criar: medusa },
 ];
 
 // ---------- naves dos chefões: sorteadas a cada chefão ----------
