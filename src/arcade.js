@@ -4,8 +4,8 @@
 import './arcade.css';
 import { novoSprite, silhuetaBranca } from './pixelArt.js';
 import { criarFundo } from './arcadeFundo.js';
-import { criarAlien, criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js';
-import { TEMAS } from './arcadeTemas.js';
+import { criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js';
+import { TEMAS, ALIENS, CHEFES } from './arcadeTemas.js';
 
 const L = 320, A = 180; // resolução lógica da tela (ampliada sem suavização)
 const CX = L / 2, CY = A / 2;
@@ -126,7 +126,10 @@ function gerarNave(t) {
 export function iniciarArcade({ bip }) {
   const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
   const sprites = criarSprites();
-  const rochasSpr = criarRochas(), itensSpr = criarItens(), alienSpr = criarAlien();
+  const rochasSpr = criarRochas(), itensSpr = criarItens();
+  const cacheAlien = new Map(), cacheChefe = new Map();
+  const alienSprite = (i) => { if (!cacheAlien.has(i)) cacheAlien.set(i, ALIENS[i].criar()); return cacheAlien.get(i); };
+  const chefeSprite = (i) => { if (!cacheChefe.has(i)) cacheChefe.set(i, CHEFES[i].criar()); return cacheChefe.get(i); };
   const cacheSkin = new Map();
   const skin = (v) => {
     const k = ((v % TEMAS.length) + TEMAS.length) % TEMAS.length;
@@ -250,7 +253,7 @@ export function iniciarArcade({ bip }) {
       spawnAcc: 0, recarga: 0.3, invul: 0, mira: 0, tremor: 0, flash: 0, niveis: {},
       imaT: 0, turboT: 0, escudoT: 0,
       proxBuraco: 40 + Math.random() * 30, buraco: null, alien: null, mundoSalvo: null, aliensVencidos: 0, pendente: null,
-      proxChefe: 90, chefe: null, chefesVencidos: 0, moedasRun: 0,
+      proxChefe: 90, chefeIdx: Math.floor(Math.random() * CHEFES.length), alienIdx: Math.floor(Math.random() * ALIENS.length), chefe: null, chefesVencidos: 0, moedasRun: 0,
       skinBase: dados.skin, // muda a cada derrota
       movendo: false, tiers: null, upgFx: null,
       arma: 1, slots: [null, null], poderes: { missil: false, orbes: false },
@@ -412,11 +415,12 @@ export function iniciarArcade({ bip }) {
 
   // ---------- chefão ----------
   function criarChefeInimigo() {
+    S.chefeIdx = (S.chefeIdx + 1 + Math.floor(Math.random() * (CHEFES.length - 1))) % CHEFES.length; // nave diferente a cada chefão
     const lado = Math.random() < 0.5 ? -1 : 1;
     const hp = Math.round(150 * (1 + (S.fase - 1) * 0.4 + S.chefesVencidos * 0.35));
-    const c = { tipo: 'chefe', x: S.cx + lado * (L / 2 + 40), y: S.cy - 30, hp, hpMax: hp, vel: 30, fase: 0, piscar: 0, v: S.fase - 1 + S.skinBase, cdRajada: 2.2, cdMira: 1.6, cdBomba: 4, rot: 0 };
+    const c = { tipo: 'chefe', x: S.cx + lado * (L / 2 + 40), y: S.cy - 30, hp, hpMax: hp, vel: 30, fase: 0, piscar: 0, v: S.fase - 1 + S.skinBase, b: S.chefeIdx, cdRajada: 2.2, cdMira: 1.6, cdBomba: 4, rot: 0 };
     S.inimigos.push(c); S.chefe = c;
-    mostrarAviso('!! CHEFÃO !!', 3);
+    mostrarAviso(`!! CHEFÃO: ${CHEFES[S.chefeIdx].nome} !!`, 3);
     bip(90, 0.4, 'sawtooth', 0.06); bip(70, 0.5, 'sawtooth', 0.06, 0.3);
   }
   function moverChefe(c, dt) {
@@ -475,13 +479,14 @@ export function iniciarArcade({ bip }) {
     if (b.vida <= 0) { S.buraco = null; S.proxBuraco = S.t + 50 + Math.random() * 40; }
   }
   function entrarBuraco() {
+    S.alienIdx = (S.alienIdx + 1 + Math.floor(Math.random() * (ALIENS.length - 1))) % ALIENS.length; // alienígena diferente a cada buraco
     S.mundoSalvo = { nx: S.nx, ny: S.ny, cx: S.cx, cy: S.cy, inimigos: S.inimigos, tirosInimigos: S.tirosInimigos, campos: S.campos, hp: S.hp, buraco: S.buraco, chefe: S.chefe };
     const hpAlien = Math.round(48 * (1 + S.aliensVencidos * 0.5 + (S.fase - 1) * 0.2));
-    const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: 0, cd: 2, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0 };
+    const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: S.alienIdx, cd: 2, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0 };
     S.hp = S.maxHp; S.invul = 1; // dentro do buraco negro a nave luta com a vida cheia
     S.inimigos = [al]; S.tirosInimigos = []; S.campos = []; S.raios = []; S.tiros = []; S.misseis = []; S.chefe = null;
     S.alien = al; S.nx = CX; S.ny = A - 40; S.cx = CX; S.cy = CY;
-    S.flash = 0.5; mostrarAviso('!! ALIENÍGENA !!', 2.4);
+    S.flash = 0.5; mostrarAviso(`!! ALIENÍGENA: ${ALIENS[S.alienIdx].nome} !!`, 2.6);
     bip(60, 0.6, 'sawtooth', 0.07);
   }
   function sairDoBuraco(vitoria) {
@@ -514,7 +519,8 @@ export function iniciarArcade({ bip }) {
     if (al.estado === 'espera') {
       al.cd -= dt;
       if (al.cd <= 0) {
-        al.ataque = sorteio([['rajada', 3], ['mira', 3], ['teleporte', 2], ['invocar', furioso ? 2 : 1], ['investida', 3], ['raio', 3], ['bombas', 2]]);
+        const gosto = ALIENS[al.v].pesos; // cada alienígena prefere alguns ataques
+        al.ataque = sorteio([['rajada', 3], ['mira', 3], ['teleporte', 2], ['invocar', furioso ? 2 : 1], ['investida', 3], ['raio', 3], ['bombas', 2]].map(([k, p]) => [k, p + (gosto[k] || 0)]));
         al.estado = 'carga'; al.carga = al.ataque === 'investida' ? 0.5 : 0.55;
       }
     } else if (al.estado === 'carga') {
@@ -1165,8 +1171,8 @@ export function iniciarArcade({ bip }) {
       if (!visivel(m.x, m.y, 40)) continue;
       const f = Math.floor(S.ta * 6 + m.fase) % 2;
       let spr;
-      if (m.tipo === 'alien') { spr = (m.piscar > 0 ? alienSpr.brancos : alienSpr.quadros)[Math.floor(S.ta * 3) % 2]; g.globalAlpha = m.sumido > 0 ? 0.25 : (m.estado === 'carga' && Math.floor(S.ta * 16) % 2 === 0 ? 0.6 : 1); }
-      else if (m.tipo === 'chefe') { const s = skin(m.v).chefe; spr = (m.piscar > 0 ? s.brancos : s.quadros)[Math.floor(S.ta * 4) % 2]; }
+      if (m.tipo === 'alien') { const as = alienSprite(m.v); spr = (m.piscar > 0 ? as.brancos : as.quadros)[Math.floor(S.ta * 3) % 2]; g.globalAlpha = m.sumido > 0 ? 0.25 : (m.estado === 'carga' && Math.floor(S.ta * 16) % 2 === 0 ? 0.6 : 1); }
+      else if (m.tipo === 'chefe') { const s = chefeSprite(m.b); spr = (m.piscar > 0 ? s.brancos : s.quadros)[Math.floor(S.ta * 4) % 2]; }
       else { const s = skin(m.v).m[m.tipo]; spr = (m.piscar > 0 ? s.brancos : s.quadros)[f]; if (m.tipo === 'fantasma') g.globalAlpha = 0.85; }
       g.drawImage(spr, Math.round(m.x - spr.width / 2), Math.round(m.y - spr.height / 2));
       g.globalAlpha = 1;
@@ -1386,6 +1392,8 @@ export function iniciarArcade({ bip }) {
         limpar: () => { S.inimigos = []; },
         ataqueAlien: (nome) => { if (S.alien) { S.alien.ataque = nome; S.alien.estado = 'carga'; S.alien.carga = 0.05; } },
         alienHp: (n) => { if (S.alien) S.alien.hp = n; },
+        tipoChefe: (n) => { if (S.chefe) S.chefe.b = n; },
+        tipoAlien: (n) => { if (S.alien) S.alien.v = n; },
         chefeHp: (n) => { if (S.chefe) S.chefe.hp = n; },
         poder: (id) => darPoder(S, id),
         arma: (n) => selecionarArma(n),

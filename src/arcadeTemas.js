@@ -2,7 +2,7 @@
 // Alguns são homenagens a clássicos: fliperama (invasores), guerra nas estrelas, homens de preto e alien x predador
 // (desenhos próprios em pixel art, só inspirados nas silhuetas e ideias).
 import { novoSprite, silhuetaBranca } from './pixelArt.js';
-import { criarMonstros, criarChefe } from './arcadeSprites.js';
+import { criarMonstros, criarChefe, criarAlien } from './arcadeSprites.js';
 
 const C = '#0b1026';
 const com = (q) => ({ quadros: q, brancos: q.map(silhuetaBranca) });
@@ -254,4 +254,101 @@ export const TEMAS = [
   { nome: 'AGENTES', criar: agentes },
   { nome: 'XENO', criar: xeno },
   { nome: 'REVOADA', criar: revoada },
+];
+
+// ---------- alienígenas do buraco negro: um diferente a cada buraco (e a cada partida) ----------
+const ten = (s, x0, y0, x1, y1, cor, f, ondas = 1.5) => { // tentáculo ondulando entre dois pontos
+  let px = x0, py = y0;
+  for (let i = 1; i <= 8; i++) { const u = i / 8, x = x0 + (x1 - x0) * u + Math.sin(u * 5 + f * 2.4) * ondas * u * 2, y = y0 + (y1 - y0) * u; s.linha(px, py, x, y, cor); s.linha(px + 1, py, x + 1, y, cor); px = x; py = y; }
+  return [px, py];
+};
+const polvo = () => dois(34, 40, (s, f) => {
+  for (let k = 0; k < 6; k++) { const x0 = 8 + k * 3.6, [tx, ty] = ten(s, x0, 24, x0 + (k - 2.5) * 3, 38, '#8a3fd6', f, 2.5); s.disco(Math.round(tx), Math.round(ty), 1, '#ff7ab8'); }
+  s.elipse(17, 14 + f, 12, 12, '#a56bff'); s.elipse(17, 9 + f, 9, 6, '#c49bff');
+  s.disco(11, 16 + f, 4, '#ffffff'); s.disco(23, 16 + f, 4, '#ffffff'); s.disco(12, 17 + f, 2, '#0b1026'); s.disco(22, 17 + f, 2, '#0b1026');
+  s.retangulo(14, 24 + f, 6, 2, '#3a1a5a'); for (const [x, y] of [[17, 4], [12, 6], [22, 6]]) s.disco(x, y + f, 1, '#ffe14a');
+});
+const cerebro = () => dois(34, 40, (s, f) => {
+  s.retangulo(6, 24, 22, 3, '#8b93a8'); s.retangulo(9, 27, 16, 10, '#5a6176'); s.retangulo(9, 27, 16, 2, '#8b93a8');
+  s.retangulo(10, 37, 4, 3, '#3a4156'); s.retangulo(20, 37, 4, 3, '#3a4156'); s.disco(17, 32, 2, f ? '#ff3b4a' : '#7a1f2a');
+  s.linha(9, 28, 3, 22 - f * 2, '#8b93a8'); s.linha(25, 28, 31, 22 - (1 - f) * 2, '#8b93a8'); s.disco(3, 21 - f * 2, 2, '#c9cdd8'); s.disco(31, 21 - (1 - f) * 2, 2, '#c9cdd8');
+  s.disco(17, 13, 12, '#8bd3ff'); s.disco(17, 14, 10, '#bff0ff'); s.elipse(17, 14 + f * 0.5, 8, 7, '#ff7ab8'); s.elipse(15, 12, 4, 3, '#ffb3d9');
+  s.linha(17, 8, 17, 20, '#c4488a'); s.linha(11, 12, 15, 16, '#c4488a'); s.linha(23, 12, 19, 16, '#c4488a'); s.linha(17, 1, 17, 3, '#8b93a8'); s.pixel(17, 0, f ? '#ffe14a' : '#ff3b4a');
+  if (f) { s.pixel(8, 8, '#ffe14a'); s.pixel(26, 18, '#ffe14a'); }
+});
+const ceifador = () => dois(34, 40, (s, f) => {
+  s.poligono([[17, 6], [4, 38 - f], [30, 38 - f]], '#2a1f4a'); for (let x = 4; x < 30; x += 4) s.pixel(x, 38 - f, '#0b1026');
+  s.disco(17, 12, 9, '#2a1f4a'); s.disco(17, 14, 6, '#e8e8f0');
+  s.retangulo(12, 13, 4, 3, '#1b1020'); s.retangulo(19, 13, 4, 3, '#1b1020'); s.pixel(13, 14, f ? '#ff2a4a' : '#ff9aa6'); s.pixel(20, 14, f ? '#ff2a4a' : '#ff9aa6');
+  s.poligono([[16, 17], [18, 17], [17, 19]], '#1b1020'); for (let x = 13; x <= 21; x += 2) s.retangulo(x, 20, 1, 2, '#1b1020');
+  s.disco(5, 27 + f, 2, '#7dff9a'); s.disco(29, 27 - f, 2, '#7dff9a');
+  s.linha(30, 4, 30, 37, '#c9a86a'); s.poligono([[30, 4], [21, 1], [22, 8]], '#cfd6e0');
+});
+const olhoMestre = () => dois(34, 40, (s, f) => {
+  const d = f ? 1 : -1;
+  for (const [x0, y0, x1, y1] of [[8, 14, 3, 4], [13, 10, 11, 1], [22, 10, 23, 1], [27, 14, 31, 4]]) { s.linha(x0, y0, x1 + d, y1, '#6a3a8a'); s.linha(x0 + 1, y0, x1 + 1 + d, y1, '#6a3a8a'); s.disco(x1 + d, y1, 2, '#ffe14a'); s.pixel(x1 + d, y1, '#0b1026'); }
+  s.disco(17, 25, 13, '#f4efe0'); s.disco(17, 25, 12, '#ffffff');
+  for (const [x0, y0, x1, y1] of [[6, 20, 10, 24], [28, 20, 24, 24], [8, 32, 12, 29], [26, 32, 22, 29]]) s.linha(x0, y0, x1, y1, '#ff9aa6');
+  s.disco(17 + d, 25, 7, '#ff3b4a'); s.disco(17 + d, 25, 5, '#c4182a'); s.disco(17 + d, 25, 3, '#0b1026'); s.pixel(15 + d, 22, '#ffffff'); s.pixel(16 + d, 22, '#ffffff');
+});
+const louva = () => dois(34, 40, (s, f) => {
+  s.poligono([[17, 18], [2, 10 + f], [8, 30]], '#c9ffc9'); s.poligono([[17, 18], [32, 10 + f], [26, 30]], '#c9ffc9');
+  s.elipse(17, 27, 5, 11, '#3a9a3a'); s.elipse(17, 21, 4, 5, '#4ab84a'); s.retangulo(15, 30, 4, 1, '#2a6a2a');
+  s.poligono([[17, 3], [26, 10], [17, 15], [8, 10]], '#7ae07a'); s.disco(11, 9, 3, '#ffe14a'); s.disco(23, 9, 3, '#ffe14a'); s.pixel(11, 9, '#0b1026'); s.pixel(23, 9, '#0b1026');
+  s.linha(14, 3, 11, 0, '#3a9a3a'); s.linha(20, 3, 23, 0, '#3a9a3a'); s.retangulo(15, 13, 4, 1, '#2a6a2a');
+  const a = f ? 4 : 0;
+  s.linha(13, 19, 4, 14 + a, '#4ab84a'); s.linha(4, 14 + a, 6, 4 + a, '#4ab84a'); s.poligono([[6, 4 + a], [3, 1 + a], [9, 8 + a]], '#cfd6e0');
+  s.linha(21, 19, 30, 14 + a, '#4ab84a'); s.linha(30, 14 + a, 28, 4 + a, '#4ab84a'); s.poligono([[28, 4 + a], [31, 1 + a], [25, 8 + a]], '#cfd6e0');
+  for (const k of [0, 1, 2]) { s.linha(13, 30 + k * 2, 6, 36 + k, '#2a6a2a'); s.linha(21, 30 + k * 2, 28, 36 + k, '#2a6a2a'); }
+});
+const medusa = () => dois(34, 40, (s, f) => {
+  for (let k = 0; k < 5; k++) { const x0 = 8 + k * 4.5, [tx, ty] = ten(s, x0, 22, x0 + Math.sin(k + f) * 4, 39, k % 2 ? '#ff7ab8' : '#c4488a', f, 3); s.pixel(Math.round(tx), Math.round(ty), '#ffffff'); }
+  s.elipse(17, 13 + f * 0.5, 13, 11, '#7ad8ff'); s.elipse(17, 11, 10, 7, '#bff0ff'); s.disco(17, 13, 4, f ? '#ffffff' : '#ffe14a');
+  for (const [x, y] of [[9, 9], [24, 8], [12, 17], [22, 17], [17, 5]]) s.pixel(x, y, '#ffffff');
+  for (let x = 6; x < 30; x += 4) s.disco(x, 22 + f, 1, '#ff7ab8');
+});
+export const ALIENS = [
+  { nome: 'CINZENTO', pesos: {}, criar: criarAlien },
+  { nome: 'POLVO CÓSMICO', pesos: { bombas: 2, invocar: 1 }, criar: polvo },
+  { nome: 'CÉREBRO MECÂNICO', pesos: { mira: 2, raio: 2 }, criar: cerebro },
+  { nome: 'CEIFADOR', pesos: { teleporte: 3, investida: 1 }, criar: ceifador },
+  { nome: 'OLHO MESTRE', pesos: { raio: 3, rajada: 1 }, criar: olhoMestre },
+  { nome: 'LOUVA-A-DEUS', pesos: { investida: 3, mira: 1 }, criar: louva },
+  { nome: 'MEDUSA ESTELAR', pesos: { rajada: 3, invocar: 1 }, criar: medusa },
+];
+
+// ---------- naves dos chefões: sorteadas a cada chefão ----------
+const cruzador = () => dois(56, 38, (s, f) => {
+  s.poligono([[2, 20], [10, 12], [46, 12], [54, 20], [46, 30], [10, 30]], '#7a2a3a'); s.poligono([[10, 12], [46, 12], [42, 8], [14, 8]], '#5a1f2a');
+  s.retangulo(24, 1, 8, 9, '#9a3a4a'); s.retangulo(26, 3, 4, 2, '#8bd3ff'); s.pixel(28, 0, f ? '#ff3b4a' : '#ffd23f');
+  for (const x of [12, 28, 44]) { s.disco(x, 12, 3, '#3a3a48'); s.retangulo(x - 1, 14, 2, 5, '#5a5a6a'); s.pixel(x, 19, f ? '#ffd23f' : '#ff3b4a'); }
+  for (let x = 8; x < 50; x += 4) s.pixel(x, 24, (x / 4 + f) % 2 ? '#ffd23f' : '#7a5a2a');
+  s.retangulo(2, 16, 3, 8, f ? '#ffd23f' : '#ff7a3a'); s.retangulo(51, 16, 3, 8, f ? '#ffd23f' : '#ff7a3a'); s.retangulo(14, 30, 28, 3, '#3a1018'); s.retangulo(20, 33, 4, 2, f ? '#ffd23f' : '#ff7a3a'); s.retangulo(32, 33, 4, 2, f ? '#ffd23f' : '#ff7a3a');
+});
+const discoMae = () => dois(56, 38, (s, f) => {
+  s.poligono([[20, 30], [36, 30], [42, 37], [14, 37]], f ? '#fff08a' : '#c9b03a');
+  s.elipse(28, 22, 26, 9, '#aab3c8'); s.elipse(28, 25, 25, 6, '#7a8298'); s.elipse(28, 21, 22, 6, '#c9cdd8');
+  s.elipse(28, 13, 11, 10, '#8bd3ff'); s.elipse(25, 10, 5, 4, '#cfeeff'); s.disco(28, 14, 4, '#7ad8a0'); s.pixel(27, 13, '#0b1026'); s.pixel(30, 13, '#0b1026');
+  for (let k = 0; k < 9; k++) s.retangulo(Math.round(6 + k * 5.5), 22, 2, 2, (k + f) % 2 ? '#ffe14a' : '#ff3b4a');
+});
+const naveCaveira = () => dois(56, 38, (s, f) => {
+  s.poligono([[12, 18], [0, 8 + f * 2], [2, 28], [14, 26]], '#7a2a3a'); s.poligono(esp([[12, 18], [0, 8 + f * 2], [2, 28], [14, 26]], 56), '#7a2a3a');
+  s.elipse(28, 15, 18, 14, '#e8e0c8'); s.elipse(24, 11, 9, 6, '#f6f0dc'); s.retangulo(18, 24, 20, 9, '#e8e0c8');
+  s.disco(21, 16, 5, '#1b1020'); s.disco(35, 16, 5, '#1b1020'); s.disco(21, 16, 2, f ? '#ff3b4a' : '#7a1f2a'); s.disco(35, 16, 2, f ? '#ff3b4a' : '#7a1f2a');
+  s.poligono([[26, 21], [30, 21], [28, 25]], '#1b1020'); for (let x = 19; x <= 37; x += 3) s.retangulo(x, 27, 1, 6, '#1b1020'); s.retangulo(18, 28, 20, 1, '#1b1020');
+  s.retangulo(4, 24, 5, 8, '#3a3a48'); s.retangulo(47, 24, 5, 8, '#3a3a48'); s.retangulo(5, 32, 3, 3, f ? '#ffd23f' : '#ff7a3a'); s.retangulo(48, 32, 3, 3, f ? '#ffd23f' : '#ff7a3a');
+});
+const cristalVivo = () => dois(56, 38, (s, f) => {
+  s.poligono([[8, 14], [14, 26], [8, 35], [2, 24]], '#5ad6ff'); s.poligono(esp([[8, 14], [14, 26], [8, 35], [2, 24]], 56), '#5ad6ff');
+  s.poligono([[17, 18], [22, 28], [17, 36], [12, 28]], '#38a8d6'); s.poligono(esp([[17, 18], [22, 28], [17, 36], [12, 28]], 56), '#38a8d6');
+  s.poligono([[28, 0], [40, 14], [34, 36], [22, 36], [16, 14]], '#9a5aff'); s.poligono([[28, 0], [34, 14], [28, 36], [22, 14]], '#c49bff');
+  s.disco(28, 18, 5, f ? '#ffffff' : '#ffe14a'); s.disco(28, 18, 3, '#ff7ab8'); s.pixel(f ? 12 : 44, 12, '#ffffff'); s.pixel(f ? 46 : 10, 24, '#ffffff'); s.pixel(f ? 28 : 30, 4, '#ffffff');
+});
+const NOMES_CHEFES_TEMA = ['NAVE-MÃE', 'CARANGUEJÃO', 'BESOURÃO', 'ESFERA DE BATALHA', 'BARATÃO', 'RAINHA', 'ROC'];
+export const CHEFES = [
+  ...TEMAS.map((t, i) => ({ nome: NOMES_CHEFES_TEMA[i], criar: () => t.criar().chefe })),
+  { nome: 'CRUZADOR', criar: cruzador },
+  { nome: 'DISCO-MÃE', criar: discoMae },
+  { nome: 'NAVE-CAVEIRA', criar: naveCaveira },
+  { nome: 'CRISTAL VIVO', criar: cristalVivo },
 ];
