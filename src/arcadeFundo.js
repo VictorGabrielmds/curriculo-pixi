@@ -256,21 +256,138 @@ const OBJETOS = {
     brilho(c, 0.5, 0.5, 4, '#cfeaff');
     return c;
   },
+
+  // ===== o que há de mais poderoso e sobrenatural no universo (alguns se movem: vêm em vários quadros) =====
+  // Buraco negro supermassivo: sombra preta, anel de fótons e disco de gás que se curva por cima e por baixo (lente gravitacional)
+  buraconegro() {
+    const W = 180, H = 110, cx = W / 2, cy = H / 2, quadros = [];
+    for (let f = 0; f < 8; f++) {
+      quadros.push(pintar(W, H, (i, j) => {
+        const dx = i + 0.5 - cx, dy = j + 0.5 - cy, R = Math.hypot(dx, dy);
+        if (R < 17) return [2, 2, 6, 255]; // sombra
+        if (Math.abs(R - 19) < 1.3) return [255, 240, 205, 255]; // anel de fótons
+        const fluxo = fbm(dx * 0.06 - f * 0.18, dy * 0.4, 140);
+        let d = 0;
+        const fino = 5.5 * (1 - Math.abs(dx) / 95);
+        if (Math.abs(dx) > 17 && Math.abs(dx) < 90 && Math.abs(dy) < fino) d = 1 - Math.abs(dy) / fino; // o disco, de lado
+        if (R > 19.5 && R < 36 && dy < 0 && Math.abs(dy) > Math.abs(dx) * 0.2) d = Math.max(d, 0.85 * (1 - (R - 19.5) / 16.5)); // reflexo curvado por cima
+        if (R > 19.5 && R < 28 && dy > 0 && dy > Math.abs(dx) * 0.6) d = Math.max(d, 0.6 * (1 - (R - 19.5) / 8.5)); // e por baixo
+        if (!d) {
+          const lvh = nivel(Math.exp(-(R - 19) / 16) * 0.4 * (0.4 + fluxo), i, j, 2);
+          return lvh ? rampa([[90, 30, 15], [150, 60, 25]], [40, 70], lvh) : null;
+        }
+        const lado = 0.55 + 0.45 * (-dx / 95); // o lado que se aproxima brilha mais (efeito Doppler)
+        const lv = nivel(Math.min(1, d * (0.55 + fluxo * 0.7) * lado * 1.25), i, j, 4);
+        return lv ? rampa([[110, 35, 10], [215, 95, 25], [255, 175, 75], [255, 240, 195]], [150, 210, 245, 255], lv) : null;
+      }));
+    }
+    quadros.fps = 6;
+    return quadros;
+  },
+  // Tesseract: o hipercubo (cubo dentro de cubo) girando na quarta dimensão
+  tesseract() {
+    const S = 124, quadros = [], V = [];
+    for (let k = 0; k < 16; k++) V.push([k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1, k & 8 ? 1 : -1]);
+    const arestas = [];
+    for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++) { const d = a ^ b; if (d === 1 || d === 2 || d === 4 || d === 8) arestas.push([a, b]); }
+    for (let f = 0; f < 16; f++) {
+      const th = (f / 16) * (Math.PI / 2), ct = Math.cos(th), st = Math.sin(th), cp = Math.cos(0.5), sp = Math.sin(0.5), cq = Math.cos(0.4), sq = Math.sin(0.4);
+      const pts = V.map(([x, y, z, w]) => {
+        let x1 = x * ct - w * st; const w1 = x * st + w * ct; // giro no plano x-w (a quarta dimensão)
+        let y1 = y * cp - z * sp, z1 = y * sp + z * cp; // inclinação fixa para ficar bonito
+        const x2 = x1 * cq + z1 * sq; z1 = -x1 * sq + z1 * cq; x1 = x2;
+        const s4 = 2.6 / (2.6 - w1 * 0.9), s3 = 3.6 / (3.6 - z1 * s4 * 0.7);
+        return { x: S / 2 + x1 * s4 * s3 * 19, y: S / 2 + y1 * s4 * s3 * 19, w: w1 };
+      });
+      const s = novoSprite(S, S);
+      for (const [r, a] of [[56, 0.05], [44, 0.06], [30, 0.07]]) s.disco(S / 2, S / 2, r, `rgba(80, 150, 255, ${a})`);
+      for (const [a, b] of arestas) {
+        const prof = (pts[a].w + pts[b].w) / 4 + 0.5; // 0 = lado de dentro, 1 = de fora
+        s.linha(Math.round(pts[a].x), Math.round(pts[a].y), Math.round(pts[b].x), Math.round(pts[b].y), prof > 0.5 ? '#8be6ff' : '#c58bff');
+      }
+      for (const p of pts) { s.disco(Math.round(p.x), Math.round(p.y), 1, '#ffffff'); }
+      quadros.push(s.c);
+    }
+    quadros.fps = 6;
+    return quadros;
+  },
+  // Pulsar: estrela de nêutrons girando, com dois feixes de luz que varrem o espaço como um farol
+  pulsar() {
+    const W = 150, H = 150, cx = 75, cy = 75, quadros = [];
+    for (let f = 0; f < 16; f++) {
+      const ang = (f / 16) * Math.PI, ca = Math.cos(ang), sa = Math.sin(ang);
+      quadros.push(pintar(W, H, (i, j) => {
+        const dx = i + 0.5 - cx, dy = j + 0.5 - cy, R = Math.hypot(dx, dy);
+        if (R < 3.2) return [255, 255, 255, 255];
+        const along = dx * ca + dy * sa, perp = -dx * sa + dy * ca, larg = 1.1 + 0.07 * Math.abs(along);
+        const feixe = Math.abs(along) < 70 ? Math.exp(-((perp / larg) ** 2)) * Math.pow(1 - Math.abs(along) / 70, 1.2) : 0;
+        const halo = Math.exp(-R / 11) * 0.8, anel = Math.abs(R - 34) < 0.8 ? 0.35 : 0;
+        const lv = nivel(Math.min(1, feixe + halo + anel), i, j, 5);
+        return lv ? rampa([[60, 40, 150], [90, 100, 230], [100, 200, 255], [200, 240, 255], [255, 255, 255]], [60, 100, 160, 215, 255], lv) : null;
+      }));
+    }
+    quadros.fps = 9;
+    return quadros;
+  },
+  // Buraco de minhoca (ponte de Einstein-Rosen): um portal esférico com o espaço torcido por dentro
+  minhoca() {
+    const W = 120, H = 120, c = 60, quadros = [];
+    for (let f = 0; f < 12; f++) {
+      const fase = (f / 12) * Math.PI * 2;
+      quadros.push(pintar(W, H, (i, j) => {
+        const dx = i + 0.5 - c, dy = j + 0.5 - c, R = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+        if (R > 56) return null;
+        if (R > 44) {
+          if (R < 47.5) return [255, 235, 190, 255]; // borda do portal
+          const lvh = nivel(Math.exp(-(R - 47.5) / 3) * 0.55, i, j, 2);
+          return lvh ? rampa([[120, 90, 220], [190, 160, 255]], [60, 110], lvh) : null;
+        }
+        const bandas = 0.5 + 0.5 * Math.sin(3 * a + 0.36 * (44 - R) - fase);
+        const d = bandas * (0.3 + 0.7 * (1 - R / 44)) + Math.exp(-R / 6) * 0.9;
+        const lv = nivel(Math.min(1, d), i, j, 4);
+        return rampa([[20, 10, 70], [60, 40, 170], [90, 130, 240], [190, 230, 255]], [255, 255, 255, 255], Math.max(1, lv));
+      }));
+    }
+    quadros.fps = 8;
+    return quadros;
+  },
+  // Teia cósmica: filamentos de galáxias ligando aglomerados, a maior estrutura do universo
+  teia() {
+    const W = 170, H = 124, nos = Array.from({ length: 17 }, (_, k) => [12 + hash(k, 150, 1) * (W - 24), 10 + hash(k, 150, 2) * (H - 20)]);
+    const arestas = [];
+    for (let a = 0; a < nos.length; a++) for (let b = a + 1; b < nos.length; b++) { const d = Math.hypot(nos[a][0] - nos[b][0], nos[a][1] - nos[b][1]); if (d < 58) arestas.push([a, b, d]); }
+    const segmento = (px, py, [ax, ay], [bx, by]) => { const vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy))); return Math.hypot(px - (ax + vx * t), py - (ay + vy * t)); };
+    return pintar(W, H, (i, j, nx, ny) => {
+      let d = 0;
+      for (const [a, b, len] of arestas) { const dist = segmento(i + 0.5, j + 0.5, nos[a], nos[b]); d += Math.exp(-((dist / 1.1) ** 2)) * (1 - len / 62) * (0.5 + fbm(i * 0.2, j * 0.2, 151)); }
+      for (const [x, y] of nos) d += Math.exp(-((Math.hypot(i - x, j - y) / 3.4) ** 2)) * 1.2;
+      const lv = nivel(Math.min(1, d), i, j, 4);
+      return lv ? rampa([[50, 35, 130], [100, 80, 220], [175, 155, 255], [255, 232, 175]], [90, 150, 210, 255], lv) : null;
+    });
+  },
 };
 const cacheObjetos = {};
 const objeto = (id) => (cacheObjetos[id] ??= OBJETOS[id]());
-export const objetosDoCeu = () => Object.keys(OBJETOS).map((id) => ({ id, spr: objeto(id) })); // (usado nos testes)
+export const objetosDoCeu = () => Object.keys(OBJETOS).map((id) => { const o = objeto(id); return { id, spr: Array.isArray(o) ? o[0] : o, quadros: Array.isArray(o) ? o : null }; }); // (usado nos testes)
 
 // ---------- regiões do universo: uma por fase ----------
 export const REGIOES = [
-  { nome: 'NEBULOSA DE ÓRION', base: '#120a24', tom: '200, 60, 140', nebulosas: ['150, 40, 120', '60, 70, 170', '190, 70, 110'], objetos: ['orion', 'pleiades'], planetas: 0.6 },
-  { nome: 'PILARES DA CRIAÇÃO', base: '#0b1519', tom: '220, 130, 50', nebulosas: ['40, 120, 120', '190, 110, 50', '60, 100, 60'], objetos: ['pilares'], planetas: 0.5 },
-  { nome: 'NEBULOSA DO CARANGUEJO', base: '#0a1020', tom: '255, 120, 60', nebulosas: ['70, 110, 200', '200, 90, 50'], objetos: ['caranguejo'], planetas: 0.7 },
-  { nome: 'CABEÇA DE CAVALO', base: '#14060f', tom: '200, 40, 70', nebulosas: ['170, 30, 70', '110, 30, 100'], objetos: ['cavalo'], planetas: 0.5 },
-  { nome: 'GALÁXIA DE ANDRÔMEDA', base: '#090a1c', tom: '120, 140, 255', nebulosas: ['60, 60, 160', '100, 50, 150'], objetos: ['andromeda', 'sombrero'], planetas: 0.8 },
-  { nome: 'NEBULOSA DA HÉLICE', base: '#07151a', tom: '60, 220, 230', nebulosas: ['30, 130, 140', '170, 60, 50'], objetos: ['helice'], planetas: 0.6 },
-  { nome: 'GALÁXIA DO SOMBRERO', base: '#100d14', tom: '255, 200, 140', nebulosas: ['150, 100, 60', '80, 60, 120'], objetos: ['sombrero', 'andromeda'], planetas: 0.8 },
-  { nome: 'QUASAR', base: '#080a18', tom: '140, 200, 255', nebulosas: ['40, 60, 180', '120, 40, 160'], objetos: ['quasar', 'pleiades'], planetas: 0.5 },
+  // nível 0: nebulosas famosas (fases 1 e 2)
+  { nivel: 0, nome: 'NEBULOSA DE ÓRION', base: '#120a24', tom: '200, 60, 140', nebulosas: ['150, 40, 120', '60, 70, 170', '190, 70, 110'], objetos: ['orion', 'pleiades'], planetas: 0.6 },
+  { nivel: 0, nome: 'PILARES DA CRIAÇÃO', base: '#0b1519', tom: '220, 130, 50', nebulosas: ['40, 120, 120', '190, 110, 50', '60, 100, 60'], objetos: ['pilares'], planetas: 0.5 },
+  { nivel: 0, nome: 'NEBULOSA DO CARANGUEJO', base: '#0a1020', tom: '255, 120, 60', nebulosas: ['70, 110, 200', '200, 90, 50'], objetos: ['caranguejo'], planetas: 0.7 },
+  { nivel: 0, nome: 'CABEÇA DE CAVALO', base: '#14060f', tom: '200, 40, 70', nebulosas: ['170, 30, 70', '110, 30, 100'], objetos: ['cavalo'], planetas: 0.5 },
+  { nivel: 0, nome: 'NEBULOSA DA HÉLICE', base: '#07151a', tom: '60, 220, 230', nebulosas: ['30, 130, 140', '170, 60, 50'], objetos: ['helice'], planetas: 0.6 },
+  // nível 1: galáxias e quasares (fases 3 e 4)
+  { nivel: 1, nome: 'GALÁXIA DE ANDRÔMEDA', base: '#090a1c', tom: '120, 140, 255', nebulosas: ['60, 60, 160', '100, 50, 150'], objetos: ['andromeda', 'sombrero'], planetas: 0.8 },
+  { nivel: 1, nome: 'GALÁXIA DO SOMBRERO', base: '#100d14', tom: '255, 200, 140', nebulosas: ['150, 100, 60', '80, 60, 120'], objetos: ['sombrero', 'andromeda'], planetas: 0.8 },
+  { nivel: 1, nome: 'QUASAR', base: '#080a18', tom: '140, 200, 255', nebulosas: ['40, 60, 180', '120, 40, 160'], objetos: ['quasar', 'pleiades'], planetas: 0.5 },
+  // nível 2: o mais poderoso e sobrenatural do universo (da fase 5 em diante)
+  { nivel: 2, nome: 'BURACO NEGRO SUPERMASSIVO', base: '#05040a', tom: '255, 150, 60', nebulosas: ['120, 50, 20', '60, 30, 90'], objetos: ['buraconegro'], planetas: 0.15 },
+  { nivel: 2, nome: 'TESSERACT', base: '#04060f', tom: '120, 220, 255', nebulosas: ['30, 60, 140', '100, 40, 160'], objetos: ['tesseract'], planetas: 0.1 },
+  { nivel: 2, nome: 'PULSAR', base: '#060712', tom: '110, 200, 255', nebulosas: ['50, 40, 150', '20, 80, 140'], objetos: ['pulsar'], planetas: 0.15 },
+  { nivel: 2, nome: 'PONTE DE EINSTEIN-ROSEN', base: '#07041a', tom: '160, 130, 255', nebulosas: ['80, 50, 200', '30, 100, 200'], objetos: ['minhoca'], planetas: 0.1 },
+  { nivel: 2, nome: 'TEIA CÓSMICA', base: '#05050f', tom: '170, 150, 255', nebulosas: ['70, 50, 170', '150, 110, 60'], objetos: ['teia', 'buraconegro'], planetas: 0.1 },
 ];
 
 export function criarFundo(W, H) {
@@ -318,7 +435,8 @@ export function criarFundo(W, H) {
     // objetos famosos (galáxias e nebulosas), bem ao fundo e se movendo devagar
     celulas(camX, camY, 0.1, 360, 170, (cx, cy, ox, oy) => {
       if (hash(cx, cy, 200 + reg * 3) > 0.8) return;
-      const spr = objeto(R.objetos[Math.floor(hash(cx, cy, 201) * R.objetos.length)]);
+      const obj = objeto(R.objetos[Math.floor(hash(cx, cy, 201) * R.objetos.length)]);
+      const spr = Array.isArray(obj) ? obj[Math.floor(t * obj.fps + hash(cx, cy, 204) * obj.length) % obj.length] : obj; // objetos animados trocam de quadro
       const px = ox + (0.1 + hash(cx, cy, 202) * 0.6) * 360, py = oy + (0.1 + hash(cx, cy, 203) * 0.6) * 360;
       g.globalAlpha = 0.92;
       g.drawImage(spr, Math.round(px - spr.width / 2), Math.round(py - spr.height / 2));

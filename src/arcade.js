@@ -174,10 +174,14 @@ export function iniciarArcade({ bip, somAtivo }) {
   // Quando um chefão aparece a música normal pausa e toca a do chefão; quando ele cai a normal volta de onde parou.
   const VOLUME_MUSICA = 0.3;
   const novaMusica = (arquivo) => { const m = new Audio(import.meta.env.BASE_URL + arquivo); m.loop = true; m.volume = VOLUME_MUSICA; m.preload = 'none'; return m; };
-  const musica = novaMusica('audio/arcade.mp3'), musicaChefe = novaMusica('audio/chefe.mp3');
+  const musica = novaMusica('audio/arcade.mp3'), musicaChefe = novaMusica('audio/chefe.mp3'), musicaFim = novaMusica('audio/gameover.mp3');
   let musicaDoChefe = false;
   const tocarMusica = () => { if (somAtivo && !somAtivo()) return; (musicaDoChefe ? musicaChefe : musica).play().catch(() => { /* o navegador pode bloquear até o primeiro toque */ }); };
-  const pararMusicas = () => { musica.pause(); musicaChefe.pause(); };
+  const pararMusicas = () => { musica.pause(); musicaChefe.pause(); musicaFim.pause(); };
+  function tocarMusicaFim() { // game over: só a música de descanso
+    musicaDoChefe = false; musica.pause(); musicaChefe.pause(); musicaFim.currentTime = 0;
+    if (!somAtivo || somAtivo()) musicaFim.play().catch(() => { /* sem permissão de áudio */ });
+  }
   function trocarMusica(chefe) { // true: música do chefão; false: volta à normal
     if (musicaDoChefe === chefe) return;
     musicaDoChefe = chefe;
@@ -307,7 +311,12 @@ export function iniciarArcade({ bip, somAtivo }) {
     const ic = icone.getContext('2d'); ic.clearRect(0, 0, 20, 20); ic.drawImage(naveSpr.c, 0, 0);
   }
 
-  const regiaoAtual = () => (((S.fase - 1 + S.fundoBase) % REGIOES.length) + REGIOES.length) % REGIOES.length; // o céu muda a cada fase
+  // o céu muda a cada fase e fica mais grandioso: nebulosas (fases 1-2), galáxias (3-4) e, depois, o mais sobrenatural do universo
+  const regiaoAtual = () => {
+    if (S.regiaoForcada != null) return S.regiaoForcada;
+    const nivel = Math.min(2, Math.floor((S.fase - 1) / 2)), cand = REGIOES.map((r, i) => i).filter((i) => REGIOES[i].nivel === nivel);
+    return cand[(S.fundoBase + S.fase) % cand.length];
+  };
   const embaralhar = (lista) => { const a = [...lista]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   function sortearElenco() {
     const escolhidos = new Set([
@@ -1438,7 +1447,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- fim ----------
   function fimDeJogo() {
     modo = 'fim';
-    trocarMusica(false);
+    tocarMusicaFim();
     const bonus = Math.min(BONUS_MAXIMO, Math.floor(S.kills / 30) + Math.floor(S.nivel / 3));
     const tempo = Math.floor(S.t);
     const novoRecorde = tempo > dados.tempo || S.kills > dados.kills || S.onda > dados.onda;
@@ -1742,7 +1751,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- controle ----------
   function comecar() {
     teclas.clear(); ponteiro.ativo = false; joystick.hidden = true;
-    musicaChefe.pause(); musicaDoChefe = false;
+    musicaChefe.pause(); musicaFim.pause(); musicaDoChefe = false;
     musica.currentTime = 0; tocarMusica(); // a música recomeça do início a cada partida
     novoJogo();
     hudCache = '';
@@ -1759,7 +1768,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     if (aberto) return;
     aberto = true;
     raiz.classList.add('aberto');
-    musicaChefe.pause(); musicaDoChefe = false;
+    musicaChefe.pause(); musicaFim.pause(); musicaDoChefe = false;
     tocarMusica();
     dados = carregarDados();
     recordesEl.textContent = dados.tempo || dados.kills || dados.onda
@@ -1839,7 +1848,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
       abrir, oficina: () => abrirOficina(),
-      musicas: () => ({ normal: !musica.paused, chefe: !musicaChefe.paused, tCh: +musicaChefe.currentTime.toFixed(1) }),
+      musicas: () => ({ normal: !musica.paused, chefe: !musicaChefe.paused, fim: !musicaFim.paused }),
       mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x - (S.cx - L / 2); ponteiro.y = y - (S.cy - A / 2); } },
       cristais: () => S.cristais.map((c) => ({ x: Math.round(c.x), y: Math.round(c.y), v: c.v })),
       itens: () => S.itens.map((i) => ({ x: Math.round(i.x), y: Math.round(i.y), tipo: i.tipo })),
@@ -1853,7 +1862,7 @@ export function iniciarArcade({ bip, somAtivo }) {
         item: (tipo) => S.itens.push({ tipo, x: S.nx + 12, y: S.ny, vida: 16, fase: 0 }),
         onda: () => { S.proxOnda = 0; },
         fase: (n) => { S.onda = (n - 1) * 3; S.ondaEstado = 'calma'; S.proxOnda = 0; },
-        regiao: (n) => { S.fundoBase = n - (S.fase - 1); },
+        regiao: (n) => { S.regiaoForcada = n; },
         completar: () => { if (S.ondaEstado !== 'calma') terminarOnda(); },
         hp: (n) => { S.hp = n; },
         tempo: (n) => { S.t = n; S.proxBuraco = n + 999; },
