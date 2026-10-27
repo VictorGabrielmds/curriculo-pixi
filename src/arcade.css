@@ -77,3 +77,14 @@
 .arc-item span { font-size: 11px; color: #c9cdf5; }
 .arc-btn.pequeno { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
 .arc-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+
+.arc-armas { display: flex; gap: 6px; margin-top: 6px; }
+.arc-arma { position: relative; flex: 1; display: flex; align-items: center; gap: 6px; padding: 4px 6px; overflow: hidden; cursor: pointer; font: inherit; font-size: 11px; color: #c9cdf5; background: #12173a; border: 3px solid #3a2c70; }
+.arc-arma small { color: #ffe14a; font-size: 13px; }
+.arc-arma b { font-weight: normal; letter-spacing: 1px; }
+.arc-arma i { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: #38c8ff; }
+.arc-arma.ativa { border-color: #ffe14a; background: #1c2552; color: #fff; }
+.arc-arma.vazio { opacity: 0.4; cursor: default; }
+.arc-arma.quente { border-color: #d6293e; }
+.arc-arma.quente i { background: #d6293e; }
+.arc-parte { margin: 6px 0 0; font-size: 12px; letter-spacing: 2px; color: #7dff9a; text-align: left; }

@@ -18,6 +18,10 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 
 ### Moedas e Nave Arcade (resumo dos extras do jogo de nave)
 
+- **Armas nas teclas 1 a 4** (ou clicando nos botões): **1** tiro normal, **2** laser contínuo (dano alto, alcance curto, esquenta e recarrega), **3** e **4** são slots de poderes novos, conquistados ao subir de nível ou vencer o alienígena: **míssil** (dano em área nos inimigos mais próximos) e **bolas de energia** (giram em volta da nave). Cada poder tem seus próprios upgrades (mais mísseis/bolas, recarga, dano, área, velocidade).
+- **Oficina por partes da nave**: motor, núcleo de energia, armas, escudo regenerativo, casco e sensores.
+- A **skin dos monstros muda** a cada vez que você perde.
+
 - **Rochas espaciais** (poucas) quebram com alguns tiros e soltam itens: ímã (puxa todos os cristais por 1 s), explosão (fere todos os monstros da tela), coração, escudo e turbo.
 - **Buracos negros** aparecem de vez em quando: entrar leva a uma luta contra um **alienígena** com ataques variados (rajadas, leques, teletransporte, invocação, investida corpo a corpo, raio direto e bombas); vencer dá um poder (orbes, pulso, laser ou drone) e perder só expulsa do buraco negro.
 - **Chefões** (nave enorme que persegue a nave, atira em várias direções e joga de 1 a 3 bombas por vez em áreas) soltam **moedas espaciais**, que compram melhorias permanentes na **Oficina**.
