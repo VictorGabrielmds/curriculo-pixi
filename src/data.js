@@ -62,6 +62,7 @@ export const zonas = [
     icone: 'cassino',
     cor: 0xffc83d,
     jogo: 'cassino', // abre o minijogo (tecla E ou botão do painel)
+    escala: 0.58, // tamanho da estação no mundo (as outras usam 0,8)
     titulo: 'Cassino da Sorte',
     linhas: [
       'Um caça-níquel de brincadeira: só fichas virtuais, sem dinheiro de verdade.',

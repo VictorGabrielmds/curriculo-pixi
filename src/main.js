@@ -391,11 +391,11 @@ const estacoes = zonas.map((z, i) => {
   const icone = modelo(z.icone, z.cor);
   icone.position.y = 0.1;
   const topo = new THREE.Object3D(); // ponto acima da estação onde o rótulo HTML fica ancorado
-  topo.position.y = 4.4;
+  topo.position.y = 4.4 + (z.escala ? 1.3 : 0); // estação menor: rótulo mais alto para não cobrir o modelo
   raiz.add(base, anel, icone, topo);
   sombrear(raiz);
   base.castShadow = false;
-  raiz.scale.setScalar(0.8);
+  raiz.scale.setScalar(z.escala ?? 0.8); // a maquininha do cassino é menor que as outras estações
   fincar(raiz, dirsZonas[i], 0);
   return { raiz, anel, icone, topo, gira: icone.getObjectByName('gira') };
 });

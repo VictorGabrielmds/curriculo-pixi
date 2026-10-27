@@ -193,7 +193,7 @@ function sortear(estado) {
   return res;
 }
 
-// ---------- interface ----------
+// ---------- interface: uma maquininha compacta ----------
 export function iniciarCassino({ aoMudarSkins }) {
   const estado = carregar();
   const salvar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch { /* ignora */ } };
@@ -201,44 +201,56 @@ export function iniciarCassino({ aoMudarSkins }) {
 
   const icones = Object.fromEntries(SIMBOLOS.map((s) => [s.id, desenharSimbolo(s.id)]));
   const raiz = el('div'); raiz.id = 'cassino';
-  const caixa = el('div', 'cas-caixa');
-  raiz.append(caixa);
 
-  const topo = el('div', 'cas-topo');
-  const titulo = el('h2', null, 'CASSINO DA SORTE');
-  const fechar = el('button', 'cas-btn pequeno', 'X'); fechar.title = 'Fechar (Esc)';
-  topo.append(titulo, fechar);
+  // --- a máquina ---
+  const maq = el('div', 'cas-maq');
+  const fechar = el('button', 'cas-x', 'X'); fechar.title = 'Fechar (Esc)';
+  const letreiro = el('div', 'cas-letreiro');
+  const lampadas = el('div', 'lampadas');
+  for (let i = 0; i < 9; i++) lampadas.append(el('i', 'lampada'));
+  letreiro.append(lampadas, el('h2', null, 'CASSINO'));
 
-  const aviso = el('p', 'cas-aviso', 'Só de brincadeira: fichas virtuais, sem dinheiro de verdade. Ganhe skins para o mundo!');
-  const fichasBox = el('div', 'cas-fichas');
-  const moeda = el('i', 'moeda'); const fichasTxt = el('b'); fichasBox.append(moeda, fichasTxt, el('span', null, ' FICHAS'));
+  const janela = el('div', 'cas-janela');
+  const rolos = [0, 1, 2].map(() => { const r = el('div', 'rolo'); const cv = document.createElement('canvas'); cv.width = cv.height = 16; r.append(cv); janela.append(r); return cv; });
 
-  const rolosBox = el('div', 'cas-rolos');
-  const rolos = [0, 1, 2].map(() => { const r = el('div', 'rolo'); const cv = document.createElement('canvas'); cv.width = cv.height = 16; r.append(cv); rolosBox.append(r); return cv; });
-  const mensagem = el('div', 'cas-msg', 'Aperte GIRAR!');
+  const lcd = el('div', 'cas-lcd');
+  const mensagem = el('div', 'cas-msg', 'PUXE A ALAVANCA!');
+  const fichasLinha = el('div', 'cas-fichas');
+  const fichasTxt = el('b');
+  fichasLinha.append(el('i', 'moeda'), fichasTxt, el('span', null, 'FICHAS'));
+  lcd.append(mensagem, fichasLinha);
+
   const premioBox = el('div', 'cas-premio'); premioBox.hidden = true;
 
-  const botoes = el('div', 'cas-botoes');
-  const btnGirar = el('button', 'cas-btn grande', `GIRAR (-${CUSTO})`);
-  const btnColecao = el('button', 'cas-btn', 'COLEÇÃO');
-  const btnGratis = el('button', 'cas-btn', `FICHAS GRÁTIS (+${FICHAS_GRATIS})`); btnGratis.hidden = true;
-  const btnSom = el('button', 'cas-btn pequeno');
-  botoes.append(btnGirar, btnColecao, btnGratis, btnSom);
+  const controles = el('div', 'cas-controles');
+  const btnAjuda = el('button', 'cas-mini', '?'); btnAjuda.title = 'Tabela de prêmios';
+  const btnColecao = el('button', 'cas-mini', 'SKINS'); btnColecao.title = 'Coleção de skins (C)';
+  const btnSom = el('button', 'cas-mini');
+  const btnGirar = el('button', 'cas-girar', 'GIRAR'); btnGirar.title = `Girar (-${CUSTO} fichas) · Espaço`;
+  const btnGratis = el('button', 'cas-mini largo', `+${FICHAS_GRATIS} FICHAS`); btnGratis.hidden = true;
+  controles.append(btnAjuda, btnColecao, btnSom, btnGirar, btnGratis);
 
-  const tabela = el('div', 'cas-tabela');
+  const alavanca = el('button', 'cas-alavanca'); alavanca.title = 'Puxar a alavanca';
+  alavanca.append(el('i', 'haste'), el('i', 'bola'));
+  const bandeja = el('div', 'cas-bandeja');
+
+  const tabela = el('div', 'cas-tabela'); tabela.hidden = true;
   for (const s of SIMBOLOS) {
     const linha = el('div', 'cas-linha');
     const mini = icones[s.id].cloneNode(); mini.getContext('2d').drawImage(icones[s.id], 0, 0);
-    linha.append(mini, el('span', null, `x3 = ${s.premio}`), el('small', null, `skin ${RARIDADES[s.tier].nome.toLowerCase()}`));
+    linha.append(mini, el('span', null, `x3 = ${s.premio}`), el('small', null, RARIDADES[s.tier].nome.toLowerCase()));
     tabela.append(linha);
   }
-  tabela.append(el('div', 'cas-linha par', `Dois iguais = ${PREMIO_PAR} fichas · a cada ${GIROS_ATE_GARANTIA + 1} giros sem trio, o próximo é garantido`));
+  tabela.append(el('div', 'cas-linha par', `2 iguais = ${PREMIO_PAR} · a cada ${GIROS_ATE_GARANTIA + 1} giros sem trio, o próximo é garantido`));
 
-  const maquina = el('div', 'cas-maquina');
-  maquina.append(aviso, fichasBox, rolosBox, mensagem, premioBox, botoes, tabela);
+  maq.append(fechar, letreiro, janela, lcd, premioBox, controles, alavanca, bandeja, tabela, el('p', 'cas-nota', 'de brincadeira: fichas virtuais, sem dinheiro de verdade'));
 
-  const colecao = el('div', 'cas-colecao'); colecao.hidden = true;
-  caixa.append(topo, maquina, colecao);
+  // --- coleção de skins (cartão separado) ---
+  const colBox = el('div', 'cas-colecao-caixa'); colBox.hidden = true;
+  const colecao = el('div', 'cas-colecao');
+  colBox.append(colecao);
+
+  raiz.append(maq, colBox);
   document.body.append(raiz);
 
   let aberto = false, girando = false, naColecao = false;
@@ -250,9 +262,11 @@ export function iniciarCassino({ aoMudarSkins }) {
   }
   function atualizar() {
     fichasTxt.textContent = String(estado.fichas);
-    btnGirar.disabled = girando || estado.fichas < CUSTO;
-    btnGratis.hidden = estado.fichas >= CUSTO || girando;
-    btnSom.textContent = estado.som ? 'SOM: LIGADO' : 'SOM: DESLIGADO';
+    const semFicha = estado.fichas < CUSTO;
+    btnGirar.disabled = girando || semFicha;
+    alavanca.disabled = girando || semFicha;
+    btnGratis.hidden = !semFicha || girando;
+    btnSom.textContent = estado.som ? 'SOM ON' : 'SOM OFF';
   }
   function mostrarMensagem(txt, cls = '') { mensagem.textContent = txt; mensagem.className = 'cas-msg ' + cls; }
 
@@ -260,7 +274,8 @@ export function iniciarCassino({ aoMudarSkins }) {
     colecao.replaceChildren();
     const cab = el('div', 'cas-cabecalho');
     const total = SKINS.filter((s) => !s.padrao).length;
-    cab.append(el('h3', null, `COLEÇÃO (${estado.skins.length}/${total})`), (() => { const b = el('button', 'cas-btn', 'VOLTAR'); b.onclick = () => alternarColecao(false); return b; })());
+    const voltar = el('button', 'cas-btn', 'VOLTAR'); voltar.onclick = () => alternarColecao(false);
+    cab.append(el('h3', null, `SKINS (${estado.skins.length}/${total})`), voltar);
     colecao.append(cab);
     for (const cat of CATEGORIAS) {
       colecao.append(el('h4', null, cat.nome.toUpperCase()));
@@ -294,8 +309,8 @@ export function iniciarCassino({ aoMudarSkins }) {
   }
   function alternarColecao(ligar) {
     naColecao = ligar;
-    maquina.hidden = ligar;
-    colecao.hidden = !ligar;
+    maq.hidden = ligar;
+    colBox.hidden = !ligar;
     if (ligar) renderColecao(); else btnGirar.focus();
   }
 
@@ -306,7 +321,7 @@ export function iniciarCassino({ aoMudarSkins }) {
     const res = sortear(estado);
     girando = true;
     premioBox.hidden = true;
-    rolosBox.classList.remove('vitoria');
+    janela.classList.remove('vitoria');
     mostrarMensagem('GIRANDO...');
     atualizar();
     const paradas = [650, 1050, 1450];
@@ -338,22 +353,22 @@ export function iniciarCassino({ aoMudarSkins }) {
     if (res.skin) estado.skins.push(res.skin.id);
     salvar();
     if (res.tipo === 'trio') {
-      mostrarMensagem(`TRIO DE ${res.simbolos[0].nome.toUpperCase()}! +${res.fichas} FICHAS`, 'ganhou');
-      rolosBox.classList.add('vitoria');
+      mostrarMensagem(`TRIO! +${res.fichas}`, 'ganhou');
+      janela.classList.add('vitoria');
       [523, 659, 784, 1047].forEach((f, k) => bip(estado, f, 0.14, 'square', 0.05, k * 0.11));
     } else if (res.tipo === 'par') {
-      mostrarMensagem(`UM PAR! +${res.fichas} FICHAS`, 'par');
+      mostrarMensagem(`PAR! +${res.fichas}`, 'par');
       bip(estado, 523, 0.1); bip(estado, 659, 0.1, 'square', 0.04, 0.1);
     } else {
-      mostrarMensagem(estado.semTrio >= GIROS_ATE_GARANTIA ? 'Quase! O próximo trio é garantido.' : 'Não foi dessa vez...');
+      mostrarMensagem(estado.semTrio >= GIROS_ATE_GARANTIA ? 'QUASE! PRÓXIMO É TRIO' : 'TENTE DE NOVO');
     }
     if (res.skin) {
       premioBox.replaceChildren();
       premioBox.style.setProperty('--r', RARIDADES[res.skin.raridade].cor);
       const cat = CATEGORIAS.find((c) => c.id === res.skin.cat).nome;
       premioBox.append(el('b', null, 'NOVA SKIN!'), el('span', null, `${cat}: ${res.skin.nome} (${RARIDADES[res.skin.raridade].nome})`));
-      const b = el('button', 'cas-btn pequeno', 'EQUIPAR AGORA');
-      b.onclick = () => { equipar(res.skin); b.disabled = true; b.textContent = 'EQUIPADA'; };
+      const b = el('button', 'cas-mini', 'EQUIPAR');
+      b.onclick = () => { equipar(res.skin); b.disabled = true; b.textContent = 'OK'; };
       premioBox.append(b);
       premioBox.hidden = false;
       [784, 988, 1175, 1568].forEach((f, k) => bip(estado, f, 0.18, 'triangle', 0.06, 0.5 + k * 0.12));
@@ -361,10 +376,18 @@ export function iniciarCassino({ aoMudarSkins }) {
     atualizar();
   }
 
+  function puxar() {
+    if (girando || estado.fichas < CUSTO) return;
+    alavanca.classList.add('puxada');
+    setTimeout(() => alavanca.classList.remove('puxada'), 450);
+    girar();
+  }
+
   function abrir() {
     if (aberto) return;
     aberto = true;
     raiz.classList.add('aberto');
+    tabela.hidden = true;
     alternarColecao(false);
     atualizar();
     btnGirar.focus();
@@ -376,15 +399,17 @@ export function iniciarCassino({ aoMudarSkins }) {
   }
 
   btnGirar.onclick = girar;
+  alavanca.onclick = puxar;
+  btnAjuda.onclick = () => { tabela.hidden = !tabela.hidden; };
   btnColecao.onclick = () => alternarColecao(true);
   fechar.onclick = fecharJanela;
-  btnGratis.onclick = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); mostrarMensagem('Fichas de cortesia! Boa sorte.'); bip(estado, 880, 0.1); };
+  btnGratis.onclick = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); mostrarMensagem('FICHAS DE CORTESIA!'); bip(estado, 880, 0.1); };
   btnSom.onclick = () => { estado.som = !estado.som; salvar(); atualizar(); bip(estado, 660, 0.06); };
   raiz.addEventListener('pointerdown', (e) => { if (e.target === raiz) fecharJanela(); });
   window.addEventListener('keydown', (e) => {
     if (!aberto) return;
     if (e.code === 'Escape') { e.preventDefault(); if (naColecao) alternarColecao(false); else fecharJanela(); }
-    else if (e.code === 'Space' && !naColecao && document.activeElement !== btnColecao) { e.preventDefault(); girar(); }
+    else if (e.code === 'Space' && !naColecao && document.activeElement !== btnColecao && document.activeElement !== btnAjuda) { e.preventDefault(); puxar(); }
     else if (e.code === 'KeyC') { e.preventDefault(); alternarColecao(!naColecao); }
   }, true);
 
