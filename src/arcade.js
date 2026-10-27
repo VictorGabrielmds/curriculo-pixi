@@ -30,6 +30,7 @@ const TIPOS = {
   alien: { hp: 70, vel: 0, raio: 14, xp: 0, dano: 2 },
 };
 
+const RAIO_SUPORTE = 70; // curandeiro e amplificador só afetam os inimigos que estão perto deles
 const SPRITE_TIPO = { sentinela: 'atirador', bombardeiro: 'ogro', fulminante: 'atirador', curandeiro: 'fantasma', amplificador: 'slime' };
 const ARMAS = {
   normal: { nome: 'CANHÃO', curto: 'TIRO', cor: '#ffe14a', icone: '•' },
@@ -505,7 +506,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   }
   function coletarItem(it) {
     const t = it.tipo;
-    if (t === 'ima') { S.imaT = 1; texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); }
+    if (t === 'ima') { S.imaT = 3; texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); } // o ímã puxa os cristais por 3 segundos
     else if (t === 'explosao') { explosaoGlobal(); texto(S.nx, S.ny - 12, 'BOOM!', '#ffd23f'); }
     else if (t === 'coracao') { S.hp = Math.min(S.maxHp, S.hp + 2); texto(S.nx, S.ny - 12, '+VIDA', '#ff7a8a'); }
     else if (t === 'escudo') { S.escudoT = 6; texto(S.nx, S.ny - 12, 'ESCUDO!', '#8bd3ff'); }
@@ -672,6 +673,8 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.invul = 2; S.proxBuraco = S.t + 60 + Math.random() * 40; S.flash = 0.4;
     if (vitoria) {
       S.aliensVencidos += 1;
+      S.imaT = Math.max(S.imaT, 3); texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); // derrotar um alienígena dá o ímã: puxa todos os cristais
+      if (S.aliensVencidos <= 3) { S.projeteis += 1; texto(S.nx, S.ny - 22, '+1 PROJÉTIL', '#ffe14a'); } // e, nos três primeiros, +1 projétil para o canhão
       for (let k = 0; k < 6; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 40, S.ny + (Math.random() - 0.5) * 40, 6);
       const livres = Object.keys(NOMES_PODER).filter((id) => !S.poderes[id]);
       if (livres.length && S.slots.includes(null)) darPoder(S, livres[Math.floor(Math.random() * livres.length)]);
@@ -920,10 +923,10 @@ export function iniciarArcade({ bip, somAtivo }) {
         if (ferido) { const ax = ferido.x - m.x, ay = ferido.y - m.y, ad = Math.hypot(ax, ay) || 1; if (ad > 42) { vx = (ax / ad) * m.vel; vy = (ay / ad) * m.vel; } else { vx = vy = 0; } }
         else { const k = d < 95 ? -0.8 : d > 140 ? 0.45 : 0; vx = (dx / d) * k * m.vel; vy = (dy / d) * k * m.vel; }
         m.cd -= dt;
-        if (m.cd <= 0 && ferido && Math.hypot(ferido.x - m.x, ferido.y - m.y) < 100) { const cura = Math.max(1, Math.ceil(ferido.hpMax * 0.22)); ferido.hp = Math.min(ferido.hpMax, ferido.hp + cura); ferido.suporteFx = 0.8; m.suporteFx = 0.8; texto(ferido.x, ferido.y - 8, `+${cura}`, '#7dff9a'); particulas(ferido.x, ferido.y, 5, ['#7dff9a', '#ffffff'], 35); m.cd = 2.7 + Math.random() * 0.8; }
+        if (m.cd <= 0 && ferido && Math.hypot(ferido.x - m.x, ferido.y - m.y) < RAIO_SUPORTE) { const cura = Math.max(1, Math.ceil(ferido.hpMax * 0.22)); ferido.hp = Math.min(ferido.hpMax, ferido.hp + cura); ferido.suporteFx = 0.8; m.suporteFx = 0.8; texto(ferido.x, ferido.y - 8, `+${cura}`, '#7dff9a'); particulas(ferido.x, ferido.y, 5, ['#7dff9a', '#ffffff'], 35); m.cd = 2.7 + Math.random() * 0.8; }
       } else if (m.tipo === 'amplificador') {
-        const aliados = S.inimigos.filter((o) => o !== m && !o.morto && o.tipo !== 'chefe' && Math.hypot(o.x - m.x, o.y - m.y) < 95);
-        for (const aliado of aliados) aliado.buffT = Math.max(aliado.buffT || 0, 0.7);
+        const aliados = S.inimigos.filter((o) => o !== m && !o.morto && o.tipo !== 'chefe' && Math.hypot(o.x - m.x, o.y - m.y) < RAIO_SUPORTE); // só os inimigos perto dele recebem o buff
+        for (const aliado of aliados) aliado.buffT = Math.max(aliado.buffT || 0, 0.4);
         if (aliados.length) m.suporteFx = 0.25;
         const k = d < 100 ? -0.7 : d > 150 ? 0.4 : 0; vx = (dx / d) * k * m.vel; vy = (dy / d) * k * m.vel;
       }
@@ -1577,9 +1580,11 @@ export function iniciarArcade({ bip, somAtivo }) {
           g.stroke(); g.setLineDash([]);
         }
       } else if (m.tipo === 'curandeiro') {
+        g.save(); g.globalAlpha = 0.3; g.strokeStyle = '#7dff9a'; g.lineWidth = 1; g.setLineDash([2, 4]); g.beginPath(); g.arc(Math.round(m.x), Math.round(m.y), RAIO_SUPORTE, 0, Math.PI * 2); g.stroke(); g.restore(); // alcance da cura
         const pulso = 9 + Math.sin(S.ta * 6 + m.fase) * 2; g.strokeStyle = '#7dff9a'; g.lineWidth = 1; g.beginPath(); g.arc(Math.round(m.x), Math.round(m.y), pulso, 0, Math.PI * 2); g.stroke();
         g.fillStyle = '#ffffff'; g.fillRect(Math.round(m.x) - 1, Math.round(m.y) - 10, 3, 7); g.fillRect(Math.round(m.x) - 3, Math.round(m.y) - 8, 7, 3);
       } else if (m.tipo === 'amplificador') {
+        g.save(); g.globalAlpha = 0.3; g.strokeStyle = '#ff7ab8'; g.lineWidth = 1; g.setLineDash([2, 4]); g.beginPath(); g.arc(Math.round(m.x), Math.round(m.y), RAIO_SUPORTE, 0, Math.PI * 2); g.stroke(); g.restore(); // alcance do buff
         const pulso = 11 + ((S.ta * 8 + m.fase) % 5); g.strokeStyle = `rgba(255, 122, 184, ${0.9 - (pulso - 11) * 0.12})`; g.lineWidth = 2; g.beginPath(); g.arc(Math.round(m.x), Math.round(m.y), pulso, 0, Math.PI * 2); g.stroke();
         g.fillStyle = '#ff7ab8'; for (const x of [-4, 0, 4]) g.fillRect(Math.round(m.x + x), Math.round(m.y - 10 - Math.abs(x) / 2), 2, 4);
       } else if (m.tipo === 'fulminante') {
@@ -1883,7 +1888,7 @@ export function iniciarArcade({ bip, somAtivo }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
+        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
       },
     };
   }
