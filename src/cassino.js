@@ -2,7 +2,6 @@
 // Três iguais dão fichas e uma skin para o mundo (planeta, árvores ou céu); a coleção permite equipar as skins.
 import './cassino.css';
 import { CATEGORIAS, RARIDADES, SKINS, skinPorId, skinPadrao, hex } from './skins.js';
-import { criarPlinko } from './plinko.js';
 
 const CHAVE = 'curriculo-cassino-v1';
 const CUSTO = 10;
@@ -26,7 +25,7 @@ const ORDEM_TIERS = ['comum', 'rara', 'epica', 'lendaria'];
 function estadoPadrao() {
   const equipadas = {};
   for (const c of CATEGORIAS) equipadas[c.id] = skinPadrao(c.id).id;
-  return { fichas: FICHAS_INICIAIS, giros: 0, semTrio: 0, semSkinPlinko: 0, skins: [], equipadas, som: true };
+  return { fichas: FICHAS_INICIAIS, giros: 0, semTrio: 0, skins: [], equipadas, som: true };
 }
 function carregar() {
   const base = estadoPadrao();
@@ -40,7 +39,7 @@ function carregar() {
         const s = id && skinPorId(id);
         if (s && s.cat === c.id && (s.padrao || skins.includes(id))) equipadas[c.id] = id;
       }
-      return { ...base, fichas: Math.max(0, Math.floor(j.fichas)), giros: j.giros | 0, semTrio: j.semTrio | 0, semSkinPlinko: j.semSkinPlinko | 0, skins, equipadas, som: j.som !== false };
+      return { ...base, fichas: Math.max(0, Math.floor(j.fichas)), giros: j.giros | 0, semTrio: j.semTrio | 0, skins, equipadas, som: j.som !== false };
     }
   } catch { /* sem armazenamento: joga sem salvar */ }
   return base;
@@ -154,6 +153,7 @@ function bip(estado, freq, dur = 0.09, tipo = 'square', vol = 0.04, atraso = 0) 
 }
 
 // ---------- sorteio ----------
+const simboloAleatorio = () => SIMBOLOS[Math.floor(Math.random() * SIMBOLOS.length)];
 const sorteiaSimbolo = () => {
   let r = Math.random() * SIMBOLOS.reduce((s, y) => s + y.peso, 0);
   for (const y of SIMBOLOS) { r -= y.peso; if (r <= 0) return y; }
@@ -212,7 +212,8 @@ export function iniciarCassino({ aoMudarSkins }) {
   letreiro.append(lampadas, el('h2', null, 'CASSINO'));
 
   const janela = el('div', 'cas-janela');
-  const rolos = [0, 1, 2].map(() => { const r = el('div', 'rolo'); const cv = document.createElement('canvas'); cv.width = cv.height = 16; r.append(cv); janela.append(r); return cv; });
+  const rolos = [0, 1, 2].map(() => { const r = el('div', 'rolo'); const cv = document.createElement('canvas'); cv.width = 16; cv.height = 48; r.append(cv); janela.append(r); return cv; });
+  janela.append(el('i', 'linha-premio'));
 
   const lcd = el('div', 'cas-lcd');
   const mensagem = el('div', 'cas-msg', 'PUXE A ALAVANCA!');
@@ -242,7 +243,7 @@ export function iniciarCassino({ aoMudarSkins }) {
     linha.append(mini, el('span', null, `x3 = ${s.premio}`), el('small', null, RARIDADES[s.tier].nome.toLowerCase()));
     tabela.append(linha);
   }
-  tabela.append(el('div', 'cas-linha par', `2 iguais = ${PREMIO_PAR} · a cada ${GIROS_ATE_GARANTIA + 1} giros sem trio, o próximo é garantido`));
+  tabela.append(el('div', 'cas-linha par', `linha do meio · 2 iguais = ${PREMIO_PAR} · a cada ${GIROS_ATE_GARANTIA + 1} giros sem trio, o próximo é garantido`));
 
   maq.append(fechar, letreiro, janela, lcd, premioBox, controles, alavanca, bandeja, tabela, el('p', 'cas-nota', 'de brincadeira: fichas virtuais, sem dinheiro de verdade'));
 
@@ -251,30 +252,23 @@ export function iniciarCassino({ aoMudarSkins }) {
   const colecao = el('div', 'cas-colecao');
   colBox.append(colecao);
 
-  let aberto = false, girando = false, naColecao = false, jogoAtual = 'cassino';
-
-  const darFichasGratis = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); bip(estado, 880, 0.1); };
-  const plinko = criarPlinko({
-    estado, salvar, el, CUSTO, FICHAS_GRATIS, RARIDADES, CATEGORIAS, ORDEM_TIERS,
-    bip: (...a) => bip(estado, ...a),
-    bloqueadasDoTier: (tier) => bloqueadasDoTier(estado, tier),
-    sortearSkin: (tier) => { const pool = bloqueadasDoTier(estado, tier); return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null; },
-    equipar: (skin) => equipar(skin),
-    onMudou: () => atualizar(),
-    abrirColecao: () => alternarColecao(true),
-    fechar: () => fecharJanela(),
-    alternarSom: () => { estado.som = !estado.som; salvar(); atualizar(); bip(estado, 660, 0.06); },
-    darFichasGratis,
-  });
-
-  raiz.append(maq, plinko.raiz, colBox);
+  raiz.append(maq, colBox);
   document.body.append(raiz);
 
-  function desenharRolo(i, simbolo) {
+  let aberto = false, girando = false, naColecao = false;
+
+  // cada rolo mostra 3 símbolos (cima, meio, baixo); "fita" é a lista de símbolos e "pos" a linha que está no topo da janela.
+  // Durante o giro pos diminui, então os símbolos descem pela janela, rolando de pixel em pixel.
+  function desenharFita(i, fita, pos) {
     const ctx = rolos[i].getContext('2d');
-    ctx.clearRect(0, 0, 16, 16);
-    ctx.drawImage(icones[simbolo.id], 0, 0);
+    ctx.clearRect(0, 0, 16, 48);
+    const base = Math.floor(pos), resto = pos - base;
+    for (let k = 0; k < 4; k++) {
+      const s = fita[base + k];
+      if (s) ctx.drawImage(icones[s.id], 0, Math.round((k - resto) * 16));
+    }
   }
+  const mostrarRolo = (i, tres) => desenharFita(i, tres, 0);
   function atualizar() {
     fichasTxt.textContent = String(estado.fichas);
     const semFicha = estado.fichas < CUSTO;
@@ -282,7 +276,6 @@ export function iniciarCassino({ aoMudarSkins }) {
     alavanca.disabled = girando || semFicha;
     btnGratis.hidden = !semFicha || girando;
     btnSom.textContent = estado.som ? 'SOM ON' : 'SOM OFF';
-    plinko.atualizar();
   }
   function mostrarMensagem(txt, cls = '') { mensagem.textContent = txt; mensagem.className = 'cas-msg ' + cls; }
 
@@ -325,10 +318,9 @@ export function iniciarCassino({ aoMudarSkins }) {
   }
   function alternarColecao(ligar) {
     naColecao = ligar;
-    maq.hidden = ligar || jogoAtual !== 'cassino';
-    plinko.raiz.hidden = ligar || jogoAtual !== 'plinko';
+    maq.hidden = ligar;
     colBox.hidden = !ligar;
-    if (ligar) renderColecao(); else if (jogoAtual === 'plinko') plinko.foco(); else btnGirar.focus();
+    if (ligar) renderColecao(); else btnGirar.focus();
   }
 
   function girar() {
@@ -341,23 +333,44 @@ export function iniciarCassino({ aoMudarSkins }) {
     janela.classList.remove('vitoria');
     mostrarMensagem('GIRANDO...');
     atualizar();
-    const paradas = [650, 1050, 1450];
+    // o símbolo da linha do meio é o sorteado; cima e baixo são aleatórios (sem formar trio, que não pagaria)
+    const topos = [simboloAleatorio(), simboloAleatorio(), simboloAleatorio()];
+    const bases = [simboloAleatorio(), simboloAleatorio(), simboloAleatorio()];
+    for (const linha of [topos, bases]) {
+      if (linha[0] === linha[1] && linha[1] === linha[2]) linha[2] = SIMBOLOS[(SIMBOLOS.indexOf(linha[2]) + 1) % SIMBOLOS.length];
+    }
+    const VEL = 14; // linhas por segundo girando
+    const FREIO = 450; // ms de desaceleração no fim (percorre as últimas 3 linhas)
+    const duracoes = [1100, 1600, 2100]; // cada rolo para um pouco depois do anterior
+    const linhasTotal = duracoes.map((d) => Math.round((VEL * (d - FREIO)) / 1000) + 3);
+    const fitas = res.simbolos.map((meio, i) => {
+      const fita = [topos[i], meio, bases[i]]; // os 3 últimos a aparecer, na ordem de cima para baixo
+      while (fita.length < linhasTotal[i] + 3) fita.push(simboloAleatorio());
+      return fita;
+    });
     const inicio = performance.now();
-    const parado = [false, false, false], ultimaTroca = [0, 0, 0];
+    const parado = [false, false, false];
+    let ultimoTique = -1;
+    const posicao = (i, ms) => {
+      const cruzeiro = duracoes[i] - FREIO;
+      if (ms < cruzeiro) return linhasTotal[i] - (VEL * ms) / 1000;
+      const u = Math.min(1, (ms - cruzeiro) / FREIO);
+      return 3 * (1 - u) ** 3;
+    };
     const passo = (t) => {
       const dt = t - inicio;
       for (let i = 0; i < 3; i++) {
         if (parado[i]) continue;
-        if (dt >= paradas[i]) {
+        if (dt >= duracoes[i]) {
           parado[i] = true;
-          desenharRolo(i, res.simbolos[i]);
-          rolos[i].parentElement.classList.remove('girando');
+          desenharFita(i, fitas[i], 0);
           bip(estado, 330 + i * 110, 0.1);
         } else {
-          rolos[i].parentElement.classList.add('girando');
-          if (t - ultimaTroca[i] > 70) { desenharRolo(i, SIMBOLOS[Math.floor(Math.random() * SIMBOLOS.length)]); ultimaTroca[i] = t; if (i === 0) bip(estado, 180, 0.03, 'square', 0.015); }
+          desenharFita(i, fitas[i], posicao(i, dt));
         }
       }
+      const tique = Math.floor(dt / 90);
+      if (tique !== ultimoTique && !parado[2]) { ultimoTique = tique; bip(estado, 170, 0.025, 'square', 0.012); }
       if (parado.every(Boolean)) fim(res); else requestAnimationFrame(passo);
     };
     requestAnimationFrame(passo);
@@ -400,17 +413,17 @@ export function iniciarCassino({ aoMudarSkins }) {
     girar();
   }
 
-  function abrir(jogo = 'cassino') {
+  function abrir() {
     if (aberto) return;
-    jogoAtual = jogo === 'plinko' ? 'plinko' : 'cassino';
     aberto = true;
     raiz.classList.add('aberto');
     tabela.hidden = true;
     alternarColecao(false);
     atualizar();
+    btnGirar.focus();
   }
   function fecharJanela() {
-    if (!aberto || girando || plinko.ocupado()) return;
+    if (!aberto || girando) return;
     aberto = false;
     raiz.classList.remove('aberto');
   }
@@ -420,18 +433,18 @@ export function iniciarCassino({ aoMudarSkins }) {
   btnAjuda.onclick = () => { tabela.hidden = !tabela.hidden; };
   btnColecao.onclick = () => alternarColecao(true);
   fechar.onclick = fecharJanela;
-  btnGratis.onclick = () => { darFichasGratis(); mostrarMensagem('FICHAS DE CORTESIA!'); };
+  btnGratis.onclick = () => { estado.fichas += FICHAS_GRATIS; salvar(); atualizar(); mostrarMensagem('FICHAS DE CORTESIA!'); bip(estado, 880, 0.1); };
   btnSom.onclick = () => { estado.som = !estado.som; salvar(); atualizar(); bip(estado, 660, 0.06); };
   raiz.addEventListener('pointerdown', (e) => { if (e.target === raiz) fecharJanela(); });
   window.addEventListener('keydown', (e) => {
     if (!aberto) return;
     if (e.code === 'Escape') { e.preventDefault(); if (naColecao) alternarColecao(false); else fecharJanela(); }
-    else if (e.code === 'Space' && !naColecao && !['SKINS', '?'].includes(document.activeElement?.textContent)) { e.preventDefault(); if (jogoAtual === 'plinko') plinko.soltar(); else puxar(); }
+    else if (e.code === 'Space' && !naColecao && document.activeElement !== btnColecao && document.activeElement !== btnAjuda) { e.preventDefault(); puxar(); }
     else if (e.code === 'KeyC') { e.preventDefault(); alternarColecao(!naColecao); }
   }, true);
 
   // primeiro desenho dos rolos e aplicação das skins salvas
-  for (let i = 0; i < 3; i++) desenharRolo(i, SIMBOLOS[(i * 2) % SIMBOLOS.length]);
+  for (let i = 0; i < 3; i++) mostrarRolo(i, [simboloAleatorio(), SIMBOLOS[(i * 2) % SIMBOLOS.length], simboloAleatorio()]);
   atualizar();
   aoMudarSkins({ ...estado.equipadas });
 

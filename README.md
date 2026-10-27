@@ -14,11 +14,7 @@ A cena 3D é desenhada numa tela interna de ~640 px de altura e ampliada sem sua
 
 ## Cassino da Sorte (minijogo)
 
-A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botão **JOGAR**): só fichas virtuais, guardadas no navegador, sem dinheiro de verdade. Três símbolos iguais dão fichas e uma **skin** para uma parte do mundo (planeta, árvores ou céu); a cada 10 giros sem trio, o próximo é garantido. A **Coleção** permite equipar as skins, e a escolha fica salva. As skins estão definidas em `src/skins.js` e a lógica em `src/cassino.js`.
-
-### Plinko
-
-A estação **Plinko** (ao lado do cassino) é a segunda máquina: a bolinha desce quicando por 6 fileiras de pinos e cai num de 7 compartimentos (fichas ou skins; as pontas dão as skins mais raras). O destino é sorteado antes e a animação segue o caminho, por isso dá para garantir uma skin a cada 9 soltadas sem prêmio. Usa as mesmas fichas e a mesma coleção do caça-níquel. Lógica em `src/plinko.js`.
+A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botão **JOGAR**): só fichas virtuais, guardadas no navegador, sem dinheiro de verdade. Os rolos giram para baixo mostrando 3 símbolos de cada vez; vale a linha do meio. Três símbolos iguais dão fichas e uma **skin** para uma parte do mundo (planeta, árvores ou céu); a cada 10 giros sem trio, o próximo é garantido. A **Coleção** permite equipar as skins, e a escolha fica salva. As skins estão definidas em `src/skins.js` e a lógica em `src/cassino.js`.
 
 ## Rodar
 

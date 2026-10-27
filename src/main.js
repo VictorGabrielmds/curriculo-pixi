@@ -12,7 +12,7 @@ const RAIO_ESTACAO = 0.27 * K; // rad que o personagem não consegue atravessar
 const CIMA = new THREE.Vector3(0, 1, 0); // onde o personagem pisa (topo do planeta)
 
 // onde cada estação fica no planeta: [leste-oeste, norte-sul] em radianos; norte = para o fundo da tela
-const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6], [0.1, -0.95], [1.05, -0.85]];
+const POSICOES = [[0.8, 0.0], [1.8, 0.7], [-0.5, 0.9], [-1.45, 0.45], [-1.0, -0.6], [0.1, -0.95]];
 function posicaoZona(i) {
   const [lon, lat] = POSICOES[i] ?? [i * 2.4, (((i * 0.37) % 1) - 0.5) * 1.6]; // zonas extras: espalha em espiral
   return new THREE.Vector3(Math.sin(lon) * Math.cos(lat), Math.cos(lon) * Math.cos(lat), -Math.sin(lat));
@@ -350,9 +350,10 @@ function modelo(tipo, cor) {
       break;
     }
     case 'cassino': {
+      const prata = mat(0xcfd6df, { emissive: 0x3a4250, emissiveIntensity: 0.25 });
       const rolo = (cx, cor) => add(new THREE.BoxGeometry(0.36, 0.5, 0.06), mat(cor, { emissive: cor, emissiveIntensity: 0.7 }), cx, 2.05, 0.66);
       add(new THREE.BoxGeometry(2.2, 0.3, 1.6), escuro, 0, 0.15); // base
-      add(new THREE.BoxGeometry(1.8, 2.7, 1.3), claro, 0, 1.65); // corpo
+      add(new THREE.BoxGeometry(1.8, 2.7, 1.3), prata, 0, 1.65); // corpo cromado
       add(new THREE.BoxGeometry(2.0, 0.55, 1.4), escuro, 0, 3.2); // letreiro
       add(new THREE.BoxGeometry(1.6, 0.3, 0.08), luz, 0, 3.2, 0.72);
       add(new THREE.BoxGeometry(1.45, 0.75, 0.1), mat(0x15152b), 0, 2.05, 0.62); // janela dos rolos
@@ -360,19 +361,6 @@ function modelo(tipo, cor) {
       add(new THREE.BoxGeometry(1.2, 0.28, 0.45), escuro, 0, 0.8, 0.8); // bandeja de fichas
       add(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), mat(0xc9cdd8), 1.05, 2.0, 0); // alavanca
       add(new THREE.SphereGeometry(0.2, 12, 12), mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.5 }), 1.05, 2.65, 0);
-      break;
-    }
-    case 'plinko': {
-      add(new THREE.BoxGeometry(2.2, 0.3, 1.5), escuro, 0, 0.15); // base
-      add(new THREE.BoxGeometry(2.0, 3.1, 0.35), claro, 0, 1.85, 0); // corpo
-      add(new THREE.BoxGeometry(2.2, 0.4, 0.5), escuro, 0, 3.55, 0.05); // topo
-      add(new THREE.BoxGeometry(1.5, 0.2, 0.06), luz, 0, 3.55, 0.32);
-      add(new THREE.BoxGeometry(1.7, 2.5, 0.1), mat(0x0f1030), 0, 1.8, 0.2); // tabuleiro
-      const peg = new THREE.SphereGeometry(0.05, 6, 6), pegMat = mat(0xdfe6ff, { emissive: 0xdfe6ff, emissiveIntensity: 0.6 });
-      for (let k = 0; k < 6; k++) for (let j = 0; j <= k; j++) add(peg, pegMat, (j - k / 2) * 0.22, 2.75 - k * 0.27, 0.28);
-      const cores = [0xffd23f, 0x58d6ff, 0x2f7d3a, 0x2f7d3a, 0x2f7d3a, 0x58d6ff, 0xc15cff];
-      cores.forEach((cc, i) => add(new THREE.BoxGeometry(0.2, 0.28, 0.1), mat(cc, { emissive: cc, emissiveIntensity: 0.4 }), (i - 3) * 0.22, 0.75, 0.27));
-      add(new THREE.SphereGeometry(0.1, 10, 10), mat(0xffe14a, { emissive: 0xffe14a, emissiveIntensity: 0.9 }), 0.05, 2.1, 0.3); // bolinha
       break;
     }
     case 'carta':
