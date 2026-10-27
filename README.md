@@ -19,8 +19,8 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 ### Moedas e Nave Arcade (resumo dos extras do jogo de nave)
 
 - **Rochas espaciais** (poucas) quebram com alguns tiros e soltam itens: ímã (puxa todos os cristais por 1 s), explosão (fere todos os monstros da tela), coração, escudo e turbo.
-- **Buracos negros** aparecem de vez em quando: entrar leva a uma luta contra um **alienígena** com ataques variados; vencer dá um poder (orbes, pulso, laser ou drone) e perder só expulsa do buraco negro.
-- **Chefões** (nave enorme que atira em várias direções e joga bombas em áreas) soltam **moedas espaciais**, que compram melhorias permanentes na **Oficina**.
+- **Buracos negros** aparecem de vez em quando: entrar leva a uma luta contra um **alienígena** com ataques variados (rajadas, leques, teletransporte, invocação, investida corpo a corpo, raio direto e bombas); vencer dá um poder (orbes, pulso, laser ou drone) e perder só expulsa do buraco negro.
+- **Chefões** (nave enorme que persegue a nave, atira em várias direções e joga de 1 a 3 bombas por vez em áreas) soltam **moedas espaciais**, que compram melhorias permanentes na **Oficina**.
 - A cada 3 ondas começa uma nova **fase**, e os monstros ganham outra "skin" (cores, chifres, espinhos, três olhos); há monstros que atiram e bandos de insetos.
 
 ### Moedas e Nave Arcade
