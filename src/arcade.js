@@ -1431,6 +1431,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- controle ----------
   function comecar() {
     teclas.clear(); ponteiro.ativo = false;
+    musica.currentTime = 0; tocarMusica(); // a música recomeça do início a cada partida
     novoJogo();
     hudCache = '';
     painelInicio.hidden = true; painelFim.hidden = true; painelEscolha.hidden = true; painelPausa.hidden = true; painelOficina.hidden = true;
