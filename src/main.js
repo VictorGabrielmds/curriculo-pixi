@@ -691,7 +691,7 @@ function aplicarSkins(equipadas) {
   }
 }
 const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins, aoMudarFichas: (n) => { fichasHudEl.textContent = String(n); } });
-const arcade = iniciarArcade({ adicionarFichas: (n) => cassino.adicionarFichas(n), bip: (...a) => cassino.bip(...a) });
+const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a) });
 function abrirJogo(jogo) { if (jogo === 'arcade') arcade.abrir(); else cassino.abrir(jogo); }
 acaoBtn.addEventListener('click', () => { if (estacaoAtiva >= 0 && zonas[estacaoAtiva].jogo) { teclas.clear(); abrirJogo(zonas[estacaoAtiva].jogo); } });
 

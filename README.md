@@ -19,7 +19,7 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 ### Moedas e Nave Arcade (resumo dos extras do jogo de nave)
 
 - **Armas nas teclas 1 a 4** (ou clicando nos botões): **1** tiro normal, **2** laser contínuo (dano alto, alcance curto, esquenta e recarrega), **3** e **4** são slots de poderes novos, conquistados ao subir de nível ou vencer o alienígena: **míssil** (dano em área nos inimigos mais próximos) e **bolas de energia** (giram em volta da nave). Cada poder tem seus próprios upgrades (mais mísseis/bolas, recarga, dano, área, velocidade).
-- **Oficina por partes da nave**: motor, núcleo de energia, armas, escudo regenerativo, casco e sensores.
+- **Oficina por partes da nave**: um painel de engenharia mostra a nave aberta (que muda conforme as melhorias) e liga cada peça às suas melhorias: motor, núcleo de energia, armas, escudo regenerativo, casco e sensores. Só as moedas espaciais pagam por elas.
 - A **skin dos monstros muda** a cada vez que você perde.
 
 - **Rochas espaciais** (poucas) quebram com alguns tiros e soltam itens: ímã (puxa todos os cristais por 1 s), explosão (fere todos os monstros da tela), coração, escudo e turbo.
@@ -29,7 +29,7 @@ A estação **Cassino** abre um caça-níquel de brincadeira (tecla `E` ou botã
 
 ### Moedas e Nave Arcade
 
-Moedas aparecem em lugares aleatórios do planeta (e reaparecem em outro ponto depois de pegas): é só andar por cima para ganhar fichas do cassino. A estação **Nave Arcade** abre um jogo estilo fliperama: a nave atira sozinha e você a move com as setas (ou WASD, ou arrastando o dedo) por um espaço sem limites (câmera que segue a nave, com planetas, nebulosas e estrelas piscando ao fundo em parallax), monstrinhos chegam pelos lados (cada vez mais, e em **ondas de monstros** de tempos em tempos), cada um solta um **cristal de XP** que a nave precisa pegar para subir de nível (a melhoria "ímã" os atrai de mais longe); a cada nível você escolhe uma melhoria (cadência, dano, projétil extra, perfuração, tiro veloz, propulsores, ímã, reparo). No fim da partida você ganha algumas fichas (até 30). Lógica em `src/arcade.js`.
+Moedas aparecem em lugares aleatórios do planeta (e reaparecem em outro ponto depois de pegas): é só andar por cima para ganhar fichas do cassino. A estação **Nave Arcade** abre um jogo estilo fliperama: a nave atira sozinha e você a move com as setas (ou WASD, ou arrastando o dedo) por um espaço sem limites (câmera que segue a nave, com planetas, nebulosas e estrelas piscando ao fundo em parallax), monstrinhos chegam pelos lados (cada vez mais, e em **ondas de monstros** de tempos em tempos), cada um solta um **cristal de XP** que a nave precisa pegar para subir de nível (a melhoria "ímã" os atrai de mais longe); a cada nível você escolhe uma melhoria (cadência, dano, projétil extra, perfuração, tiro veloz, propulsores, ímã, reparo). No fim da partida você ganha algumas **moedas espaciais** de bônus (o jogo de nave não dá mais fichas do cassino). Lógica em `src/arcade.js`.
 
 ## Rodar
 

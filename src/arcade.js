@@ -10,7 +10,7 @@ const L = 320, A = 180; // resolução lógica da tela (ampliada sem suavizaçã
 const CX = L / 2, CY = A / 2;
 const RAIO_NAVE = 6;
 const CHAVE = 'curriculo-arcade-v1';
-const FICHAS_MAXIMAS = 30;
+const BONUS_MAXIMO = 12; // moedas espaciais de bônus no fim da partida
 const ARENA = { x0: 10, x1: L - 10, y0: 26, y1: A - 10 }; // limites da luta contra o alienígena
 
 const TIPOS = {
@@ -110,7 +110,7 @@ function criarSprites() {
   return { nave, cristais, naveBranca: silhuetaBranca(nave.c) };
 }
 
-export function iniciarArcade({ adicionarFichas, bip }) {
+export function iniciarArcade({ bip }) {
   const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
   const sprites = criarSprites();
   const rochasSpr = criarRochas(), itensSpr = criarItens(), alienSpr = criarAlien();
@@ -183,9 +183,9 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   const btnSairPausa = el('button', 'arc-btn sec', 'SAIR');
   painelPausa.append(el('h3', null, 'PAUSADO'), btnContinuar, btnSairPausa);
   const painelFim = el('div', 'arc-painel'); painelFim.hidden = true;
-  const painelOficina = el('div', 'arc-painel largo'); painelOficina.hidden = true;
+  const painelOficina = el('div', 'of-raiz'); painelOficina.hidden = true;
 
-  sobre.append(painelInicio, painelEscolha, painelPausa, painelFim, painelOficina);
+  sobre.append(painelInicio, painelEscolha, painelPausa, painelFim);
   tela.append(cv, avisoOnda, sobre);
   const armasEl = el('div', 'arc-armas');
   const botoesArma = [];
@@ -197,8 +197,8 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     b.onclick = () => selecionarArma(n);
     botoesArma.push({ b, nm, barra }); armasEl.append(b);
   }
-  caixa.append(topo, tela, armasEl, el('p', 'arc-nota', 'de brincadeira: as fichas ganhas são virtuais, sem dinheiro de verdade'));
-  raiz.append(caixa);
+  caixa.append(topo, tela, armasEl, el('p', 'arc-nota', 'de brincadeira: as moedas espaciais só servem na OFICINA da nave, sem dinheiro de verdade'));
+  raiz.append(caixa, painelOficina);
   document.body.append(raiz);
 
   // ---------- estado ----------
@@ -873,23 +873,126 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     bip(660, 0.08, 'triangle', 0.05);
   }
 
-  // ---------- oficina (melhorias permanentes) ----------
-  function renderOficina() {
-    painelOficina.replaceChildren(el('h3', null, 'OFICINA'), el('p', 'ganhou', `◆ ${dados.moedas} MOEDAS ESPACIAIS`), el('p', 'dica', 'Moedas espaciais caem dos chefões e de alguns monstros. As melhorias valem em todas as partidas.'));
-    const lista = el('div', 'arc-lista');
-    let parteAtual = '';
-    for (const o of OFICINA) {
-      if (o.parte !== parteAtual) { parteAtual = o.parte; lista.append(el('h4', 'arc-parte', parteAtual)); }
-      const nv = dados.oficina[o.id], cheio = nv >= o.max, custo = o.custo(nv);
-      const linha = el('div', 'arc-item');
-      const info = el('div'); info.append(el('b', null, o.nome), el('span', null, `${o.desc} · nv ${nv}/${o.max}`));
-      const b = el('button', 'arc-btn pequeno', cheio ? 'MÁXIMO' : `COMPRAR ◆${custo}`);
-      b.disabled = cheio || dados.moedas < custo;
-      b.onclick = () => { if (dados.moedas >= custo && !cheio) { dados.moedas -= custo; dados.oficina[o.id] += 1; salvarDados(); bip(880, 0.08, 'square', 0.05); bip(1175, 0.1, 'square', 0.05, 0.08); renderOficina(); atualizarBotoesMoedas(); } };
-      linha.append(info, b); lista.append(linha);
+  // ---------- oficina: a nave aberta, com cada peça ligada às suas melhorias ----------
+  const PARTES = [
+    { nome: 'NÚCLEO DE ENERGIA', sub: 'Reator principal: energia para todos os sistemas', lado: 'esq', ancora: [0.5, 0.5], ids: ['nucleo', 'bateria'] },
+    { nome: 'MOTOR PRINCIPAL', sub: 'Propulsão, impulso e velocidade', lado: 'esq', ancora: [0.16, 0.6], ids: ['motor'] },
+    { nome: 'ESTRUTURA / CASCO', sub: 'Blindagem e resistência a danos', lado: 'esq', ancora: [0.27, 0.27], ids: ['casco'] },
+    { nome: 'ANTENA / SENSORES', sub: 'Detecção de cristais e ganho de XP', lado: 'dir', ancora: [0.5, 0.07], ids: ['ima', 'xp'] },
+    { nome: 'ARMAS LATERAIS', sub: 'Canhões e lente do laser', lado: 'dir', ancora: [0.88, 0.42], ids: ['dano', 'cadencia', 'projetil', 'lente'] },
+    { nome: 'ESCUDO', sub: 'Barreira de energia regenerativa', lado: 'dir', ancora: [0.8, 0.8], ids: ['escudo'] },
+  ];
+  const canvasNave = document.createElement('canvas'); canvasNave.width = canvasNave.height = 128; canvasNave.className = 'of-nave';
+  const gNave = canvasNave.getContext('2d'); gNave.imageSmoothingEnabled = false;
+  let naveBase = null;
+
+  function montarNave(nv) { // desenha a nave aberta (parte parada); as luzes e chamas são animadas por cima
+    const s = novoSprite(128, 128);
+    const AZ = '#2e7de0', CIN = '#8b93a8', CIN2 = '#5a6176', CIN3 = '#c9cdd8', ESC = '#171b2c', LAR = '#ff7a3a', VERM = '#e2533a';
+    for (const [x0, x1] of [[44, 34], [82, 92]]) { // trem de pouso
+      for (let k = 0; k < 3; k++) s.linha(x0 + k, 92, x1 + k, 118, k === 1 ? CIN : CIN2);
+      s.retangulo(x1 - 5, 118, 13, 3, CIN3);
     }
+    s.retangulo(0, 122, 128, 6, '#12172b'); // plataforma com faixas de alerta
+    for (let i = 0; i < 128; i += 8) s.retangulo(i, 123, 4, 4, '#ffd23f');
+    s.disco(62, 60, 38, AZ); // casco
+    s.disco(65, 62, 33, ESC); // interior aberto
+    s.elipse(46, 30, 7, 3, '#cfe9ff'); s.elipse(40, 36, 3, 2, '#9cc9ff');
+    for (const [x, y, w, h] of [[40, 44, 14, 9], [42, 70, 12, 10], [78, 44, 12, 8], [80, 72, 14, 9], [56, 84, 16, 7], [56, 36, 14, 7]]) { s.retangulo(x, y, w, h, CIN2); s.retangulo(x, y, w, 1, CIN); s.retangulo(x + 2, y + 3, w - 4, 2, '#2d3348'); }
+    for (const [x0, y0, x1, y1] of [[40, 60, 52, 60], [78, 60, 92, 60], [65, 40, 65, 50], [65, 74, 65, 84], [47, 53, 47, 66], [86, 52, 86, 70]]) { s.linha(x0, y0, x1, y1, LAR); s.linha(x0 + 1, y0 + 1, x1 + 1, y1 + 1, '#b34a1e'); }
+    for (const [x, y, c] of [[86, 49, '#ffd23f'], [45, 47, '#ff3b4a'], [82, 76, '#7dff9a'], [60, 87, '#ffd23f']]) s.pixel(x, y, c);
+    s.disco(65, 62, 14, CIN); s.disco(65, 62, 12, '#10131f'); // caixa do núcleo
+    for (const [x, y] of [[50, 47], [79, 47], [50, 76], [79, 76]]) s.retangulo(x, y, 3, 3, CIN3);
+    s.disco(80, 34, 5, CIN3); s.disco(80, 34, 4, '#8bd3ff'); s.retangulo(77, 33, 6, 1, '#ffffff'); // cabine
+    for (let k = 0; k < nv.casco; k++) { // placas extras do casco
+      const an = 2.6 + k * 0.5, px = Math.round(62 + Math.cos(an) * 35), py = Math.round(60 + Math.sin(an) * 35);
+      s.retangulo(px - 2, py - 2, 5, 5, CIN2); s.retangulo(px - 1, py - 1, 3, 3, CIN3);
+    }
+    const n = 1 + nv.projetil, len = 18 + Math.floor(nv.dano * 1.6);
+    for (let i = 0; i < n; i++) { // canhões laterais
+      const y = 48 + i * 9;
+      s.retangulo(88, y - 2, 8, 9, CIN); s.retangulo(90, y, len, 5, VERM); s.retangulo(90, y, len, 1, '#ff9a6a'); s.retangulo(90 + len, y - 1, 3, 7, CIN3);
+      if (nv.lente > 0) s.disco(90 + len + 5, y + 2, 2, '#7be3ff');
+    }
+    s.retangulo(16, 50, 24, 22, CIN); for (const x of [20, 26, 32]) s.retangulo(x, 50, 2, 22, CIN2); // motor
+    s.poligono([[16, 50], [8, 44], [8, 78], [16, 72]], CIN2); s.poligono([[14, 54], [10, 50], [10, 72], [14, 68]], '#10131f');
+    if (nv.motor >= 3) { s.retangulo(18, 76, 14, 6, CIN); s.retangulo(14, 76, 4, 6, CIN2); }
+    s.retangulo(63, 10, 3, 14, CIN); s.disco(64, 8, 4, '#e2243a'); s.pixel(63, 6, '#ffb3ba'); // antena
+    if (nv.ima > 0) s.elipse(74, 16, 5, 2.5, CIN3);
+    if (nv.xp > 0) { s.retangulo(55, 14, 2, 8, CIN); s.disco(56, 13, 2, '#7dff9a'); }
+    s.contorno('#070a1a');
+    return s.c;
+  }
+  const discoNave = (cx, cy, r, cor) => { gNave.fillStyle = cor; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (i * i + j * j <= r * r + 0.5) gNave.fillRect(cx + i, cy + j, 1, 1); };
+  function animarNave(t) {
+    const nv = dados.oficina;
+    gNave.clearRect(0, 0, 128, 128);
+    if (naveBase) gNave.drawImage(naveBase, 0, 0);
+    const cor = nv.nucleo >= 4 ? ['#ff7a2a', '#ffc14a'] : nv.nucleo >= 2 ? ['#22b85a', '#7dff9a'] : ['#2f8cff', '#8bd3ff'];
+    const pulso = Math.sin(t * 4) > 0 ? 1 : 0;
+    discoNave(65, 62, 9 + pulso, cor[0]); discoNave(65, 62, 6, cor[1]); discoNave(65, 62, 3, '#ffffff');
+    gNave.fillStyle = cor[1]; for (let k = 0; k < 6; k++) { const an = t * 2 + (k * Math.PI) / 3; gNave.fillRect(Math.round(65 + Math.cos(an) * 12), Math.round(62 + Math.sin(an) * 12), 1, 1); }
+    const chama = (y) => { const comp = 8 + nv.motor * 3 + Math.floor(Math.random() * 4); for (let i = 0; i < comp; i++) { const h = Math.max(1, Math.round((1 - i / comp) * 12)); gNave.fillStyle = i < comp * 0.35 ? '#fff0a0' : i < comp * 0.7 ? '#ffc83d' : '#ff7a3a'; gNave.fillRect(7 - i, y - (h >> 1), 1, h); } };
+    chama(61); if (nv.motor >= 3) chama(79);
+    if (Math.floor(t * 2) % 2) { gNave.fillStyle = '#ff9aa6'; gNave.fillRect(63, 6, 2, 2); }
+    const nCan = 1 + nv.projetil, len = 18 + Math.floor(nv.dano * 1.6);
+    if (Math.floor(t * 3) % 2) for (let i = 0; i < nCan; i++) { gNave.fillStyle = '#ffe14a'; gNave.fillRect(90 + len + 3, 48 + i * 9 + 2, 2, 1); }
+    const alfa = nv.escudo > 0 ? 0.35 + 0.13 * nv.escudo : 0.12;
+    gNave.globalAlpha = Math.min(1, alfa); gNave.fillStyle = '#7dff9a';
+    for (const [raio, ativo] of [[48, true], [51, nv.escudo >= 4]]) {
+      if (!ativo) continue;
+      for (let k = 0; k < 72; k += 2) { const an = (k * Math.PI * 2) / 72 + t * 0.4; gNave.fillRect(Math.round(62 + Math.cos(an) * raio), Math.round(60 + Math.sin(an) * raio), 2, 2); }
+    }
+    gNave.globalAlpha = 1;
+  }
+
+  function desenharLinhas() { // linhas azuis ligando cada quadro à sua peça na nave
+    const corpo = painelOficina.querySelector('.of-corpo'); if (!corpo) return;
+    const svg = corpo.querySelector('svg'); svg.replaceChildren();
+    if (getComputedStyle(svg).display === 'none') return;
+    const cb = corpo.getBoundingClientRect(), cr = canvasNave.getBoundingClientRect(), NS = 'http://www.w3.org/2000/svg';
+    corpo.querySelectorAll('.of-parte').forEach((card) => {
+      const p = PARTES[Number(card.dataset.i)], r = card.getBoundingClientRect();
+      const x0 = (p.lado === 'esq' ? r.right : r.left) - cb.left, y0 = (r.top + r.bottom) / 2 - cb.top;
+      const x1 = cr.left + p.ancora[0] * cr.width - cb.left, y1 = cr.top + p.ancora[1] * cr.height - cb.top, xm = x0 + (p.lado === 'esq' ? 18 : -18);
+      const path = document.createElementNS(NS, 'path'); path.setAttribute('d', `M${x0} ${y0} L${xm} ${y0} L${x1} ${y1}`); path.setAttribute('class', 'of-linha');
+      const ponto = document.createElementNS(NS, 'circle'); ponto.setAttribute('cx', x1); ponto.setAttribute('cy', y1); ponto.setAttribute('r', 4); ponto.setAttribute('class', 'of-ponto');
+      svg.append(path, ponto);
+    });
+  }
+  window.addEventListener('resize', () => { if (modo === 'oficina') desenharLinhas(); });
+
+  function renderOficina() {
+    const nv = dados.oficina;
+    naveBase = montarNave(nv);
+    const topo = el('div', 'of-topo');
     const voltar = el('button', 'arc-btn', 'VOLTAR [ESC]'); voltar.onclick = fecharOficina;
-    painelOficina.append(lista, voltar);
+    topo.append(el('h3', null, 'OFICINA · ENGENHARIA DA NAVE'), el('span', 'of-moedas', `◆ ${dados.moedas}`), voltar);
+    const corpo = el('div', 'of-corpo');
+    const esq = el('div', 'of-col'), dir = el('div', 'of-col'), centro = el('div', 'of-centro');
+    centro.append(canvasNave, el('p', null, 'Cada peça da nave tem melhorias permanentes. Moedas espaciais caem dos chefões e de alguns monstros.'));
+    PARTES.forEach((p, i) => {
+      const card = el('div', 'of-parte'); card.dataset.i = String(i);
+      card.append(el('h4', null, p.nome), el('p', 'sub', p.sub));
+      for (const id of p.ids) {
+        const o = OFICINA.find((x) => x.id === id), n = nv[id], cheio = n >= o.max, custo = o.custo(n);
+        const linha = el('div', 'of-melhoria');
+        const info = el('div', 'info');
+        const pips = el('span', 'pips'); for (let k = 0; k < o.max; k++) pips.append(el('i', k < n ? 'on' : ''));
+        info.append(el('b', null, o.nome), el('small', null, o.desc), pips);
+        const b = el('button', 'arc-btn pequeno', cheio ? 'MÁX' : `◆${custo}`);
+        b.disabled = cheio || dados.moedas < custo;
+        b.onclick = () => { if (dados.moedas >= custo && !cheio) { dados.moedas -= custo; dados.oficina[id] += 1; salvarDados(); bip(880, 0.08, 'square', 0.05); bip(1175, 0.1, 'square', 0.05, 0.08); renderOficina(); atualizarBotoesMoedas(); } };
+        linha.append(info, b); card.append(linha);
+      }
+      (p.lado === 'esq' ? esq : dir).append(card);
+    });
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'of-svg');
+    corpo.append(esq, centro, dir, svg);
+    const rodape = el('p', 'of-rodape', 'ARMAS DE BORDO: [1] tiro normal · [2] laser contínuo · [3] e [4] poderes (míssil, bolas de energia), conquistados ao subir de nível ou vencer o alienígena.');
+    painelOficina.replaceChildren(topo, corpo, rodape);
+    animarNave(performance.now() / 1000);
+    requestAnimationFrame(desenharLinhas);
   }
   function atualizarBotoesMoedas() { btnOficinaIni.textContent = `OFICINA (◆${dados.moedas})`; }
   function abrirOficina() {
@@ -897,6 +1000,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     modo = 'oficina';
     painelInicio.hidden = true; painelFim.hidden = true;
     renderOficina(); painelOficina.hidden = false;
+    requestAnimationFrame(desenharLinhas);
   }
   function fecharOficina() {
     if (modo !== 'oficina') return;
@@ -909,19 +1013,19 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   // ---------- fim ----------
   function fimDeJogo() {
     modo = 'fim';
-    const fichas = Math.min(FICHAS_MAXIMAS, Math.floor(S.kills / 5) + S.nivel);
+    const bonus = Math.min(BONUS_MAXIMO, Math.floor(S.kills / 30) + Math.floor(S.nivel / 3));
     const tempo = Math.floor(S.t);
     const novoRecorde = tempo > dados.tempo || S.kills > dados.kills;
     dados.tempo = Math.max(dados.tempo, tempo); dados.kills = Math.max(dados.kills, S.kills);
     dados.skin = (dados.skin + 1 + Math.floor(Math.random() * (VARIANTES.length - 1))) % VARIANTES.length; // próxima partida: monstros com outra skin
+    dados.moedas += bonus;
     salvarDados();
-    adicionarFichas(fichas);
     bip(220, 0.25, 'sawtooth', 0.05); bip(165, 0.35, 'sawtooth', 0.05, 0.25);
     painelFim.replaceChildren(
       el('h3', null, 'FIM DE JOGO'),
       el('p', null, `Tempo: ${fmt(tempo)} · Monstros: ${S.kills} · Nível: ${S.nivel} · Fase: ${S.fase}`),
-      el('p', 'ganhou', `+${fichas} FICHAS`),
-      el('p', 'dica', `${S.moedasRun ? `+${S.moedasRun} moedas espaciais · ` : ''}Recorde: ${fmt(dados.tempo)} · ${dados.kills} monstros${novoRecorde ? ' · NOVO RECORDE!' : ''}`),
+      el('p', 'ganhou', `+${bonus + S.moedasRun} ◆ MOEDAS ESPACIAIS`),
+      el('p', 'dica', `${S.moedasRun} coletadas + ${bonus} de bônus · Recorde: ${fmt(dados.tempo)} · ${dados.kills} monstros${novoRecorde ? ' · NOVO RECORDE!' : ''}`),
     );
     const de = el('button', 'arc-btn', 'JOGAR DE NOVO [ESPAÇO]'); de.onclick = comecar;
     const of = el('button', 'arc-btn sec', `OFICINA (◆${dados.moedas})`); of.onclick = abrirOficina;
@@ -1114,6 +1218,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
     const dt = Math.min((agora - ultimo) / 1000, 0.05);
     ultimo = agora;
     if (modo === 'jogando') atualizar(dt);
+    if (modo === 'oficina') animarNave(agora / 1000);
     fundo.passo(dt);
     desenhar();
     atualizarHud();
@@ -1192,6 +1297,7 @@ export function iniciarArcade({ adicionarFichas, bip }) {
   // gancho só do modo dev: avança a simulação sem depender do relógio do navegador e força eventos (usado nos testes)
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
+      abrir, oficina: () => abrirOficina(),
       mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x - (S.cx - L / 2); ponteiro.y = y - (S.cy - A / 2); } },
       cristais: () => S.cristais.map((c) => ({ x: Math.round(c.x), y: Math.round(c.y), v: c.v })),
       itens: () => S.itens.map((i) => ({ x: Math.round(i.x), y: Math.round(i.y), tipo: i.tipo })),
