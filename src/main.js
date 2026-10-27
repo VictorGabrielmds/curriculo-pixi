@@ -413,7 +413,8 @@ for (const [anim, n] of Object.entries(FRAMES)) {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.magFilter = tex.minFilter = THREE.NearestFilter; // pixel art: sem suavizar
       tex.generateMipmaps = false;
-      return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
+      // alphaTest: pixels transparentes não gravam profundidade (senão o contorno desenha o retângulo do sprite)
+      return new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false, alphaTest: 0.5 });
     });
   }
 }
