@@ -54,17 +54,20 @@ const MELHORIAS = [
   { id: 'p_escudo', grupo: 'NOVA ARMA', raridade: 'LENDÁRIO', icone: '⬡', cor: '#8bd3ff', nome: 'Escudo de fase', desc: 'Carrega uma barreira temporária que bloqueia todo dano recebido.', max: 1, peso: 1.1, nivel: (s) => s.poderes.escudo ? 1 : 0, requer: (s) => !s.poderes.escudo && s.slots.includes(null), aplicar: (s) => { darPoder(s, 'escudo'); } },
   { id: 'p_salto', grupo: 'NOVA ARMA', raridade: 'LENDÁRIO', icone: '◎', cor: '#a56bff', nome: 'Buraco de minhoca', desc: 'A nave desacelera para carregar e então dá um salto enorme.', max: 1, peso: 1, nivel: (s) => s.poderes.salto ? 1 : 0, requer: (s) => !s.poderes.salto && s.slots.includes(null), aplicar: (s) => { darPoder(s, 'salto'); } },
   { id: 'p_drift', grupo: 'NOVA ARMA', raridade: 'LENDÁRIO', icone: '≈', cor: '#ff7a3a', nome: 'Drift ígneo', desc: 'Carrega uma arrancada que espalha fogo do propulsor e queima perseguidores.', max: 1, peso: 1.1, nivel: (s) => s.poderes.drift ? 1 : 0, requer: (s) => !s.poderes.drift && s.slots.includes(null), aplicar: (s) => { darPoder(s, 'drift'); } },
-  { id: 'a_normal', grupo: 'CANHÃO [1]', raridade: 'RARO', icone: '●', cor: '#ffe14a', nome: 'Calibre reforçado', desc: '+28% de dano exclusivo do canhão.', max: 4, peso: 2.4, nivel: (s) => s.armasNivel.normal, aplicar: (s) => { s.armasNivel.normal += 1; } },
-  { id: 'a_laser', grupo: 'ARMA', raridade: 'RARO', icone: '━', cor: '#38c8ff', nome: 'Laser · evolução', desc: 'Aumenta dano, alcance, bateria e velocidade de recarga.', max: 4, peso: 3, nivel: (s) => s.armasNivel.laser, requer: (s) => s.poderes.laser, aplicar: (s) => { s.armasNivel.laser += 1; } },
-  { id: 'a_missil', grupo: 'ARMA', raridade: 'RARO', icone: '▲', cor: '#ff9a3a', nome: 'Mísseis · evolução', desc: 'Explosões maiores, mais dano e um míssil extra no nível 3.', max: 4, peso: 3, nivel: (s) => s.armasNivel.missil, requer: (s) => s.poderes.missil, aplicar: (s) => { s.armasNivel.missil += 1; } },
-  { id: 'a_orbes', grupo: 'ARMA', raridade: 'RARO', icone: '●', cor: '#ff3bd4', nome: 'Orbes · evolução', desc: 'Mais esferas, rotação mais rápida e dano de contato maior.', max: 4, peso: 3, nivel: (s) => s.armasNivel.orbes, requer: (s) => s.poderes.orbes, aplicar: (s) => { s.armasNivel.orbes += 1; } },
-  { id: 'a_turbo', grupo: 'ARMA', raridade: 'RARO', icone: '»', cor: '#7dff9a', nome: 'Turbo · evolução', desc: 'Mais velocidade, autonomia e recarga do propulsor.', max: 4, peso: 3, nivel: (s) => s.armasNivel.turbo, requer: (s) => s.poderes.turbo, aplicar: (s) => { s.armasNivel.turbo += 1; } },
-  { id: 'a_cura', grupo: 'ARMA', raridade: 'RARO', icone: '+', cor: '#ff6b7a', nome: 'Cura · evolução', desc: 'Repara mais vida e reduz o tempo entre ativações.', max: 4, peso: 3, nivel: (s) => s.armasNivel.cura, requer: (s) => s.poderes.cura, aplicar: (s) => { s.armasNivel.cura += 1; } },
-  { id: 'a_escudo', grupo: 'ARMA', raridade: 'RARO', icone: '⬡', cor: '#8bd3ff', nome: 'Escudo · evolução', desc: 'Aumenta a duração da barreira e acelera sua recarga.', max: 4, peso: 3, nivel: (s) => s.armasNivel.escudo, requer: (s) => s.poderes.escudo, aplicar: (s) => { s.armasNivel.escudo += 1; } },
-  { id: 'a_salto', grupo: 'ARMA', raridade: 'RARO', icone: '◎', cor: '#a56bff', nome: 'Salto · evolução', desc: 'Salta mais longe e recarrega o buraco de minhoca mais rápido.', max: 4, peso: 3, nivel: (s) => s.armasNivel.salto, requer: (s) => s.poderes.salto, aplicar: (s) => { s.armasNivel.salto += 1; } },
-  { id: 'a_drift', grupo: 'ARMA', raridade: 'RARO', icone: '≈', cor: '#ff7a3a', nome: 'Drift · evolução', desc: 'Arrancada mais longa com uma trilha de fogo mais forte.', max: 4, peso: 3, nivel: (s) => s.armasNivel.drift, requer: (s) => s.poderes.drift, aplicar: (s) => { s.armasNivel.drift += 1; } },
-  { id: 'dano_geral', grupo: 'ARSENAL', raridade: 'INCOMUM', icone: '✦', cor: '#ff7a59', nome: 'Amplificador de dano', desc: '+15% de dano para TODAS as armas.', max: 4, peso: 2.2, aplicar: (s) => { s.danoGlobal *= 1.15; } },
-  { id: 'recarga_geral', grupo: 'ARSENAL', raridade: 'INCOMUM', icone: '↻', cor: '#7dff9a', nome: 'Sincronizador de recarga', desc: '+12% de cadência e recarga para TODAS as armas.', max: 4, peso: 2.2, aplicar: (s) => { s.recargaGlobal *= 1.12; } },
+  { id: 'a_normal', grupo: 'ARMA · CANHÃO', raridade: 'RARO', icone: '●', cor: '#ffe14a', nome: 'Canhão · evolução', desc: 'Melhora o calibre e o impacto exclusivos do canhão principal.', max: 4, peso: 1.3, nivel: (s) => s.armasNivel.normal, aplicar: (s) => { s.armasNivel.normal += 1; } },
+  { id: 'a_laser', grupo: 'ARMA · LASER', raridade: 'RARO', icone: '━', cor: '#38c8ff', nome: 'Laser · evolução', desc: 'Aumenta alcance, bateria e eficiência próprios do laser.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.laser, requer: (s) => s.poderes.laser, aplicar: (s) => { s.armasNivel.laser += 1; } },
+  { id: 'a_missil', grupo: 'ARMA · MÍSSIL', raridade: 'RARO', icone: '▲', cor: '#ff9a3a', nome: 'Mísseis · evolução', desc: 'Explosões maiores e um míssil extra nos níveis avançados.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.missil, requer: (s) => s.poderes.missil, aplicar: (s) => { s.armasNivel.missil += 1; } },
+  { id: 'a_orbes', grupo: 'ARMA · ORBES', raridade: 'RARO', icone: '●', cor: '#ff3bd4', nome: 'Orbes · evolução', desc: 'Mais esferas e rotação própria mais rápida.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.orbes, requer: (s) => s.poderes.orbes, aplicar: (s) => { s.armasNivel.orbes += 1; } },
+  { id: 'a_turbo', grupo: 'ARMA · TURBO', raridade: 'RARO', icone: '»', cor: '#7dff9a', nome: 'Turbo · evolução', desc: 'Aumenta a autonomia e a força exclusiva do hiperpropulsor.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.turbo, requer: (s) => s.poderes.turbo, aplicar: (s) => { s.armasNivel.turbo += 1; } },
+  { id: 'a_cura', grupo: 'ARMA · CURA', raridade: 'RARO', icone: '+', cor: '#ff6b7a', nome: 'Cura · evolução', desc: 'Aumenta o reparo e reduz a espera do nanorreparo.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.cura, requer: (s) => s.poderes.cura, aplicar: (s) => { s.armasNivel.cura += 1; } },
+  { id: 'a_escudo', grupo: 'ARMA · ESCUDO', raridade: 'RARO', icone: '⬡', cor: '#8bd3ff', nome: 'Escudo · evolução', desc: 'Aumenta a duração própria da barreira de fase.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.escudo, requer: (s) => s.poderes.escudo, aplicar: (s) => { s.armasNivel.escudo += 1; } },
+  { id: 'a_salto', grupo: 'ARMA · SALTO', raridade: 'RARO', icone: '◎', cor: '#a56bff', nome: 'Salto · evolução', desc: 'Salta mais longe e carrega a ruptura mais rápido.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.salto, requer: (s) => s.poderes.salto, aplicar: (s) => { s.armasNivel.salto += 1; } },
+  { id: 'a_drift', grupo: 'ARMA · DRIFT', raridade: 'RARO', icone: '≈', cor: '#ff7a3a', nome: 'Drift · evolução', desc: 'Aumenta a arrancada e a trilha de fogo próprias do drift.', max: 4, peso: 1.5, nivel: (s) => s.armasNivel.drift, requer: (s) => s.poderes.drift, aplicar: (s) => { s.armasNivel.drift += 1; } },
+  { id: 'dano_geral', grupo: 'NAVE · DANO', raridade: 'INCOMUM', icone: '✦', cor: '#ff7a59', nome: 'Ponto de dano', desc: '+12% de dano para TODO o arsenal da nave.', max: 6, peso: 4.4, aplicar: (s) => { s.danoGlobal *= 1.12; } },
+  { id: 'reparo', grupo: 'NAVE · VIDA', raridade: 'COMUM', icone: '♥', cor: '#ff6b7a', nome: 'Ponto de vida', desc: '+1 de vida máxima e recupera 1 ponto agora.', max: 6, peso: 4.4, aplicar: (s) => { s.maxHp += 1; s.hp = Math.min(s.maxHp, s.hp + 1); } },
+  { id: 'armadura', grupo: 'NAVE · ARMADURA', raridade: 'INCOMUM', icone: '⬢', cor: '#c9cdf5', nome: 'Ponto de armadura', desc: '-6% de dano recebido pela nave inteira, até o limite de 50%.', max: 6, peso: 4.2, aplicar: (s) => { s.armadura += 1; } },
+  { id: 'motor', grupo: 'NAVE · VELOCIDADE', raridade: 'COMUM', icone: '➤', cor: '#8bd3ff', nome: 'Ponto de velocidade', desc: '+10% de velocidade e resposta da nave.', max: 6, peso: 4.4, aplicar: (s) => { s.velNave *= 1.1; } },
+  { id: 'recarga_geral', grupo: 'NAVE · RECARGA', raridade: 'INCOMUM', icone: '↻', cor: '#7dff9a', nome: 'Ponto de recarga', desc: '+10% de cadência e recarga para TODAS as armas e sistemas.', max: 6, peso: 4.2, aplicar: (s) => { s.recargaGlobal *= 1.1; } },
   { id: 'cadencia_canhao', grupo: 'CANHÃO [1]', raridade: 'INCOMUM', icone: '↻', cor: '#ffe14a', nome: 'Alimentador rápido', desc: '+13% de cadência exclusiva do canhão.', max: 5, peso: 2.4, aplicar: (s) => { s.cadencia *= 1.13; } },
   { id: 'perfurar', grupo: 'CANHÃO [1]', raridade: 'COMUM', icone: '»', cor: '#c9cdf5', nome: 'Munição perfurante', desc: 'Os tiros do canhão atravessam +1 inimigo.', max: 3, peso: 2.5, aplicar: (s) => { s.perfura += 1; } },
   // +1 projétil é muito forte: o primeiro pode aparecer logo, o segundo é bem mais raro e o quarto cano só vem junto com um bônus (e é raríssimo)
@@ -73,14 +76,10 @@ const MELHORIAS = [
   { id: 'proj_quad_perf', grupo: 'CANHÃO [1]', raridade: 'LENDÁRIO', icone: '⁞', cor: '#c9cdf5', nome: 'Cano quádruplo · Perfuração', desc: '+1 projétil (chega a 4 por disparo) e os tiros atravessam +2 inimigos.', max: 1, peso: 0.45, requer: (s) => s.projeteis === 3, aplicar: (s) => { s.projeteis += 1; s.perfura += 2; } },
   { id: 'vel_tiro', grupo: 'CANHÃO [1]', raridade: 'COMUM', icone: '›', cor: '#c9cdf5', nome: 'Pólvora estável', desc: '+10% de velocidade dos projéteis. É útil, mas não faz milagres.', max: 5, peso: 3.2, aplicar: (s) => { s.velTiro *= 1.1; } },
   { id: 'critico', grupo: 'CANHÃO [1]', raridade: 'INCOMUM', icone: '✹', cor: '#ff9a3a', nome: 'Mira oportunista', desc: '+4% de chance de um tiro causar dano dobrado.', max: 4, peso: 1.8, aplicar: (s) => { s.critico += 0.04; } },
-  { id: 'ima', grupo: 'SISTEMA', raridade: 'COMUM', icone: '⌁', cor: '#6fe8ff', nome: 'Ímã de cristais', desc: '+45% de alcance para atrair cristais de XP.', max: 4, peso: 1.7, aplicar: (s) => { s.raioIma *= 1.45; } },
-  { id: 'motor', grupo: 'SISTEMA', raridade: 'COMUM', icone: '➤', cor: '#8bd3ff', nome: 'Propulsores', desc: '+16% de velocidade e resposta da nave.', max: 4, peso: 1.7, aplicar: (s) => { s.velNave *= 1.16; } },
-  { id: 'reparo', grupo: 'SISTEMA', raridade: 'COMUM', icone: '+', cor: '#ff6b7a', nome: 'Casco autorreparável', desc: '+1 de vida máxima e cura 2 pontos.', max: 4, peso: 1.7, aplicar: (s) => { s.maxHp += 1; s.hp = Math.min(s.maxHp, s.hp + 2); } },
-  { id: 'coletor', grupo: 'SISTEMA', raridade: 'COMUM', icone: '·', cor: '#6fe8ff', nome: 'Coletor auxiliar', desc: '+18% de alcance do ímã. Pequeno, mas ajuda.', max: 6, peso: 3.5, aplicar: (s) => { s.raioIma *= 1.18; } },
-  { id: 'polimento', grupo: 'SISTEMA', raridade: 'COMUM', icone: '◇', cor: '#a56bff', nome: 'Polimento de cristal', desc: '+7% de XP recebido dos cristais.', max: 6, peso: 3.2, aplicar: (s) => { s.bonusXp *= 1.07; } },
-  { id: 'remendo', grupo: 'SISTEMA', raridade: 'COMUM', icone: '+', cor: '#ff6b7a', nome: 'Remendo de emergência', desc: 'Recupera somente 1 ponto de vida agora.', max: 5, peso: 3.6, requer: (s) => s.hp < s.maxHp, aplicar: (s) => { s.hp = Math.min(s.maxHp, s.hp + 1); } },
-  { id: 'micropropulsor', grupo: 'SISTEMA', raridade: 'COMUM', icone: '›', cor: '#8bd3ff', nome: 'Micropropulsor', desc: '+6% de velocidade da nave.', max: 6, peso: 3.4, aplicar: (s) => { s.velNave *= 1.06; } },
-  { id: 'dissipador', grupo: 'SISTEMA', raridade: 'COMUM', icone: '~', cor: '#7dff9a', nome: 'Dissipador pequeno', desc: '+5% de recarga geral das armas e sistemas.', max: 6, peso: 3.1, aplicar: (s) => { s.recargaGlobal *= 1.05; } },
+  { id: 'ima', grupo: 'NAVE · SENSORES', raridade: 'COMUM', icone: '⌁', cor: '#6fe8ff', nome: 'Ímã de cristais', desc: '+45% de alcance para atrair cristais de XP.', max: 4, peso: 2.1, aplicar: (s) => { s.raioIma *= 1.45; } },
+  { id: 'coletor', grupo: 'NAVE · SENSORES', raridade: 'COMUM', icone: '·', cor: '#6fe8ff', nome: 'Coletor auxiliar', desc: '+18% de alcance do ímã. Pequeno, mas ajuda.', max: 6, peso: 2.3, aplicar: (s) => { s.raioIma *= 1.18; } },
+  { id: 'polimento', grupo: 'NAVE · SENSORES', raridade: 'COMUM', icone: '◇', cor: '#a56bff', nome: 'Polimento de cristal', desc: '+7% de XP recebido dos cristais.', max: 6, peso: 2.2, aplicar: (s) => { s.bonusXp *= 1.07; } },
+  { id: 'remendo', grupo: 'NAVE · REPARO', raridade: 'COMUM', icone: '+', cor: '#ff6b7a', nome: 'Remendo de emergência', desc: 'Recupera somente 1 ponto de vida agora.', max: 5, peso: 2.2, requer: (s) => s.hp < s.maxHp, aplicar: (s) => { s.hp = Math.min(s.maxHp, s.hp + 1); } },
 ];
 
 // novas armas aparecem por sorte nas melhorias e ocupam os slots 2, 3 e 4 da run
@@ -99,14 +98,15 @@ function darPoder(s, id) {
 // melhorias permanentes compradas com moedas espaciais (que o chefão solta)
 const OFICINA = [
   { parte: 'MOTOR', id: 'motor', nome: 'Propulsores', desc: '+8% de velocidade da nave', max: 5, custo: (n) => 6 + n * 4 },
-  { parte: 'NÚCLEO DE ENERGIA', id: 'nucleo', nome: 'Núcleo de energia', desc: '+12% de recarga do laser e do míssil', max: 5, custo: (n) => 8 + n * 5 },
+  { parte: 'NÚCLEO DE ENERGIA', id: 'nucleo', nome: 'Núcleo de energia', desc: '+12% de recarga para todas as armas e sistemas', max: 5, custo: (n) => 8 + n * 5 },
   { parte: 'NÚCLEO DE ENERGIA', id: 'bateria', nome: 'Bateria do laser', desc: '+0,6 s de laser contínuo', max: 4, custo: (n) => 6 + n * 4 },
-  { parte: 'ARMAS', id: 'dano', nome: 'Munição pesada', desc: '+0,25 de dano base', max: 5, custo: (n) => 8 + n * 6 },
-  { parte: 'ARMAS', id: 'cadencia', nome: 'Canhão rápido', desc: '+10% de cadência inicial', max: 5, custo: (n) => 6 + n * 4 },
+  { parte: 'ARMAS', id: 'dano', nome: 'Amplificador bélico', desc: '+0,25 de dano base para todo o arsenal', max: 5, custo: (n) => 8 + n * 6 },
+  { parte: 'NÚCLEO DE ENERGIA', id: 'cadencia', nome: 'Computador de recarga', desc: '+8% de cadência e recarga global', max: 5, custo: (n) => 6 + n * 4 },
   { parte: 'ARMAS', id: 'projetil', nome: 'Canhão duplo', desc: '+1 projétil inicial', max: 2, custo: (n) => 24 + n * 20 },
   { parte: 'ARMAS', id: 'lente', nome: 'Lente do laser', desc: '+10% de dano e de alcance do laser', max: 5, custo: (n) => 8 + n * 6 },
   { parte: 'ESCUDO', id: 'escudo', nome: 'Escudo regenerativo', desc: 'Barreira que absorve 1 golpe e se recarrega (nv 4: duas barreiras)', max: 5, custo: (n) => 10 + n * 6 },
   { parte: 'CASCO', id: 'casco', nome: 'Casco reforçado', desc: '+1 vida inicial', max: 5, custo: (n) => 6 + n * 4 },
+  { parte: 'CASCO', id: 'armadura', nome: 'Blindagem', desc: '-6% de dano recebido por ponto', max: 5, custo: (n) => 8 + n * 5 },
   { parte: 'SENSORES', id: 'ima', nome: 'Ímã inicial', desc: '+25% de alcance do ímã', max: 4, custo: (n) => 6 + n * 5 },
   { parte: 'SENSORES', id: 'xp', nome: 'Cristais ricos', desc: '+10% de XP dos cristais', max: 5, custo: (n) => 8 + n * 6 },
 ];
@@ -330,7 +330,7 @@ export function iniciarArcade({ bip, somAtivo }) {
 
   function tiersNave() {
     const of = dados.oficina, n = S ? S.niveis : {};
-    return { casco: of.casco + (n.reparo | 0), motor: of.motor + (n.motor | 0), nucleo: of.nucleo + (n.recarga_geral | 0), armas: of.dano + of.lente + (n.dano_geral | 0), ima: of.ima + (n.ima | 0) };
+    return { casco: of.casco + of.armadura + (n.reparo | 0) + (n.armadura | 0), motor: of.motor + (n.motor | 0), nucleo: of.nucleo + (n.recarga_geral | 0), armas: of.dano + of.lente + (n.dano_geral | 0), ima: of.ima + (n.ima | 0) };
   }
   function atualizarNaveSpr() {
     const t = tiersNave();
@@ -365,8 +365,8 @@ export function iniciarArcade({ bip, somAtivo }) {
     S = {
       t: 0, ta: 0, nx: CX, ny: CY, cx: CX, cy: CY, velNave: 75 * (1 + 0.08 * of.motor), cristais: [], raioIma: 26 * (1 + 0.25 * of.ima), raioPegar: 8, bonusXp: 1 + 0.1 * of.xp,
       onda: 0, ondaEstado: 'calma', calmaT: 20, proxOnda: 20, ondaT: 0, ondaDur: 0, ondaFila: 0, ondaSpawnT: 0, combo: 0, comboT: 0, melhorCombo: 0, aviso: 0, avisoTxt: '', fase: 1,
-      hp: 6 + of.casco, maxHp: 6 + of.casco, nivel: 1, xp: 0, xpProx: 5, kills: 0,
-      dano: 1 + 0.25 * of.dano, danoGlobal: 1, recargaGlobal: 1, cadencia: 2.6 * (1 + 0.1 * of.cadencia), projeteis: 1 + of.projetil, perfura: 0, velTiro: 160, critico: 0,
+      hp: 6 + of.casco, maxHp: 6 + of.casco, armadura: of.armadura, nivel: 1, xp: 0, xpProx: 5, kills: 0,
+      dano: 1 + 0.25 * of.dano, danoGlobal: 1, recargaGlobal: (1 + 0.08 * of.cadencia) * (1 + 0.12 * of.nucleo), cadencia: 2.6, projeteis: 1 + of.projetil, perfura: 0, velTiro: 160, critico: 0,
       inimigos: [], tiros: [], tirosInimigos: [], campos: [], raios: [], rochas: [], itens: [], parts: [], ondas: [], textos: [],
       spawnAcc: 0, recarga: 0.3, invul: 0, mira: 0, tremor: 0, flash: 0, niveis: {},
       imaT: 0, turboT: 0, escudoT: 0, buffDanoT: 0, buffVelT: 0, buffXpT: 0, proxEstrela: 10 + Math.random() * 8,
@@ -379,7 +379,7 @@ export function iniciarArcade({ bip, somAtivo }) {
       poderes: { laser: false, missil: false, orbes: false, turbo: false, cura: false, escudo: false, salto: false, drift: false },
       armasNivel: { normal: 1, laser: 0, missil: 0, orbes: 0, turbo: 0, cura: 0, escudo: 0, salto: 0, drift: 0 },
       laserMax: 2 + 0.5 * of.bateria, laserE: 2 + 0.5 * of.bateria, laserQuente: false, laserTick: 0, laserN: 0, laser: null,
-      laserDano: 4.2 * (1 + 0.1 * of.lente), laserAlc: 66 * (1 + 0.1 * of.lente), recM: 1 + 0.12 * of.nucleo,
+      laserDano: 4.2 * (1 + 0.1 * of.lente), laserAlc: 66 * (1 + 0.1 * of.lente), recM: 1,
       missilT: 1, missilMax: 3.6, misseis: [], orbeAng: 0,
       boostE: 3, boostMax: 3, curaCd: 0, curaMax: 11, escudoCd: 0, escudoMax: 13, saltoCd: 0, saltoMax: 8, saltoCarga: 0, saltoCargaMax: 0.8, driftCd: 0, driftMax: 7, driftT: 0, driftAcc: 0, trilhasFogo: [], dirX: 0, dirY: -1,
       barreiraMax: of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0, barreira: of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0, barreiraT: 0, tempoBarreira: 45 - 6 * of.escudo,
@@ -483,7 +483,9 @@ export function iniciarArcade({ bip, somAtivo }) {
   function ferirNave(dano) {
     if (S.invul > 0 || S.escudoT > 0) return false;
     if (S.barreira > 0) { S.barreira -= 1; S.invul = 0.7; S.ondas.push({ x: S.nx, y: S.ny, r: 0, max: 28, v: 90, cor: '#7dff9a' }); texto(S.nx, S.ny - 12, 'BLOQUEOU', '#7dff9a'); bip(660, 0.12, 'triangle', 0.05); return true; }
-    S.hp -= dano; S.invul = 0.7; S.tremor = 0.2;
+    const reducao = Math.min(0.5, S.armadura * 0.06);
+    const danoFinal = Math.max(0.25, dano * (1 - reducao));
+    S.hp = Math.max(0, S.hp - danoFinal); S.invul = 0.7; S.tremor = 0.2;
     if (S.combo >= 3) texto(S.nx, S.ny - 14, 'COMBO PERDIDO', '#ff7a8a');
     S.combo = 0; S.comboT = 0;
     bip(110, 0.18, 'sawtooth', 0.05);
@@ -1307,6 +1309,19 @@ export function iniciarArcade({ bip, somAtivo }) {
   const nivelMelhoria = (m) => m.nivel ? m.nivel(S) : (S.niveis[m.id] | 0);
   function sortearOpcoes(disponiveis, quantidade = 3) {
     const pool = [...disponiveis], saida = [];
+    const tirarSorteado = (lista) => {
+      const peso = (m) => (typeof m.peso === 'function' ? m.peso(S) : m.peso) || 1;
+      const total = lista.reduce((s, m) => s + peso(m), 0); let r = Math.random() * total;
+      for (const m of lista) { r -= peso(m); if (r <= 0) return m; }
+      return lista[lista.length - 1];
+    };
+    // Toda subida oferece ao menos um atributo fundamental da nave, enquanto houver algum disponível.
+    const idsNave = new Set(['dano_geral', 'reparo', 'armadura', 'motor', 'recarga_geral']);
+    const fundamentais = pool.filter((m) => idsNave.has(m.id));
+    if (fundamentais.length && quantidade > 0) {
+      const escolhido = tirarSorteado(fundamentais), i = pool.indexOf(escolhido);
+      saida.push(escolhido); pool.splice(i, 1);
+    }
     while (pool.length && saida.length < quantidade) {
       const peso = (m) => (typeof m.peso === 'function' ? m.peso(S) : m.peso) || 1;
       const total = pool.reduce((s, m) => s + peso(m), 0); let r = Math.random() * total, escolhido = 0;
@@ -1327,9 +1342,10 @@ export function iniciarArcade({ bip, somAtivo }) {
     painelEscolha.className = 'arc-painel arc-upgrade';
     const cab = el('div', 'arc-up-topo');
     const tit = el('div'); tit.append(el('small', null, `SUBIU PARA O NÍVEL ${S.nivel}`), el('h3', null, 'ESCOLHA UM UPGRADE'));
-    const arsenal = el('div', 'arc-arsenal');
-    S.slots.forEach((id, i) => arsenal.append(el('span', id ? 'on' : '', id ? `${i + 2} ${NOMES_CURTOS[id]} · N${S.armasNivel[id]}` : `${i + 2} VAZIO`)));
-    cab.append(tit, arsenal);
+    const atributos = el('div', 'arc-arsenal arc-atributos');
+    const n = S.niveis;
+    for (const txt of [`✦ DANO ${n.dano_geral | 0}`, `♥ VIDA ${n.reparo | 0}`, `⬢ ARM ${S.armadura}`, `➤ VEL ${n.motor | 0}`, `↻ REC ${n.recarga_geral | 0}`]) atributos.append(el('span', 'on', txt));
+    cab.append(tit, atributos);
     const lista = el('div', 'arc-cartas');
     opcoes.forEach((m, i) => {
       const atual = nivelMelhoria(m), b = el('button', 'arc-carta'); b.style.setProperty('--cor', m.cor || '#4aa8ff');
@@ -1339,7 +1355,7 @@ export function iniciarArcade({ bip, somAtivo }) {
       b.onclick = () => escolher(i);
       lista.append(b);
     });
-    painelEscolha.replaceChildren(cab, lista, el('p', 'arc-up-dica', 'A partida fica pausada enquanto você decide. Cada arma chega no máximo ao nível 4.'));
+    painelEscolha.replaceChildren(cab, lista, el('p', 'arc-up-dica', 'Dano, vida, armadura, velocidade e recarga afetam a nave inteira. Evoluções de arma continuam específicas.'));
     painelEscolha.hidden = false;
   }
   function escolher(i) {
@@ -1359,11 +1375,11 @@ export function iniciarArcade({ bip, somAtivo }) {
 
   // ---------- oficina: a nave aberta, com cada peça ligada às suas melhorias ----------
   const PARTES = [
-    { nome: 'NÚCLEO DE ENERGIA', sub: 'Reator principal: energia para todos os sistemas', lado: 'esq', ancora: [0.5, 0.5], ids: ['nucleo', 'bateria'] },
+    { nome: 'NÚCLEO DE ENERGIA', sub: 'Reator principal: energia para todos os sistemas', lado: 'esq', ancora: [0.5, 0.5], ids: ['nucleo', 'cadencia', 'bateria'] },
     { nome: 'MOTOR PRINCIPAL', sub: 'Propulsão, impulso e velocidade', lado: 'esq', ancora: [0.16, 0.6], ids: ['motor'] },
-    { nome: 'ESTRUTURA / CASCO', sub: 'Blindagem e resistência a danos', lado: 'esq', ancora: [0.27, 0.27], ids: ['casco'] },
+    { nome: 'ESTRUTURA / CASCO', sub: 'Vida, blindagem e resistência a danos', lado: 'esq', ancora: [0.27, 0.27], ids: ['casco', 'armadura'] },
     { nome: 'ANTENA / SENSORES', sub: 'Detecção de cristais e ganho de XP', lado: 'dir', ancora: [0.5, 0.07], ids: ['ima', 'xp'] },
-    { nome: 'ARMAS LATERAIS', sub: 'Canhões e lente do laser', lado: 'dir', ancora: [0.88, 0.42], ids: ['dano', 'cadencia', 'projetil', 'lente'] },
+    { nome: 'ARMAS LATERAIS', sub: 'Amplificador global e módulos específicos', lado: 'dir', ancora: [0.88, 0.42], ids: ['dano', 'projetil', 'lente'] },
     { nome: 'ESCUDO', sub: 'Barreira de energia regenerativa', lado: 'dir', ancora: [0.8, 0.8], ids: ['escudo'] },
   ];
   const canvasNave = document.createElement('canvas'); canvasNave.width = canvasNave.height = 128; canvasNave.className = 'of-nave';
@@ -1767,8 +1783,9 @@ export function iniciarArcade({ bip, somAtivo }) {
     const chave = `${S.hp}/${S.maxHp}|${S.nivel}|${Math.floor(S.xp)}|${S.xpProx}|${S.kills}|${Math.floor(S.t)}|${S.onda}|${S.fase}|${S.aviso > 0}|${S.avisoTxt}|${efeitos}|${dados.moedas}|${!!S.alien}`;
     if (chave === hudCache) return;
     hudCache = chave;
-    vidasEl.replaceChildren(...Array.from({ length: S.maxHp }, (_, i) => el('i', i < S.hp ? 'cheia' : 'vazia')));
-    vidasEl.setAttribute('aria-label', `${Math.max(0, S.hp)} de ${S.maxHp} pontos de vida`);
+    vidasEl.replaceChildren(...Array.from({ length: S.maxHp }, (_, i) => el('i', i + 1 <= S.hp ? 'cheia' : i < S.hp ? 'meia' : 'vazia')));
+    const hpVisivel = Math.max(0, Math.round(S.hp * 10) / 10);
+    vidasEl.setAttribute('aria-label', `${hpVisivel} de ${S.maxHp} pontos de vida · ${Math.round(Math.min(0.5, S.armadura * 0.06) * 100)}% de redução por armadura`);
     nivelEl.textContent = `NV ${S.nivel}`;
     xpBarra.style.width = `${Math.min(100, (S.xp / S.xpProx) * 100)}%`;
     xpBox.setAttribute('aria-valuenow', String(Math.floor(S.xp))); xpBox.setAttribute('aria-valuemax', String(S.xpProx));
@@ -1987,7 +2004,7 @@ export function iniciarArcade({ bip, somAtivo }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, t: S && S.t, hp: S && S.hp, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
+        return { modo, t: S && S.t, hp: S && S.hp, armadura: S && S.armadura, niveisNave: S && { dano: S.niveis.dano_geral | 0, vida: S.niveis.reparo | 0, velocidade: S.niveis.motor | 0, recarga: S.niveis.recarga_geral | 0 }, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
       },
     };
   }
