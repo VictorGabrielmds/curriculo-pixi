@@ -502,18 +502,23 @@ fincar(mazzy.raiz, dirsSitios.mazzy, 0);
 obstaculos.push({ d: dirsSitios.jasmim, r: 0.035 * K }, { d: dirsSitios.mazzy, r: 0.055 * K });
 
 // ---------- personagem (sprite 2D, 4 direções) ----------
-// quadros em public/avatar/<animação>-<direção>-<n>.png (84x182, pés na linha y=168)
-const FRAMES = { parado: 4, andar: 5, correr: 5, pular: 5 };
+// /yas troca somente o visual do personagem; a rota principal continua usando o avatar original.
+const USA_PERSONAGEM_YAS = /(?:^|\/)yas\/?$/i.test(location.pathname);
+const PERFIL_PERSONAGEM = USA_PERSONAGEM_YAS
+  ? { pasta: 'avatar-yas', frames: { parado: 5, andar: 6, correr: 5, pular: 5 }, largura: 168, altura: 332, pesY: 292, escala: 0.55 }
+  : { pasta: 'avatar', frames: { parado: 4, andar: 5, correr: 5, pular: 5 }, largura: 84, altura: 182, pesY: 168, escala: 1 };
+const FRAMES = PERFIL_PERSONAGEM.frames;
 const DIRECOES = ['direita', 'esquerda', 'norte', 'sul']; // norte = de costas (fundo da tela), sul = de frente
-const CICLO_PARADO = [0, 1, 2, 3, 2, 1]; // parado de frente: ida e volta
-const FRAME_W = 84, FRAME_H = 182, FRAME_PES_Y = 168;
+const CICLO_PARADO = USA_PERSONAGEM_YAS ? [0, 1, 2, 3, 4, 3, 2, 1] : [0, 1, 2, 3, 2, 1];
+const FRAME_W = PERFIL_PERSONAGEM.largura, FRAME_H = PERFIL_PERSONAGEM.altura, FRAME_PES_Y = PERFIL_PERSONAGEM.pesY;
+const BASE_ASSETS = import.meta.env.DEV ? '/' : import.meta.env.BASE_URL;
 const carregador = new THREE.TextureLoader();
 const quadros = {};
 for (const [anim, n] of Object.entries(FRAMES)) {
   quadros[anim] = {};
   for (const dir of DIRECOES) {
     quadros[anim][dir] = Array.from({ length: n }, (_, i) => {
-      const tex = carregador.load(`${import.meta.env.BASE_URL}avatar/${anim}-${dir}-${i}.png`);
+      const tex = carregador.load(`${BASE_ASSETS}${PERFIL_PERSONAGEM.pasta}/${anim}-${dir}-${i}.png`);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.magFilter = tex.minFilter = THREE.NearestFilter; // pixel art: sem suavizar
       tex.generateMipmaps = false;
@@ -716,8 +721,8 @@ function ajustar() {
   telaMaterial.uniforms.uPixel.value.set(1 / wi, 1 / hi);
   // 1 pixel do desenho do avatar = 1 pixel da tela interna
   const unidadesPorPixel = (2 * DIST_CAMERA * camera.userData.afasta * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / hi;
-  ALTURA_BONECO = FRAME_H * unidadesPorPixel;
-  LARGURA_BONECO = FRAME_W * unidadesPorPixel;
+  ALTURA_BONECO = FRAME_H * unidadesPorPixel * PERFIL_PERSONAGEM.escala;
+  LARGURA_BONECO = FRAME_W * unidadesPorPixel * PERFIL_PERSONAGEM.escala;
 }
 window.addEventListener('resize', ajustar);
 ajustar();
