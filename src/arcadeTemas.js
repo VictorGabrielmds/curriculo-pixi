@@ -307,14 +307,96 @@ const medusa = () => dois(34, 40, (s, f) => {
   for (const [x, y] of [[9, 9], [24, 8], [12, 17], [22, 17], [17, 5]]) s.pixel(x, y, '#ffffff');
   for (let x = 6; x < 30; x += 4) s.disco(x, 22 + f, 1, '#ff7ab8');
 });
+// ---------- os novos: mais estranhos, com golpes que nenhum dos outros tem ----------
+const rudo = (n) => { const v = Math.sin(n * 91.7 + 3.1) * 43758.5; return v - Math.floor(v); }; // "aleatório" fixo, para o glitch não tremer à toa
+const cupula = (s, cx, base, rx, ry, cor) => { // só a metade de cima de uma elipse (chapéu de cogumelo)
+  for (let j = 0; j < ry; j++) { const w = Math.round(rx * Math.sqrt(1 - ((ry - 0.5 - j) / ry) ** 2)); s.retangulo(cx - w, base - ry + j, w * 2, 1, cor); }
+};
+const engrenagem = (s, cx, cy, r, cor, f) => { // roda dentada: o disco e os dentes mudam de posição entre os quadros
+  s.disco(cx, cy, r, cor);
+  for (let k = 0; k < 8; k++) { const a = (k * Math.PI) / 4 + f * 0.4; s.retangulo(Math.round(cx + Math.cos(a) * (r + 1)) - 1, Math.round(cy + Math.sin(a) * (r + 1)) - 1, 2, 2, cor); }
+  s.disco(cx, cy, 1, '#0b1026');
+};
+const escorpiao = () => dois(34, 40, (s, f) => {
+  for (const k of [0, 1, 2]) { const y0 = 29 + k * 3; s.linha(10, y0, 3, y0 + 6 + ((k + f) % 2), '#24427a'); s.linha(24, y0, 31, y0 + 6 + ((k + f + 1) % 2), '#24427a'); }
+  [[17, 24], [17, 18], [18, 12], [22, 7], [27, 7 + f]].forEach(([x, y], i) => { s.disco(x, y, i > 2 ? 3 : 4, i % 2 ? '#3a8ad8' : '#58c8ff'); s.pixel(x - 1, y - 1, '#e8fbff'); }); // cauda arqueada
+  s.poligono([[25, 9 + f], [30, 9 + f], [28, 18 + f]], '#ff7ab8'); s.pixel(28, 15 + f, '#ffffff'); s.pixel(28, 16 + f, '#ffd0e6'); // ferrão que brilha
+  s.elipse(17, 30, 11, 8, '#24427a'); s.elipse(17, 28, 9, 6, '#3a8ad8'); s.elipse(17, 26, 6, 3, '#8ee8ff');
+  s.linha(17, 22, 17, 37, '#bff0ff'); s.linha(9, 28, 25, 28, '#24427a');
+  for (const [x, y] of [[12, 30], [22, 30], [17, 35], [14, 25], [20, 25]]) s.pixel(x, y, '#e8fbff');
+  s.disco(13, 32, 2, '#ff3b4a'); s.disco(21, 32, 2, '#ff3b4a'); s.pixel(12, 31, '#ffffff'); s.pixel(20, 31, '#ffffff');
+  const ab = f ? 3 : 0; // as pinças abrem e fecham
+  s.linha(8, 28, 4, 22, '#3a8ad8'); s.linha(26, 28, 30, 22, '#3a8ad8'); s.linha(8, 29, 4, 23, '#24427a'); s.linha(26, 29, 30, 23, '#24427a');
+  s.poligono([[1, 22], [2, 14 - ab], [6, 21]], '#58c8ff'); s.poligono([[1, 23], [7, 22], [6, 28 + ab]], '#8ee8ff');
+  s.poligono(esp([[1, 22], [2, 14 - ab], [6, 21]], 34), '#58c8ff'); s.poligono(esp([[1, 23], [7, 22], [6, 28 + ab]], 34), '#8ee8ff');
+});
+const glitch = () => dois(34, 40, (s, f) => {
+  const corpo = (dx, dy, cor) => { s.retangulo(9 + dx, 14 + dy, 16, 22, cor); s.retangulo(10 + dx, 3 + dy, 14, 13, cor); s.retangulo(3 + dx, 17 + dy, 5, 15, cor); s.retangulo(26 + dx, 17 + dy, 5, 15, cor); s.retangulo(11 + dx, 35 + dy, 5, 5, cor); s.retangulo(19 + dx, 35 + dy, 5, 5, cor); };
+  corpo(-2, 0, '#ff3bd4'); corpo(2, 1, '#38e8ff'); corpo(0, 0, '#1b1033'); // sombra cromática: o corpo duplicado em magenta e ciano
+  for (let k = 0; k < 7; k++) { const sh = Math.round((rudo(k + f * 17) - 0.5) * 9), larg = 6 + Math.floor(rudo(k * 3 + f) * 12); s.retangulo(9 + sh, 4 + k * 5, larg, 2, k % 2 ? '#ff3bd4' : '#38e8ff'); } // fatias deslocadas
+  s.retangulo(12, 7, 4, 4, '#ffffff'); s.retangulo(19, 7, 4, 4, '#ffffff'); s.pixel(14 + f, 9, '#ff2a4a'); s.pixel(21 - f, 9, '#ff2a4a');
+  for (let x = 12; x < 23; x++) s.pixel(x, 14 + (x % 2), '#38e8ff');
+  s.retangulo(13, 20, 8, 3, '#38e8ff'); s.retangulo(15, 21, 4, 1, '#1b1033'); // um "?" sem sentido no peito
+  for (let k = 0; k < 5; k++) s.retangulo(Math.round(rudo(k + f * 5) * 28), Math.round(rudo(k + 9 + f * 3) * 36), 2 + (k % 3), 2, k % 2 ? '#ffffff' : '#ff3bd4'); // pedaços soltos
+});
+const cogumelo = () => dois(34, 40, (s, f) => {
+  s.retangulo(12, 22, 10, 15, '#e8dcc0'); s.retangulo(12, 22, 3, 15, '#c9b890'); s.retangulo(10, 35, 14, 3, '#e8dcc0');
+  cupula(s, 6, 38, 4, 4, '#b0306a'); cupula(s, 28, 37, 3, 3, '#e060a0'); s.retangulo(5, 38, 2, 2, '#e8dcc0'); s.retangulo(27, 37, 2, 3, '#e8dcc0'); // brotos no chão
+  s.disco(15, 29, 2, '#0b1026'); s.disco(20, 29, 2, '#0b1026'); s.pixel(14, 28, '#ffffff'); s.pixel(19, 28, '#ffffff'); s.retangulo(16, 33, 3, 2, '#7a3a4a');
+  const base = 21 + f;
+  cupula(s, 17, base, 16, 11, '#b0306a'); cupula(s, 17, base - 2, 12, 7, '#e060a0'); s.retangulo(2, base - 1, 30, 3, '#5a1a3a');
+  for (const [x, y, r] of [[8, 13, 2], [17, 7, 2], [25, 12, 2], [21, 17, 1], [12, 17, 1]]) s.disco(x, y + f, r, '#bff0ff');
+  for (const [x, y] of [[3, 6], [30, 8], [1, 18], [32, 22], [24, 3]]) s.pixel(x, y - f * 2, f ? '#7dff9a' : '#d6ffe0'); // esporos à deriva
+});
+const vespertilio = () => dois(34, 40, (s, f) => {
+  const asa = f ? [[13, 20], [1, 31], [6, 27], [8, 35], [12, 27], [14, 32]] : [[13, 20], [2, 5], [6, 13], [9, 8], [12, 16], [14, 12]];
+  s.poligono(asa, '#4a3ab0'); s.poligono(esp(asa, 34), '#4a3ab0');
+  for (const [x, y] of asa.slice(1)) { s.linha(13, 20, x, y, '#2a2a6a'); s.linha(20, 20, 33 - x, y, '#2a2a6a'); }
+  for (const [x, y] of f ? [[6, 28], [9, 31]] : [[5, 10], [8, 13]]) { s.pixel(x, y, '#ffe14a'); s.pixel(33 - x, y, '#ffe14a'); }
+  s.elipse(17, 25, 5, 8, '#2a2a6a'); s.elipse(17, 23, 3, 5, '#3a3a8a'); s.linha(15, 32, 14, 37, '#2a2a6a'); s.linha(19, 32, 20, 37, '#2a2a6a');
+  s.poligono([[11, 13], [10, 2], [16, 10]], '#2a2a6a'); s.poligono([[23, 13], [24, 2], [18, 10]], '#2a2a6a'); s.pixel(11, 6, '#ff7ab8'); s.pixel(23, 6, '#ff7ab8');
+  s.disco(17, 15, 6, '#2a2a6a'); s.disco(14, 15, 2, '#ffe14a'); s.disco(20, 15, 2, '#ffe14a'); s.pixel(14, 15, '#0b1026'); s.pixel(20, 15, '#0b1026');
+  s.poligono([[14, 19], [16, 19], [15, 23]], '#ffffff'); s.poligono([[18, 19], [20, 19], [19, 23]], '#ffffff');
+});
+const cronos = () => dois(34, 40, (s, f) => {
+  s.poligono([[17, 18], [2, 39], [32, 39]], '#1f2a5a'); s.poligono([[17, 22], [8, 39], [26, 39]], '#2b3a80'); for (let x = 3; x < 32; x += 4) s.pixel(x, 39, '#c9a86a');
+  s.linha(9, 33, 25, 33, '#c9a86a'); // ampulheta no peito, com a areia caindo
+  s.poligono([[12, 26], [22, 26], [17, 31]], '#ffd23f'); s.poligono([[12, 38], [22, 38], [17, 33]], '#ffd23f'); s.pixel(17, 31 + f, '#fff2b0'); s.pixel(17, 32 + f, '#fff2b0');
+  engrenagem(s, 4, 22 + f, 3, '#c9a86a', f); engrenagem(s, 30, 22 + (1 - f), 3, '#c9a86a', 1 - f);
+  s.disco(17, 13, 13, '#c9a86a'); s.disco(17, 13, 11, '#f4efe0');
+  for (let k = 0; k < 12; k++) { const a = (k * Math.PI) / 6; s.pixel(Math.round(17 + Math.cos(a) * 9), Math.round(13 + Math.sin(a) * 9), k % 3 ? '#8a7a5a' : '#2a1f4a'); }
+  const am = -Math.PI / 2 + (f ? 0.5 : 0.1), ah = Math.PI / 5 + f * 0.15; // ponteiros: os quadros mudam a hora
+  s.linha(17, 13, Math.round(17 + Math.cos(am) * 8), Math.round(13 + Math.sin(am) * 8), '#2a1f4a'); s.linha(17, 13, Math.round(17 + Math.cos(ah) * 5), Math.round(13 + Math.sin(ah) * 5), '#7a1f2a');
+  s.disco(17, 13, 1, '#ff3b4a'); s.retangulo(11, 8, 4, 2, '#2a1f4a'); s.retangulo(20, 8, 4, 2, '#2a1f4a'); s.pixel(12, 9, '#ff3b4a'); s.pixel(21, 9, '#ff3b4a'); // sobrancelhas sérias
+});
+const naja = () => dois(34, 40, (s, f) => {
+  for (let i = 0; i < 17; i++) { // corpo em S: grosso perto do capelo, fino na ponta que balança
+    const y = 39 - i * 1.25, x = 17 + Math.sin(i * 0.7 + f * 1.4) * 10 * (1 - i / 19), r = 3 + Math.floor(i / 5);
+    s.disco(Math.round(x), Math.round(y), r, i % 2 ? '#1fa87e' : '#2fd6a0'); s.pixel(Math.round(x) - 1, Math.round(y) - 1, '#c9ffe9'); if (i % 4 === 1) s.pixel(Math.round(x), Math.round(y), '#ffe14a');
+  }
+  s.poligono([[17, 2], [4, 10], [8, 21], [17, 24], [26, 21], [30, 10]], '#1c6c8c'); s.elipse(17, 12, 11, 9, '#2a8fb8'); // capelo aberto
+  s.poligono([[17, 14], [10, 20], [17, 23], [24, 20]], '#0b3a52'); s.pixel(17, 18, '#ffe14a'); s.pixel(13, 19, '#ffe14a'); s.pixel(21, 19, '#ffe14a'); // marca no peito do capelo
+  s.elipse(17, 9, 6, 7, '#2fd6a0'); s.elipse(17, 6, 4, 3, '#7affd0');
+  s.disco(14, 9, 2, '#ffe14a'); s.disco(20, 9, 2, '#ffe14a'); s.retangulo(14, 8, 1, 3, '#0b1026'); s.retangulo(20, 8, 1, 3, '#0b1026'); // olhos de fenda
+  s.retangulo(15, 13, 4, 1, '#0b1026'); s.linha(17, 14, 17, 17 + f, '#ff3b4a'); s.pixel(16, 18 + f, '#ff3b4a'); s.pixel(18, 18 + f, '#ff3b4a'); // língua bipartida
+  for (const [x, y] of [[3, 15], [31, 15], [6, 4], [28, 4]]) s.pixel(x, y - f, '#ffe14a');
+});
+// titulo/cor aparecem na faixa de apresentação e no Bestiário; aura é o efeito em volta dele durante a luta
+// "desde" é a quantidade de alienígenas já derrotados (somando as partidas) para este começar a aparecer
 export const ALIENS = [
-  { nome: 'CINZENTO', pesos: { ovnis: 4, aneis: 1 }, criar: criarAlien },
-  { nome: 'POLVO CÓSMICO', pesos: { tentaculos: 4, bombas: 2, espiral: 1 }, criar: polvo },
-  { nome: 'CÉREBRO MECÂNICO', pesos: { psiquico: 4, mira: 2, cerco: 2 }, criar: cerebro },
-  { nome: 'CEIFADOR', pesos: { foice: 4, teleporte: 3, aneis: 1 }, criar: ceifador },
-  { nome: 'OLHO MESTRE', pesos: { olhar: 4, varredura: 2, raio: 2 }, criar: olhoMestre },
-  { nome: 'LOUVA-A-DEUS', pesos: { corte: 4, investida: 2, cerco: 1 }, criar: louva },
-  { nome: 'MEDUSA ESTELAR', pesos: { chuva: 4, espiral: 2, rajada: 2 }, criar: medusa },
+  { nome: 'CINZENTO', titulo: 'O Vigia do Vazio', cor: '#7dff9a', aura: { tipo: 'faisca', rgb: '125, 255, 154' }, dica: 'Chama ovnis e dispara anéis. Elimine os ovnis logo.', desde: 0, pesos: { ovnis: 4, aneis: 1 }, criar: criarAlien },
+  { nome: 'POLVO CÓSMICO', titulo: 'Tentáculos do Abismo', cor: '#c49bff', aura: { tipo: 'bolha', rgb: '196, 155, 255' }, dica: 'Hélices de raios giram em cruz: fique longe do centro.', desde: 0, pesos: { tentaculos: 4, bombas: 2, espiral: 1 }, criar: polvo },
+  { nome: 'CÉREBRO MECÂNICO', titulo: 'A Mente da Máquina', cor: '#8bd3ff', aura: { tipo: 'faisca', rgb: '139, 211, 255' }, dica: 'Cerca você de bombas. Saia do círculo antes de fechar.', desde: 0, pesos: { psiquico: 4, mira: 2, cerco: 2 }, criar: cerebro },
+  { nome: 'CEIFADOR', titulo: 'Colhedor de Almas', cor: '#7dff9a', aura: { tipo: 'alma', rgb: '125, 255, 154' }, dica: 'Teleporta e ataca em sequência. Não pare de se mexer.', desde: 0, pesos: { foice: 4, teleporte: 3, aneis: 1 }, criar: ceifador },
+  { nome: 'OLHO MESTRE', titulo: 'Aquele que Tudo Vê', cor: '#ff3b4a', aura: { tipo: 'orbita', rgb: '255, 59, 74' }, dica: 'Leques de raios saem dos olhos. Passe entre eles.', desde: 0, pesos: { olhar: 4, varredura: 2, raio: 2 }, criar: olhoMestre },
+  { nome: 'LOUVA-A-DEUS', titulo: 'Lâmina Silenciosa', cor: '#7ae07a', aura: { tipo: 'folha', rgb: '122, 224, 122' }, dica: 'Cortes que atravessam a arena inteira. Pule a linha.', desde: 0, pesos: { corte: 4, investida: 2, cerco: 1 }, criar: louva },
+  { nome: 'MEDUSA ESTELAR', titulo: 'Rainha das Correntes', cor: '#7ad8ff', aura: { tipo: 'bolha', rgb: '122, 216, 255' }, dica: 'Chuvas de tiros com buracos: procure o vão.', desde: 0, pesos: { chuva: 4, espiral: 2, rajada: 2 }, criar: medusa },
+  { nome: 'ESCORPIÃO DE CRISTAL', titulo: 'Ferrão Prismático', cor: '#58c8ff', aura: { tipo: 'cristal', rgb: '142, 232, 255' }, dica: 'O ferrão avisa com uma linha. Fissuras no chão deixam uma faixa segura.', desde: 1, pesos: { ferrao: 4, fissuras: 3, investida: 1 }, criar: escorpiao },
+  { nome: 'GLITCH', titulo: 'Erro Fatal', cor: '#ff3bd4', aura: { tipo: 'glitch', rgb: '255, 59, 212' }, dica: 'Paredes de blocos com um buraco. Ele some e reaparece atirando.', desde: 2, pesos: { blocos: 4, eco: 3, espiral: 1 }, criar: glitch },
+  { nome: 'COGUMELO ESPORÍFERO', titulo: 'Jardim das Esporas', cor: '#e060a0', aura: { tipo: 'esporo', rgb: '224, 96, 160' }, dica: 'Esporos explodem em tiros. As névoas deixam você lento.', desde: 3, pesos: { esporos: 4, nevoa: 3, bombas: 1 }, criar: cogumelo },
+  { nome: 'VESPERTILIO', titulo: 'Asas da Meia-Noite', cor: '#a58bff', aura: { tipo: 'estrela', rgb: '165, 139, 255' }, dica: 'Tiros que quicam nas paredes. Cuidado com o rebote.', desde: 4, pesos: { ricochete: 4, foice: 2, investida: 2 }, criar: vespertilio },
+  { nome: 'CRONOS', titulo: 'Guardião do Tempo', cor: '#ffd23f', aura: { tipo: 'areia', rgb: '255, 210, 63' }, dica: 'Para o tempo: os tiros congelam em volta de você e depois voam todos juntos.', desde: 5, pesos: { cronos: 4, ponteiros: 3, teleporte: 1 }, criar: cronos },
+  { nome: 'NAJA CELESTE', titulo: 'Serpente das Constelações', cor: '#2fd6a0', aura: { tipo: 'estrela', rgb: '47, 214, 160' }, dica: 'Anéis se fecham em volta de você. Fuja pela abertura.', desde: 6, pesos: { constrictor: 3, ondulacao: 4, investida: 1 }, criar: naja },
 ];
 
 // ---------- naves dos chefões: sorteadas a cada chefão ----------

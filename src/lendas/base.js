@@ -39,6 +39,7 @@ export function renderizar(lenda, c, t, branco = false) {
   const x = cv.getContext('2d', { willReadFrequently: true });
   x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, W, H);
   x.save(); x.translate(W / 2, H / 2);
+  if (lenda.escala) x.scale(lenda.escala, lenda.escala);
   if (lenda.gira) x.rotate(c.ang || 0);
   lenda.desenhar(x, c, t);
   x.restore();
@@ -64,6 +65,7 @@ export function atualizarLenda(c, dt, ctx) {
   const lenda = c.lenda;
   c.tl = (c.tl || 0) + dt;
   c.sumido = Math.max(0, c.sumido - dt);
+  c.piscar = Math.max(0, (c.piscar || 0) - dt);
   if (c.entrada > 0) { c.entrada -= dt; lenda.mover(c, dt, ctx, true); if (c.entrada <= 0) { c.sumido = 0; c.cd = 1.2; } return; }
   if (!c.enfurecido && !c.ovo && c.hp < c.hpMax * 0.5) {
     c.enfurecido = true;

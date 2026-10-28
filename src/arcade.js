@@ -9,6 +9,10 @@ import { criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js
 import { TEMAS, ALIENS, CHEFES } from './arcadeTemas.js';
 import { LENDAS, atualizarLenda, renderizarLenda, retratoLenda } from './arcadeLendas.js';
 import './lendas.css';
+import { FASES, faseDe } from './arcadeFases.js';
+import { desenharAmbiente } from './arcadeAmbiente.js';
+import { NATIVOS } from './arcadeNativos.js';
+import { desenharAuraAlien, desenharComSurgir, TEMPO_SURGIR } from './arcadeAliens.js';
 import { projetoPadrao, normalizarProjeto, desbloqueiosIniciais, normalizarDesbloqueios, calcularEfeitosNave, pecasPrincipais } from './naveModular.js';
 import { gerarNave, chamasDaNave, TAM_NAVE } from './naveDesenho.js';
 import { criarGaragem } from './garagem.js';
@@ -33,6 +37,7 @@ const TIPOS = {
   curandeiro: { hp: 7, vel: 24, raio: 6, xp: 7, dano: 0 },
   amplificador: { hp: 8, vel: 20, raio: 7, xp: 8, dano: 0 },
   chefe: { hp: 150, vel: 28, raio: 20, xp: 0, dano: 2 },
+  nativo: { hp: 15, vel: 14, raio: 10, xp: 10, dano: 1 },
   alien: { hp: 70, vel: 0, raio: 14, xp: 0, dano: 2 },
 };
 
@@ -132,6 +137,10 @@ const dadosPadrao = () => ({
   projeto: projetoPadrao(), // a nave montada na garagem: chassi, peças por encaixe e ajustes finos
   pecasLiberadas: desbloqueiosIniciais(), // peças e chassis já fabricados
   bestiario: {}, // criaturas lendárias: quantas vezes apareceram e quantas foram derrotadas
+  nativos: {}, // nativos das fases: vistos e derrotados
+  aliens: {}, // alienígenas dos buracos negros (por nome): vistos e derrotados
+  aliensDerrotados: 0,
+  fasesVistas: 0, // maior fase alcançada
   chefesDerrotados: 0,
 });
 function carregarDados() {
@@ -144,7 +153,10 @@ function carregarDados() {
       d.projeto = normalizarProjeto(j.projeto || j.modulos); // aceita também o formato antigo (um módulo por sistema)
       d.pecasLiberadas = normalizarDesbloqueios([...(j.pecasLiberadas || []), ...(j.modulosDesbloqueados || [])]);
       for (const id of [d.projeto.chassi, ...d.projeto.pecas]) if (id && !d.pecasLiberadas.includes(id)) d.pecasLiberadas.push(id);
-      d.chefesDerrotados = Math.max(0, j.chefesDerrotados | 0);
+      d.chefesDerrotados = Math.max(0, j.chefesDerrotados | 0); d.fasesVistas = Math.max(0, j.fasesVistas | 0);
+      for (const [id, r] of Object.entries(j.nativos || {})) if (NATIVOS[id] && r && typeof r === 'object') d.nativos[id] = { visto: Math.max(0, r.visto | 0), vencido: Math.max(0, r.vencido | 0) };
+      d.aliensDerrotados = Math.max(0, j.aliensDerrotados | 0);
+      for (const a of ALIENS) { const r = j.aliens && j.aliens[a.nome]; if (r && typeof r === 'object') d.aliens[a.nome] = { visto: Math.max(0, r.visto | 0), vencido: Math.max(0, r.vencido | 0) }; }
       for (const [id, r] of Object.entries(j.bestiario || {})) if (r && typeof r === 'object') d.bestiario[id] = { visto: Math.max(0, r.visto | 0), vencido: Math.max(0, r.vencido | 0) };
     }
   } catch { /* sem armazenamento */ }
@@ -225,7 +237,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   const ultimoSom = {};
   const som = (cat, folga, fn) => { const t = performance.now(); if (t - (ultimoSom[cat] || 0) < folga) return; ultimoSom[cat] = t; fn(); };
   function somAcerto(m) { // dano em monstro: tec curto; os grandes soam mais graves
-    const grande = m.tipo === 'ogro' || m.tipo === 'chefe' || m.tipo === 'alien';
+    const grande = m.tipo === 'ogro' || m.tipo === 'chefe' || m.tipo === 'alien' || m.tipo === 'nativo';
     som('acerto' + (grande ? 'G' : ''), grande ? 70 : 40, () => (grande ? bip(90 + Math.random() * 25, 0.07, 'sawtooth', 0.035) : bip(170 + Math.random() * 80, 0.03, 'square', 0.02)));
   }
   function somMorte(tipo) { // cada tipo morre com um som diferente
@@ -353,8 +365,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   // o céu muda a cada fase e fica mais grandioso: nebulosas (fases 1-2), galáxias (3-4) e, depois, o mais sobrenatural do universo
   const regiaoAtual = () => {
     if (S.regiaoForcada != null) return S.regiaoForcada;
-    const nivel = Math.min(2, Math.floor((S.fase - 1) / 2)), cand = REGIOES.map((r, i) => i).filter((i) => REGIOES[i].nivel === nivel);
-    return cand[(S.fundoBase + S.fase) % cand.length];
+    return faseDe(S.fase).regiao; // cada fase é um lugar diferente do universo (ver arcadeFases.js)
   };
   const embaralhar = (lista) => { const a = [...lista]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   function sortearElenco() {
@@ -386,7 +397,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       chefeIdx: Math.floor(Math.random() * CHEFES.length), alienIdx: Math.floor(Math.random() * ALIENS.length), chefe: null, chefesVencidos: 0, moedasRun: 0,
       skinBase: Math.floor(Math.random() * TEMAS.length), elencoRun, entradaRun, skinsRun,
       fundoBase: Math.floor(Math.random() * REGIOES.length),
-      movendo: false, angNave: 0, giro: mod.giro, intro: null, invertidoT: 0, tintas: [], ultimaLenda: null, tiers: null, upgFx: null,
+      movendo: false, angNave: 0, giro: mod.giro, intro: null, invertidoT: 0, tintas: [], ultimaLenda: null, faseIntro: null, proxNativo: 14, tiers: null, upgFx: null,
       arma: 1, slots: [null, null, null],
       poderes: { laser: false, missil: false, orbes: false, turbo: false, cura: false, escudo: false, salto: false, drift: false },
       armasNivel: { normal: 1, laser: 0, missil: 0, orbes: 0, turbo: 0, cura: 0, escudo: 0, salto: 0, drift: 0 },
@@ -396,6 +407,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       boostE: 3, boostMax: 3, curaCd: 0, curaMax: 11, escudoCd: 0, escudoMax: 13, saltoCd: 0, saltoMax: 8, saltoCarga: 0, saltoCargaMax: 0.8, driftCd: 0, driftMax: 7, driftT: 0, driftAcc: 0, trilhasFogo: [], dirX: 0, dirY: -1,
       barreiraMax: (of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0) + mod.escudo, barreira: (of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0) + mod.escudo, barreiraT: 0, tempoBarreira: 45 - 6 * of.escudo,
     };
+    anunciarFase();
     atualizarNaveSpr();
   }
 
@@ -461,9 +473,10 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     S.proxOnda = Math.max(25, 34 - Math.min(9, S.onda * 0.5)) + Math.random() * 4;
     S.ondaEstado = doChefe || S.chefe ? 'chefe' : 'ativa';
     S.tremor = 0.25;
-    if (novaFase > S.fase) S.fase = novaFase;
+    if (novaFase > S.fase) { S.fase = novaFase; anunciarFase(); }
     if (!doChefe) { mostrarAviso('!! ONDA DE MONSTROS !!', 2); bip(300, 0.1, 'square', 0.05); bip(450, 0.14, 'square', 0.05, 0.1); }
     if (doChefe && !S.chefe) criarChefeInimigo();
+    if (!S.alien && !doChefe) spawnNativos(1 + (S.onda % 2));
   }
   function terminarOnda() { if (!S.chefe) S.ondaEstado = S.ondaT > 0 ? 'ativa' : 'calma'; }
 
@@ -492,12 +505,18 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     ferir: (d) => ferirNave(d),
     puxar: (x, y, forca, dt) => { const dx = x - S.nx, dy = y - S.ny, d = Math.hypot(dx, dy) || 1; S.nx += (dx / d) * forca * dt; S.ny += (dy / d) * forca * dt; },
     invocar: (tipo, x, y) => criarInimigo(tipo, x, y),
+    lento: (m) => obstaculos.fatorLento(m.x, m.y),
+    cristal: (x, y, v) => soltarCristal(x, y, v),
     raio: (r) => S.raios.push(r),
     invertido: (seg) => { S.invertidoT = Math.max(S.invertidoT || 0, seg); },
     tinta: (x, y, r, vida) => S.tintas.push({ x, y, r, vida, vidaMax: vida }),
   };
   function atirarInimigo(x, y, ang, vel, dano = danoTempo()) {
     S.tirosInimigos.push({ x, y, vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel, dano, vida: 7 });
+  }
+  // tiro com cara e comportamento próprios: forma/cor/r, ex+n (estoura em n tiros), quica (rebate nas paredes), fica+vRe (congela e depois mira na nave)
+  function tiroEsp(x, y, ang, vel, op = {}) {
+    S.tirosInimigos.push({ x, y, vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel, dano: danoTempo(), vida: 7, ...op });
   }
 
   function soltarCristal(x, y, v) {
@@ -527,6 +546,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   }
   function matar(m) {
     if (m.tipo === 'chefe') { matarChefe(m); return; }
+    if (m.tipo === 'nativo') { matarNativo(m); return; }
     if (m.tipo === 'alien') { S.pendente = 'vitoria'; particulas(m.x, m.y, 40, ['#7ad8a0', '#ff3bd4', '#ffffff', '#ffd23f'], 110); S.flash = 0.35; return; }
     const tp = TIPOS[m.tipo];
     S.kills += 1;
@@ -604,6 +624,54 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   }
 
   // ---------- chefão ----------
+  // ---------- fases: anúncio e nativos (monstros únicos de cada lugar) ----------
+  function anunciarFase() {
+    const f = faseDe(S.fase), nat = NATIVOS[f.nativo];
+    S.faseIntro = { numero: f.numero, nome: f.nome, sub: f.sub, cor: f.cor, nativo: nat.nome, dica: nat.dica, volta: f.volta, t: 0, dur: 4.6 };
+    if (S.fase > dados.fasesVistas) { dados.fasesVistas = S.fase; salvarDados(); }
+    if (S.fase > 1) { bip(392, 0.12, 'triangle', 0.05); bip(523, 0.12, 'triangle', 0.05, 0.12); bip(784, 0.3, 'triangle', 0.05, 0.24); S.flash = Math.max(S.flash, 0.25); }
+  }
+  function criarNativo(id) {
+    const nat = NATIVOS[id], f = faseDe(S.fase), forca = 1 + 0.12 * (S.fase - 1) + (f.volta || 0) * 0.35;
+    const a = Math.random() * Math.PI * 2, r = 215 + Math.random() * 40, hp = Math.max(4, Math.round(nat.hp * forca * (1 + S.t / 400)));
+    const m = { tipo: 'nativo', nat, x: S.nx + Math.cos(a) * r, y: S.ny + Math.sin(a) * r, hp, hpMax: hp, vel: nat.vel * (1 + Math.min(0.35, S.t / 900)), raio: nat.raio, xp: nat.xp, piscar: 0, fase: Math.random() * 6, v: 0, cd: 1, tl: 0, sumido: 0, buffT: 0, suporteFx: 0, olhar: 0 };
+    S.inimigos.push(m);
+    const reg = (dados.nativos[id] ??= { visto: 0, vencido: 0 }); if (reg.visto === 0) { texto(S.nx, S.ny - 24, `NATIVO: ${nat.nome}`, nat.cor); salvarDados(); }
+    reg.visto += 1;
+    return m;
+  }
+  function spawnNativos(qtd) {
+    const id = faseDe(S.fase).nativo, vivos = S.inimigos.filter((m) => m.tipo === 'nativo').length, max = Math.min(3, 1 + Math.floor(S.fase / 3));
+    for (let i = 0; i < qtd && vivos + i < max; i++) criarNativo(id);
+  }
+  function matarNativo(m) {
+    S.kills += 1;
+    if (!S.alien) { S.combo += 1; S.comboT = 1.8; S.melhorCombo = Math.max(S.melhorCombo, S.combo); }
+    const n = 3 + Math.min(3, Math.floor(S.fase / 3)); for (let k = 0; k < n; k++) soltarCristal(m.x, m.y, Math.max(1, Math.round(m.xp / n)));
+    particulas(m.x, m.y, 16, [m.nat.cor, '#ffffff', '#ffe14a'], 80);
+    bip(200, 0.12, 'triangle', 0.05); bip(150, 0.16, 'triangle', 0.05, 0.08);
+    if (Math.random() < 0.3) { S.itens.push({ tipo: 'moedaEsp', x: m.x, y: m.y, vida: 40, fase: Math.random() * 6 }); texto(m.x, m.y - 10, '◆', '#6fe8ff'); }
+    m.nat.morrer?.(m, ctxLenda);
+    const reg = (dados.nativos[m.nat.id.replace('nat-', '')] ??= { visto: 1, vencido: 0 }); if (reg.vencido === 0) { texto(m.x, m.y - 22, 'NATIVO CATALOGADO!', '#ffe14a'); } reg.vencido += 1; salvarDados();
+    const i = S.inimigos.indexOf(m); if (i >= 0) S.inimigos.splice(i, 1);
+  }
+  function desenharNativo(m) {
+    const cv = renderizarLenda(m.nat, m, S.ta, m.piscar > 0), x = Math.round(m.x), y = Math.round(m.y);
+    g.save(); g.globalAlpha = 0.3 + 0.14 * Math.sin(S.ta * 4 + m.fase); g.strokeStyle = m.nat.cor; g.lineWidth = 1; g.beginPath(); g.arc(x, y, m.raio + 5 + Math.sin(S.ta * 3 + m.fase), 0, Math.PI * 2); g.stroke(); g.restore();
+    g.globalAlpha = m.sumido > 0 ? 0.35 : 1; g.drawImage(cv, Math.round(m.x - cv.width / 2), Math.round(m.y - cv.height / 2)); g.globalAlpha = 1;
+    if (m.hp < m.hpMax) barra(x - 9, Math.round(m.y - m.raio - 9), 18, m.hp / m.hpMax, m.nat.cor);
+  }
+  function desenharAnuncioFase() {
+    const i = S.faseIntro, entra = Math.min(1, i.t / 0.4), sai = Math.min(1, (i.dur - i.t) / 0.7), a = Math.max(0, Math.min(entra, sai)), dy = (1 - Math.min(1, i.t / 0.5)) * -16;
+    g.save(); g.globalAlpha = a; g.textAlign = 'center';
+    g.fillStyle = 'rgba(4, 2, 14, 0.62)'; g.fillRect(CX - 124, 14 + dy, 248, 52); g.fillStyle = i.cor; g.fillRect(CX - 124, 14 + dy, 248, 1); g.fillRect(CX - 124, 65 + dy, 248, 1);
+    g.font = 'bold 7px monospace'; g.fillStyle = i.cor; g.fillText(`FASE ${i.numero}${i.volta ? ` · VOLTA ${i.volta + 1}` : ''}`, CX, 25 + dy);
+    g.font = 'bold 12px monospace'; g.fillStyle = '#070a1a'; g.fillText(i.nome, CX + 1, 38 + dy + 1); g.fillStyle = '#ffffff'; g.fillText(i.nome, CX, 38 + dy);
+    g.font = 'bold 7px monospace'; g.fillStyle = '#c9d4ff'; g.fillText(i.sub.toUpperCase(), CX, 48 + dy);
+    g.fillStyle = '#ffe14a'; g.fillText(`NATIVO: ${i.nativo} · ${i.dica}`, CX, 59 + dy);
+    g.restore();
+  }
+
   // escolhe uma lenda: só as que já estão liberadas pelas vitórias, com preferência pelas que você nunca viu
   function sortearLenda() {
     const vit = dados.chefesDerrotados + S.chefesVencidos;
@@ -754,9 +822,18 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     if (d < 9) { entrarBuraco(); return; }
     if (b.vida <= 0) { S.buraco = null; S.proxBuraco = S.t + 50 + Math.random() * 40; }
   }
-  function entrarBuraco() {
+  // escolhe o alienígena do buraco: os novos vão aparecendo conforme você derrota (ou só encontra) alienígenas, e os que você nunca viu têm preferência
+  function sortearAlien() {
+    const progresso = progressoAlien();
+    const livres = ALIENS.map((a, i) => i).filter((i) => ALIENS[i].desde <= progresso && i !== S.alienIdx);
+    const pesos = livres.map((i) => (dados.aliens[ALIENS[i].nome]?.visto ? 1 : 3));
+    let r = Math.random() * pesos.reduce((s, p) => s + p, 0);
+    for (let k = 0; k < livres.length; k++) { r -= pesos[k]; if (r <= 0) return livres[k]; }
+    return livres[0] ?? 0;
+  }
+  function entrarBuraco(forcado) {
     trocarFaixa('chefe'); // o alienígena também tem a música de chefão
-    S.alienIdx = (S.alienIdx + 1 + Math.floor(Math.random() * (ALIENS.length - 1))) % ALIENS.length; // alienígena diferente a cada buraco
+    S.alienIdx = forcado ?? sortearAlien();
     S.mundoSalvo = { nx: S.nx, ny: S.ny, cx: S.cx, cy: S.cy, inimigos: S.inimigos, tirosInimigos: S.tirosInimigos, campos: S.campos, hp: S.hp, buraco: S.buraco, chefe: S.chefe };
     const hpAlien = Math.round(95 * (1 + S.aliensVencidos * 0.6 + (S.fase - 1) * 0.25) * (1 + S.t / 300));
     const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: S.alienIdx, cd: 1.7, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0, combo: 0, modo: 'investida', dashMax: 0.75, padrao: null,
@@ -764,8 +841,12 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     S.hp = S.maxHp; S.invul = 1; // dentro do buraco negro a nave luta com a vida cheia
     S.inimigos = [al]; S.tirosInimigos = []; S.campos = []; S.raios = []; S.tiros = []; S.misseis = []; S.chefe = null;
     S.alien = al; S.nx = CX; S.ny = A - 40; S.cx = CX; S.cy = CY;
-    S.flash = 0.5; mostrarAviso(`${ALIENS[S.alienIdx].nome} DETECTOU VOCÊ!`, 2.8);
-    bip(60, 0.6, 'sawtooth', 0.07);
+    const def = ALIENS[S.alienIdx], reg = (dados.aliens[def.nome] ??= { visto: 0, vencido: 0 }), novo = reg.visto === 0;
+    reg.visto += 1; salvarDados(); atualizarBotaoBestiario();
+    al.surgir = TEMPO_SURGIR; al.cd = novo ? 3.6 : 2.6; // ele se materializa e a faixa de apresentação aparece antes do primeiro ataque
+    S.intro = { nome: def.nome, titulo: def.titulo, cor: def.cor, novo, meio: true, t: 0, dur: novo ? 3.4 : 2.4 };
+    S.flash = 0.5; S.tremor = 0.35;
+    bip(60, 0.6, 'sawtooth', 0.07); bip(90, 0.5, 'sawtooth', 0.05, 0.3);
   }
   function sairDoBuraco(vitoria) {
     const m = S.mundoSalvo;
@@ -775,7 +856,8 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     trocarFaixa(S.chefe ? 'chefe' : 'normal');
     S.invul = 2; S.proxBuraco = S.t + 60 + Math.random() * 40; S.flash = 0.4;
     if (vitoria) {
-      S.aliensVencidos += 1;
+      S.aliensVencidos += 1; dados.aliensDerrotados += 1;
+      const regAl = (dados.aliens[ALIENS[S.alienIdx].nome] ??= { visto: 1, vencido: 0 }); regAl.vencido += 1; salvarDados(); atualizarBotaoBestiario();
       S.imaT = Math.max(S.imaT, 3); texto(S.nx, S.ny - 12, 'ÍMÃ!', '#8be6ff'); // derrotar um alienígena dá o ímã: puxa todos os cristais
       for (let k = 0; k < 6; k++) soltarCristal(S.nx + (Math.random() - 0.5) * 40, S.ny + (Math.random() - 0.5) * 40, 6);
       const livres = Object.keys(NOMES_PODER).filter((id) => !S.poderes[id]);
@@ -791,12 +873,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       bip(120, 0.3, 'sawtooth', 0.05);
     }
   }
-  const NOMES_ATAQUE = { rajada: 'RAJADA', mira: 'MIRA', teleporte: 'TELEPORTE', invocar: 'INVOCAR', investida: 'INVESTIDA', raio: 'RAIO', bombas: 'BOMBAS', espiral: 'ESPIRAL', chuva: 'CHUVA', varredura: 'VARREDURA', aneis: 'ANÉIS', cerco: 'CERCO', tentaculos: 'TENTÁCULOS', olhar: 'OLHAR', psiquico: 'PSÍQUICO', foice: 'FOICE', corte: 'CORTE', ovnis: 'OVNIS' };
-  const DURACAO = { espiral: 2.6, chuva: 3.2, aneis: 2.4, cerco: 2.2 };
+  const NOMES_ATAQUE = { rajada: 'RAJADA', mira: 'MIRA', teleporte: 'TELEPORTE', invocar: 'INVOCAR', investida: 'INVESTIDA', raio: 'RAIO', bombas: 'BOMBAS', espiral: 'ESPIRAL', chuva: 'CHUVA', varredura: 'VARREDURA', aneis: 'ANÉIS', cerco: 'CERCO', tentaculos: 'TENTÁCULOS', olhar: 'OLHAR', psiquico: 'PSÍQUICO', foice: 'FOICE', corte: 'CORTE', ovnis: 'OVNIS', ferrao: 'FERRÃO', fissuras: 'FISSURAS', blocos: 'BLOCOS', eco: 'ECO', esporos: 'ESPOROS', nevoa: 'NÉVOA', ricochete: 'RICOCHETE', cronos: 'TEMPO PARADO', ponteiros: 'PONTEIROS', constrictor: 'CONSTRITOR', ondulacao: 'ONDULAÇÃO' };
+  const DURACAO = { espiral: 2.6, chuva: 3.2, aneis: 2.4, cerco: 2.2, blocos: 2.8, constrictor: 1.9, ondulacao: 2.8 };
   // pesos de cada ataque; os 0 são golpes exclusivos que só alguns alienígenas têm (ver ALIENS)
   // [ataque, peso, a partir de quantos segundos de partida o alienígena sabe usar]: o arsenal cresce com o tempo
   const ATAQUES_BASE = [['rajada', 3, 0], ['mira', 3, 0], ['investida', 3, 0], ['raio', 3, 40], ['bombas', 2, 40], ['teleporte', 2, 80], ['invocar', 1, 80], ['espiral', 2, 130], ['chuva', 2, 170], ['varredura', 2, 210], ['aneis', 2, 250], ['cerco', 2, 290],
-    ['tentaculos', 0, 100], ['olhar', 0, 100], ['psiquico', 0, 100], ['foice', 0, 100], ['corte', 0, 100], ['ovnis', 0, 100]];
+    ['tentaculos', 0, 100], ['olhar', 0, 100], ['psiquico', 0, 100], ['foice', 0, 100], ['corte', 0, 100], ['ovnis', 0, 100],
+    ['ferrao', 0, 100], ['fissuras', 0, 100], ['blocos', 0, 100], ['eco', 0, 100], ['esporos', 0, 100], ['nevoa', 0, 100], ['ricochete', 0, 100], ['cronos', 0, 100], ['ponteiros', 0, 100], ['constrictor', 0, 100], ['ondulacao', 0, 100]];
 
   function atualizarAlien(dt) {
     const al = S.alien;
@@ -807,6 +890,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     const vb = (v) => v * rapido;
     al.ta += dt * (desespero ? 2 : furioso ? 1.7 : 1.3) * tf; al.fase += dt;
     al.sumido = Math.max(0, al.sumido - dt);
+    if (al.rastro) { for (const r of al.rastro) r.t -= dt; al.rastro = al.rastro.filter((r) => r.t > 0); }
+    S.lentidao = 1; for (const cp of S.campos) if (cp.lento && cp.aviso <= 0 && Math.hypot(S.nx - cp.x, S.ny - cp.y) < cp.r) S.lentidao = Math.min(S.lentidao, cp.lento);
+    if (al.surgir > 0) { // ainda se materializando: não ataca
+      al.surgir = Math.max(0, al.surgir - dt);
+      if (Math.random() < dt * 40) particulas(al.x + (Math.random() - 0.5) * 34, al.y - 20 + (1 - al.surgir / TEMPO_SURGIR) * 40, 1, [ALIENS[al.v].cor, '#ffffff'], 36);
+      return;
+    }
     if (furioso && !al.furiaDita) { al.furiaDita = true; mostrarAviso('!! FÚRIA !!', 1.6); S.flash = 0.2; bip(80, 0.4, 'sawtooth', 0.06); }
     if (desespero && !al.desesperoDito) { al.desesperoDito = true; mostrarAviso('!! DESESPERO !!', 1.6); S.flash = 0.25; bip(60, 0.5, 'sawtooth', 0.07); }
     const hx = S.nx - al.x, hy = S.ny - al.y, distanciaHeroi = Math.hypot(hx, hy) || 1;
@@ -873,7 +963,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       for (const k of Object.keys(gosto)) if (disponiveis.has(k) && !candidatos.includes(k)) candidatos.push(k);
       // Se o chão já está minado, ele explora a limitação com investida/tiros em vez de poluir ainda mais a arena.
       if (S.campos.length >= 7) candidatos = candidatos.filter((k) => k !== 'bombas' && k !== 'psiquico');
-      if (S.tirosInimigos.length >= 85) candidatos = candidatos.filter((k) => !['rajada', 'espiral', 'chuva', 'aneis', 'cerco'].includes(k));
+      if (S.tirosInimigos.length >= 85) candidatos = candidatos.filter((k) => !['rajada', 'espiral', 'chuva', 'aneis', 'cerco', 'blocos', 'esporos', 'ondulacao', 'constrictor'].includes(k));
       candidatos = candidatos.filter((k) => disponiveis.has(k) && !al.memoria.slice(-2).includes(k));
       if (!candidatos.length) candidatos = [...disponiveis].filter((k) => !al.memoria.slice(-1).includes(k));
       if (!candidatos.length) candidatos = ['investida'];
@@ -905,7 +995,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       if (al.carga <= 0) {
         const a = al.ataque;
         if (a === 'rajada') { const n = desespero ? 30 : furioso ? 24 : 18, rot = Math.random() * 6; for (let i = 0; i < n; i++) atirarInimigo(al.x, al.y, rot + (i * Math.PI * 2) / n, vb(62)); al.estado = 'espera'; al.cd = 2; }
-        else if (a === 'mira') { al.salvas = desespero ? 6 : furioso ? 5 : 4; al.cdSalva = 0; al.estado = 'salvas'; }
+        else if (a === 'mira') { al.salvas = desespero ? 6 : furioso ? 5 : 4; al.cdSalva = 0; al.salvaTipo = 'mira'; al.estado = 'salvas'; }
         else if (a === 'teleporte') { al.sumido = 0.6; al.estado = 'teleporte'; al.carga = 0.6; }
         else if (a === 'invocar') { const insetos = S.inimigos.filter((m) => m.tipo === 'inseto').length; for (let i = 0; i < 4 && insetos + i < 10; i++) criarInimigo('inseto', al.x + (i - 1.5) * 12, al.y + 14); al.estado = 'espera'; al.cd = 1.8; bip(300, 0.2, 'triangle', 0.05); }
         else if (a === 'ovnis') { const n = S.inimigos.filter((m) => m.tipo === 'atirador').length; for (let i = 0; i < 2 && n + i < 3; i++) criarInimigo('atirador', al.x + (i ? 16 : -16), al.y + 14); al.estado = 'espera'; al.cd = 2; bip(300, 0.25, 'triangle', 0.05); }
@@ -934,7 +1024,44 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
           for (let i = 0; i < n; i++) { const [x, y] = noArena(S.nx + Math.cos(ang0 + (i * Math.PI * 2) / n) * 40, S.ny + Math.sin(ang0 + (i * Math.PI * 2) / n) * 40); S.campos.push({ x, y, r: 24, aviso: 1.1 + i * 0.08, avisoMax: 1.1 + i * 0.08, vida: 3.5, tick: 0, ox: al.x, oy: al.y }); }
           S.campos.push({ x: S.nx, y: S.ny, r: 22, aviso: 1.4, avisoMax: 1.4, vida: 3.5, tick: 0, ox: al.x, oy: al.y });
           al.estado = 'espera'; al.cd = 2.2; bip(200, 0.1, 'square', 0.04); bip(160, 0.1, 'square', 0.04, 0.1);
-        } else if (DURACAO[a]) { // ataques que disparam por alguns segundos: espiral, chuva, anéis, cerco
+        }
+        else if (a === 'ferrao') { al.salvas = desespero ? 5 : furioso ? 4 : 3; al.cdSalva = 0.55; al.salvaTipo = 'ferrao'; al.estado = 'salvas'; } // mira, avisa com uma linha e fura
+        else if (a === 'fissuras') { // faixas de cristal rompem o chão de cima a baixo, menos numa faixa segura
+          const seguro = Math.max(ARENA.x0 + 40, Math.min(ARENA.x1 - 40, S.nx + (Math.random() - 0.5) * 40)), ondas = furioso ? 2 : 1;
+          for (let w = 0; w < ondas; w++) {
+            const livre = w ? Math.max(ARENA.x0 + 40, Math.min(ARENA.x1 - 40, seguro + (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 40))) : seguro;
+            for (let x = ARENA.x0 + 8 + w * 13; x <= ARENA.x1 - 8; x += 26) if (Math.abs(x - livre) > 34) S.raios.push({ x, y: ARENA.y0 - 6, ang: Math.PI / 2, aviso: 1.1 + w * 0.9, vida: 0.5, tick: 0, ligou: false, cor: '#58c8ff' });
+          }
+          al.estado = 'espera'; al.cd = 2.6 + (furioso ? 0.9 : 0); bip(620, 0.3, 'sine', 0.05); bip(840, 0.2, 'triangle', 0.03, 0.2);
+        }
+        else if (a === 'eco') { al.eco = { n: desespero ? 6 : furioso ? 5 : 4, t: 0 }; al.estado = 'eco'; }
+        else if (a === 'esporos') { // esporos lentos que estouram em tiros
+          const n = desespero ? 8 : furioso ? 6 : 5, a0 = Math.atan2(S.ny - al.y, S.nx - al.x);
+          for (let i = 0; i < n; i++) tiroEsp(al.x, al.y + 4, a0 + (i - (n - 1) / 2) * 0.42 + (Math.random() - 0.5) * 0.12, 30 + Math.random() * 14, { cor: i % 2 ? '#e060a0' : '#7dff9a', forma: 'esporo', r: 3, ex: 1 + Math.random() * 0.7, n: furioso ? 8 : 6, vida: 3 });
+          al.estado = 'espera'; al.cd = 2.4; bip(180, 0.25, 'sine', 0.05);
+        }
+        else if (a === 'nevoa') { // nuvens de esporos que deixam a nave lenta; o próximo golpe aproveita isso
+          const n = furioso ? 4 : 3;
+          for (let i = 0; i < n; i++) { const an = Math.random() * 6.28, d = i === 0 ? 0 : 38 + Math.random() * 22, [x, y] = noArena(S.nx + Math.cos(an) * d, S.ny + Math.sin(an) * d); S.campos.push({ x, y, r: 30, aviso: 0.01, avisoMax: 0.01, vida: 6.5, tick: 0, lento: 0.45, cor: '224, 96, 160', nuvem: true }); }
+          al.plano.push('esporos'); al.estado = 'espera'; al.cd = 0.9; bip(150, 0.3, 'sine', 0.05);
+        }
+        else if (a === 'ricochete') { // tiros que rebatem nas paredes da arena
+          const n = desespero ? 9 : furioso ? 7 : 5, a0 = Math.atan2(S.ny - al.y, S.nx - al.x);
+          for (let i = 0; i < n; i++) tiroEsp(al.x, al.y + 6, a0 + (i - (n - 1) / 2) * 0.3, vb(78), { cor: '#c9b8ff', forma: 'morcego', r: 2.5, quica: desespero ? 3 : 2, vida: 9 });
+          al.estado = 'espera'; al.cd = 2.2; bip(420, 0.12, 'triangle', 0.05);
+        }
+        else if (a === 'cronos') { // o tempo para: um anel de relógios surge em volta da nave, congela e depois todos voam para ela
+          const n = desespero ? 18 : furioso ? 15 : 12, rot = Math.random() * 6.28;
+          for (let i = 0; i < n; i++) { const an = rot + (i * Math.PI * 2) / n, px = S.nx + Math.cos(an) * 58, py = S.ny + Math.sin(an) * 58; if (px < ARENA.x0 - 4 || px > ARENA.x1 + 4 || py < ARENA.y0 - 4 || py > ARENA.y1 + 4) continue; tiroEsp(px, py, 0, 0, { cor: '#ffd23f', forma: 'relogio', r: 2.5, fica: furioso ? 1 : 1.25, vRe: vb(96), vida: 6 }); }
+          S.flash = 0.18; S.ondas.push({ x: S.nx, y: S.ny, r: 0, max: 62, v: 120, cor: '#ffd23f' }); al.estado = 'espera'; al.cd = 3; bip(880, 0.08, 'square', 0.05); bip(660, 0.08, 'square', 0.05, 0.12);
+        }
+        else if (a === 'ponteiros') { // dois ou três raios de ponteiro de relógio, cada um numa velocidade
+          const sentido = Math.random() < 0.5 ? 1 : -1, a0 = Math.atan2(S.ny - al.y, S.nx - al.x), maos = [[0.42, 0], [-1.15, Math.PI]];
+          if (furioso) maos.push([2.1, Math.PI / 2]);
+          for (const [giro, aj] of maos) S.raios.push({ x: al.x, y: al.y + 8, ang: a0 + aj, giro: giro * sentido, seg: true, aviso: 0.9, vida: 2.8, tick: 0, ligou: false, cor: '#ffd23f' });
+          al.estado = 'espera'; al.cd = 3.2; bip(440, 0.3, 'sine', 0.05);
+        }
+        else if (DURACAO[a]) { // ataques que disparam por alguns segundos: espiral, chuva, anéis, cerco
           al.padrao = { tipo: a, t: DURACAO[a] * (furioso ? 1.25 : 1), acc: 0, ang: Math.random() * 6.28 }; al.estado = 'padrao';
         } else al.estado = 'espera';
         bip(220, 0.12, 'square', 0.05);
@@ -959,6 +1086,25 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
           p.acc = desespero ? 0.08 : 0.12; const x = Math.random() < 0.5 ? ARENA.x0 : ARENA.x1, y = ARENA.y0 + Math.random() * (ARENA.y1 - ARENA.y0);
           atirarInimigo(x, y, Math.atan2(S.ny - y, S.nx - x) + (Math.random() - 0.5) * 0.3, vb(72));
           som('cerco', 90, () => bip(360, 0.04, 'square', 0.02));
+        } else if (p.tipo === 'blocos') { // paredes de blocos cruzam a arena de um lado a outro, cada uma com uma passagem
+          p.acc = furioso ? 0.8 : 0.95; p.lado ??= Math.random() < 0.5 ? -1 : 1; p.lado *= -1;
+          const x = p.lado < 0 ? ARENA.x0 : ARENA.x1, centro = Math.max(ARENA.y0 + 24, Math.min(ARENA.y1 - 24, S.ny + (Math.random() - 0.5) * 50));
+          for (let y = ARENA.y0 + 4; y <= ARENA.y1 - 2; y += 12) if (Math.abs(y - centro) > 21) tiroEsp(x, y, p.lado < 0 ? 0 : Math.PI, vb(52), { cor: Math.floor(y / 12) % 2 ? '#38e8ff' : '#ff3bd4', forma: 'bloco', r: 3, vida: 9 });
+          bip(120, 0.15, 'square', 0.04);
+        } else if (p.tipo === 'constrictor') { // um anel que se fecha em volta da nave, com uma abertura
+          p.acc = 0.95; const n = 28, abertura = Math.random() * 6.28;
+          for (let i = 0; i < n; i++) {
+            const an = (i * Math.PI * 2) / n; if (Math.abs(Math.atan2(Math.sin(an - abertura), Math.cos(an - abertura))) < 0.5) continue;
+            const px = S.nx + Math.cos(an) * 72, py = S.ny + Math.sin(an) * 72; if (px < ARENA.x0 - 4 || px > ARENA.x1 + 4 || py < ARENA.y0 - 4 || py > ARENA.y1 + 4) continue;
+            tiroEsp(px, py, an + Math.PI, vb(32), { cor: '#2fd6a0', forma: 'esporo', r: 2, vida: 5 });
+          }
+          bip(200, 0.2, 'sine', 0.05);
+        } else if (p.tipo === 'ondulacao') { // jatos que balançam como uma serpente; cruzados quando ele está furioso
+          p.acc = 0.085; p.base ??= Math.atan2(S.ny - al.y, S.nx - al.x);
+          const an = p.base + Math.sin(p.t * 3.6) * 0.8;
+          tiroEsp(al.x, al.y + 8, an, vb(66), { cor: '#2fd6a0', r: 2 });
+          if (furioso) tiroEsp(al.x, al.y + 8, p.base - Math.sin(p.t * 3.6) * 0.8, vb(66), { cor: '#ffe14a', r: 2 });
+          som('ondulacao', 90, () => bip(300 + Math.random() * 60, 0.04, 'triangle', 0.02));
         }
       }
       if (p.t <= 0) { al.estado = 'espera'; al.cd = 1.8; }
@@ -966,8 +1112,14 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       al.cdSalva -= dt;
       if (al.cdSalva <= 0) {
         const a = Math.atan2(S.ny - al.y, S.nx - al.x);
-        for (let i = -1; i <= 1; i++) atirarInimigo(al.x, al.y + 12, a + i * 0.22, vb(95));
-        al.salvas -= 1; al.cdSalva = 0.26; bip(260, 0.06, 'square', 0.04);
+        if (al.salvaTipo === 'ferrao') { // um dardo rápido no meio e dois estilhaços mais lentos nas pontas
+          tiroEsp(al.x, al.y + 10, a, vb(150), { cor: '#8ee8ff', forma: 'cristal', r: 2 });
+          for (const d of [-0.34, 0.34]) tiroEsp(al.x, al.y + 10, a + d, vb(88), { cor: '#ff7ab8', forma: 'cristal', r: 2 });
+          al.salvas -= 1; al.cdSalva = 0.5; bip(740, 0.05, 'square', 0.04); bip(1040, 0.05, 'square', 0.03, 0.05);
+        } else {
+          for (let i = -1; i <= 1; i++) atirarInimigo(al.x, al.y + 12, a + i * 0.22, vb(95));
+          al.salvas -= 1; al.cdSalva = 0.26; bip(260, 0.06, 'square', 0.04);
+        }
         if (al.salvas <= 0) { al.estado = 'espera'; al.cd = 1.6; }
       }
     } else if (al.estado === 'aviso') { // treme antes da investida
@@ -988,6 +1140,21 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       const tx = rotaX(), ty = rotaY(), dx = tx - al.x, dy = ty - al.y, d = Math.hypot(dx, dy) || 1;
       al.x += (dx / d) * Math.min(d, 260 * dt); al.y += (dy / d) * Math.min(d, 260 * dt);
       if (d < 5) { al.estado = 'espera'; al.cd = 1.2; }
+    } else if (al.estado === 'eco') { // some e reaparece em outros pontos da arena, atirando em leque e deixando uma imagem para trás
+      al.eco.t -= dt;
+      if (al.eco.t <= 0) {
+        if (al.eco.n <= 0) { al.estado = 'espera'; al.cd = 1.5; }
+        else {
+          al.eco.n -= 1; al.eco.t = desespero ? 0.42 : 0.55;
+          (al.rastro ??= []).push({ x: al.x, y: al.y, t: 0.5 });
+          let ex = al.x, ey = al.y;
+          for (let k = 0; k < 6; k++) { [ex, ey] = noArena(ARENA.x0 + 20 + Math.random() * (ARENA.x1 - ARENA.x0 - 40), ARENA.y0 + 10 + Math.random() * (ARENA.y1 - ARENA.y0 - 70)); if (Math.hypot(ex - S.nx, ey - S.ny) > 55) break; }
+          al.x = ex; al.y = ey; al.vx = al.vy = 0;
+          const ang = Math.atan2(S.ny - al.y, S.nx - al.x);
+          for (let i = -2; i <= 2; i++) tiroEsp(al.x, al.y + 6, ang + i * 0.26, vb(74), { cor: i % 2 ? '#38e8ff' : '#ff3bd4', forma: 'bloco', r: 2 });
+          particulas(al.x, al.y, 8, ['#ff3bd4', '#38e8ff', '#ffffff'], 60); bip(300 + Math.random() * 300, 0.07, 'square', 0.05);
+        }
+      }
     } else if (al.estado === 'teleporte') {
       al.carga -= dt;
       if (al.carga <= 0) {
@@ -1025,7 +1192,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       const multDrift = S.driftT > 0 ? 1.75 + 0.15 * (nvDrift - 1) : 1;
       const multCargaSalto = ativa === 'salto' && S.saltoCarga > 0 ? 0.32 : 1;
       const multItem = S.turboT > 0 ? 1.35 : 1;
-      const forca = Math.min(1, tam), velocidade = S.velNave * multTurbo * multDrift * multCargaSalto * multItem * (S.buffVelT > 0 ? 1.5 : 1) * (S.alien ? 1 : S.lentidao || 1);
+      const forca = Math.min(1, tam), velocidade = S.velNave * multTurbo * multDrift * multCargaSalto * multItem * (S.buffVelT > 0 ? 1.5 : 1) * (S.lentidao || 1);
       S.nx += S.dirX * velocidade * dt * forca; S.ny += S.dirY * velocidade * dt * forca;
     }
     if (S.alien) {
@@ -1086,6 +1253,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     // monstros
     for (const m of [...S.inimigos]) {
       if (m.tipo === 'chefe') { if (m.lenda) atualizarLenda(m, dt, ctxLenda); else moverChefe(m, dt); obstaculos.empurrar(m, raioInim(m), { x: S.nx, y: S.ny }, 30 * dt); continue; }
+      if (m.tipo === 'nativo') { m.tl += dt; m.sumido = Math.max(0, m.sumido - dt); m.nat.passo(m, dt, ctxLenda); m.piscar = Math.max(0, m.piscar - dt); obstaculos.empurrar(m, raioInim(m), { x: S.nx, y: S.ny }, m.vel * dt * 0.9); continue; }
       m.buffT = Math.max(0, (m.buffT || 0) - dt); m.suporteFx = Math.max(0, (m.suporteFx || 0) - dt);
       const dx = S.nx - m.x, dy = S.ny - m.y, d = Math.hypot(dx, dy) || 1;
       const buff = m.buffT > 0 ? 1.35 : 1;
@@ -1101,7 +1269,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
         const k = d > 105 ? 1 : 0.2, ang = Math.atan2(dy, dx);
         vx = ((dx / d) * k + (-dy / d) * Math.sin(S.ta + m.fase) * 0.28) * m.vel * buff; vy = ((dy / d) * k + (dx / d) * Math.sin(S.ta + m.fase) * 0.28) * m.vel * buff;
         m.cd -= dt * buff;
-        if (m.cd <= 0 && naTela(m)) { for (const a of [-0.18, 0, 0.18]) atirarInimigo(m.x, m.y, ang + a, 82, danoTempo() * (m.buffT > 0 ? 1.5 : 1)); m.cd = 2.5 + Math.random() * 0.8; }
+        if (m.cd <= 0 && naTela(m)) { atirarInimigo(m.x, m.y, ang, 82, danoTempo() * (m.buffT > 0 ? 1.5 : 1)); m.cd = 2.1 + Math.random() * 0.8; }
       } else if (m.tipo === 'bombardeiro') {
         const k = d > 120 ? 0.9 : 0.18;
         vx = (dx / d) * k * m.vel * buff; vy = (dy / d) * k * m.vel * buff;
@@ -1367,7 +1535,22 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
         const v = Math.hypot(b.vx, b.vy), atual = Math.atan2(b.vy, b.vx), alvo = Math.atan2(S.ny - b.y, S.nx - b.x), d = Math.atan2(Math.sin(alvo - atual), Math.cos(alvo - atual));
         const n = atual + Math.max(-b.giro * dt, Math.min(b.giro * dt, d)); b.vx = Math.cos(n) * v; b.vy = Math.sin(n) * v;
       }
+      if (b.fica > 0) { // congelado: fica parado e depois dispara em direção à nave
+        b.fica -= dt;
+        if (b.fica <= 0) { const an = Math.atan2(S.ny - b.y, S.nx - b.x); b.vx = Math.cos(an) * b.vRe; b.vy = Math.sin(an) * b.vRe; bip(520 + Math.random() * 200, 0.04, 'square', 0.02); }
+      }
+      if (b.ex != null) { // esporo: estoura em vários tiros pequenos
+        b.ex -= dt;
+        if (b.ex <= 0) {
+          const rot = Math.random() * 6.28; for (let k = 0; k < b.n; k++) tiroEsp(b.x, b.y, rot + (k * Math.PI * 2) / b.n, 50, { cor: b.cor, forma: 'esporo', r: 1.5, vida: 3 });
+          particulas(b.x, b.y, 5, [b.cor, '#ffffff'], 40); S.tirosInimigos.splice(i, 1); continue;
+        }
+      }
       b.x += b.vx * dt; b.y += b.vy * dt; b.vida -= dt;
+      if (b.quica > 0 && S.alien) { // rebate nas paredes da arena
+        if ((b.x < ARENA.x0 && b.vx < 0) || (b.x > ARENA.x1 && b.vx > 0)) { b.vx = -b.vx; b.quica -= 1; particulas(b.x, b.y, 3, [b.cor, '#ffffff'], 40); }
+        if ((b.y < ARENA.y0 && b.vy < 0) || (b.y > ARENA.y1 && b.vy > 0)) { b.vy = -b.vy; b.quica -= 1; particulas(b.x, b.y, 3, [b.cor, '#ffffff'], 40); }
+      }
       if (b.vida <= 0 || Math.hypot(b.x - S.nx, b.y - S.ny) > 420 || (S.alien && (b.x < ARENA.x0 - 40 || b.x > ARENA.x1 + 40 || b.y < ARENA.y0 - 40 || b.y > ARENA.y1 + 40))) { S.tirosInimigos.splice(i, 1); continue; }
       if (Math.hypot(b.x - S.nx, b.y - S.ny) < RAIO_NAVE + (b.r ?? 1.5)) { ferirNave(b.dano); particulas(b.x, b.y, 4, ['#ff5a8a', '#ffffff'], 50); S.tirosInimigos.splice(i, 1); }
     }
@@ -1398,7 +1581,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       const tp = TIPOS[m.tipo];
       const d = Math.hypot(m.x - S.nx, m.y - S.ny);
       if (d >= raioInim(m) + RAIO_NAVE || m.sumido > 0) continue;
-      if (m.tipo === 'chefe' || m.tipo === 'alien') { // grandes não morrem no contato: ferem e empurram a nave
+      if (m.tipo === 'chefe' || m.tipo === 'alien' || m.tipo === 'nativo') { // grandes não morrem no contato: ferem e empurram a nave
         if (ferirNave(tp.dano)) { const dx = S.nx - m.x, dy = S.ny - m.y, dd = Math.hypot(dx, dy) || 1; S.nx += (dx / dd) * 18; S.ny += (dy / dd) * 18; }
         continue;
       }
@@ -1414,6 +1597,8 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     if (!S.alien) S.t += dt;
     S.invul = Math.max(0, S.invul - dt); S.tremor = Math.max(0, S.tremor - dt); S.flash = Math.max(0, S.flash - dt);
     if (S.intro) { S.intro.t += dt; if (S.intro.t >= S.intro.dur) S.intro = null; }
+    if (S.faseIntro) { S.faseIntro.t += dt; if (S.faseIntro.t >= S.faseIntro.dur) S.faseIntro = null; }
+    if (!S.alien) { S.proxNativo -= dt; if (S.proxNativo <= 0) { S.proxNativo = 22 + Math.random() * 10; if (!S.chefe && S.ondaEstado !== 'chefe') spawnNativos(1); } }
     S.invertidoT = Math.max(0, (S.invertidoT || 0) - dt);
     for (const k of S.tintas) k.vida -= dt;
     S.tintas = S.tintas.filter((k) => k.vida > 0);
@@ -1710,25 +1895,71 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       requestAnimationFrame(desenharLinhas);
     }
   }
-  // ---------- bestiário: criaturas lendárias, em silhueta até você encontrá-las ----------
-  const descobertas = () => LENDAS.filter((l) => dados.bestiario[l.id]?.visto).length;
-  function atualizarBotaoBestiario() { btnBestiario.textContent = `BESTIÁRIO (${descobertas()}/${LENDAS.length})`; }
+  // ---------- bestiário: lendárias, alienígenas e nativos das fases, em silhueta até você encontrá-los ----------
+  let abaBestiario = 'lendas';
+  const idsNativos = Object.keys(NATIVOS);
+  const totalBestiario = { lendas: LENDAS.length, aliens: ALIENS.length, nativos: idsNativos.length };
+  const vistosBestiario = {
+    lendas: () => LENDAS.filter((l) => dados.bestiario[l.id]?.visto).length,
+    aliens: () => ALIENS.filter((a) => dados.aliens[a.nome]?.visto).length,
+    nativos: () => idsNativos.filter((id) => dados.nativos[id]?.visto).length,
+  };
+  const descobertas = () => vistosBestiario.lendas() + vistosBestiario.aliens() + vistosBestiario.nativos();
+  const totalGeral = () => totalBestiario.lendas + totalBestiario.aliens + totalBestiario.nativos;
+  function atualizarBotaoBestiario() { btnBestiario.textContent = `BESTIÁRIO (${descobertas()}/${totalGeral()})`; }
+  const progressoAlien = () => dados.aliensDerrotados + Math.floor(Object.values(dados.aliens).reduce((s, r) => s + r.visto, 0) / 3);
+  function retratoAlien(i, visto) { // o sprite do alienígena ampliado 4×, ou só a silhueta enquanto ele é desconhecido
+    const q = alienSprite(i).quadros[0], cv = document.createElement('canvas'), x = cv.getContext('2d');
+    cv.width = q.width * 4; cv.height = q.height * 4; x.imageSmoothingEnabled = false; x.drawImage(q, 0, 0, cv.width, cv.height);
+    if (!visto) { x.globalCompositeOperation = 'source-in'; x.fillStyle = '#1a1c34'; x.fillRect(0, 0, cv.width, cv.height); }
+    return cv;
+  }
   function renderBestiario() {
-    const vit = dados.chefesDerrotados, desc = descobertas(), derr = LENDAS.filter((l) => dados.bestiario[l.id]?.vencido).length;
     const topo = el('div', 'of-topo'), voltar = el('button', 'arc-btn', 'VOLTAR [ESC]'); voltar.onclick = fecharBestiario;
-    topo.append(el('h3', null, 'BESTIÁRIO · CRIATURAS LENDÁRIAS'), el('span', 'of-moedas', `${desc}/${LENDAS.length}`), voltar);
-    const intro = el('p', 'bes-intro', `Descobertas: ${desc} de ${LENDAS.length} · derrotadas: ${derr} · chefões vencidos no total: ${vit}. Criaturas novas despertam conforme você vence mais chefões, e cada uma tem poderes que você nunca viu.`);
-    const grade = el('div', 'bes-grade');
-    for (const l of LENDAS) {
-      const reg = dados.bestiario[l.id], visto = !!reg?.visto, liberada = vit >= l.vitorias;
-      const card = el('article', `bes-card${visto ? '' : ' oculta'}`); card.style.setProperty('--c', l.cor);
-      const img = retratoLenda(l, visto); img.className = 'bes-img';
-      card.append(img, el('b', null, visto ? l.nome : '???'), el('small', 'bes-titulo', visto ? l.titulo : 'CRIATURA DESCONHECIDA'),
-        el('p', 'bes-desc', visto ? l.desc : liberada ? 'Ela está por aí... pode surgir em qualquer chefão.' : 'Ainda dorme nas profundezas. Algo a desperta quando você vence mais chefões.'));
-      if (visto) card.append(el('span', 'bes-stats', `Vista ${reg.visto}× · derrotada ${reg.vencido}×`));
-      grade.append(card);
+    topo.append(el('h3', null, 'BESTIÁRIO'), el('span', 'of-moedas', `${descobertas()}/${totalGeral()}`), voltar);
+    const abas = el('div', 'of-abas');
+    for (const [id, nome] of [['lendas', 'CRIATURAS LENDÁRIAS'], ['aliens', 'ALIENÍGENAS'], ['nativos', 'NATIVOS DAS FASES']]) {
+      const b = el('button', `of-aba${abaBestiario === id ? ' on' : ''}`, `${nome} ${vistosBestiario[id]()}/${totalBestiario[id]}`); b.onclick = () => { abaBestiario = id; renderBestiario(); }; abas.append(b);
     }
-    painelBestiario.replaceChildren(topo, intro, grade);
+    const grade = el('div', 'bes-grade'); let intro;
+    if (abaBestiario === 'lendas') {
+      const vit = dados.chefesDerrotados, desc = vistosBestiario.lendas(), derr = LENDAS.filter((l) => dados.bestiario[l.id]?.vencido).length;
+      intro = el('p', 'bes-intro', `Descobertas: ${desc} de ${LENDAS.length} · derrotadas: ${derr} · chefões vencidos no total: ${vit}. Criaturas novas despertam conforme você vence mais chefões, e cada uma tem poderes que você nunca viu.`);
+      for (const l of LENDAS) {
+        const reg = dados.bestiario[l.id], visto = !!reg?.visto, liberada = vit >= l.vitorias;
+        const card = el('article', `bes-card${visto ? '' : ' oculta'}`); card.style.setProperty('--c', l.cor);
+        const img = retratoLenda(l, visto); img.className = 'bes-img';
+        card.append(img, el('b', null, visto ? l.nome : '???'), el('small', 'bes-titulo', visto ? l.titulo : 'CRIATURA DESCONHECIDA'),
+          el('p', 'bes-desc', visto ? l.desc : liberada ? 'Ela está por aí... pode surgir em qualquer chefão.' : 'Ainda dorme nas profundezas. Algo a desperta quando você vence mais chefões.'));
+        if (visto) card.append(el('span', 'bes-stats', `Vista ${reg.visto}× · derrotada ${reg.vencido}×`));
+        grade.append(card);
+      }
+    } else if (abaBestiario === 'aliens') {
+      const desc = vistosBestiario.aliens(), derr = ALIENS.filter((a) => dados.aliens[a.nome]?.vencido).length, prog = progressoAlien();
+      intro = el('p', 'bes-intro', `Descobertos: ${desc} de ${ALIENS.length} · derrotados: ${derr} · alienígenas vencidos no total: ${dados.aliensDerrotados}. Eles moram nos buracos negros. Novos aparecem conforme você enfrenta mais deles, cada um com golpes próprios.`);
+      ALIENS.forEach((a, i) => {
+        const reg = dados.aliens[a.nome], visto = !!reg?.visto, liberado = a.desde <= prog;
+        const card = el('article', `bes-card${visto ? '' : ' oculta'}`); card.style.setProperty('--c', a.cor);
+        const img = retratoAlien(i, visto); img.className = 'bes-img sprite';
+        card.append(img, el('b', null, visto ? a.nome : '???'), el('small', 'bes-titulo', visto ? a.titulo.toUpperCase() : 'ALIENÍGENA DESCONHECIDO'),
+          el('p', 'bes-desc', visto ? a.dica : liberado ? 'Já está solto por aí... pode surgir no próximo buraco negro.' : 'Ainda não saiu do esconderijo. Enfrente mais alienígenas para atraí-lo.'));
+        if (visto) card.append(el('span', 'bes-stats', `Visto ${reg.visto}× · derrotado ${reg.vencido}×`));
+        grade.append(card);
+      });
+    } else {
+      const desc = vistosBestiario.nativos(), derr = idsNativos.filter((id) => dados.nativos[id]?.vencido).length;
+      intro = el('p', 'bes-intro', `Descobertos: ${desc} de ${idsNativos.length} · derrotados: ${derr} · fase mais distante: ${dados.fasesVistas || 1}. Cada lugar do universo tem um nativo só dele: maior e mais lento que os comuns, com um truque próprio.`);
+      for (const id of idsNativos) {
+        const n = NATIVOS[id], reg = dados.nativos[id], visto = !!reg?.visto, fi = FASES.findIndex((f) => f.nativo === id), fase = FASES[fi];
+        const card = el('article', `bes-card${visto ? '' : ' oculta'}`); card.style.setProperty('--c', n.cor);
+        const img = retratoLenda(n, visto); img.className = 'bes-img';
+        card.append(img, el('b', null, visto ? n.nome : '???'), el('small', 'bes-titulo', visto ? fase.nome : 'NATIVO DESCONHECIDO'),
+          el('p', 'bes-desc', visto ? `${n.dica[0].toUpperCase()}${n.dica.slice(1)}.` : `Vive em algum lugar da fase ${fi + 1}. Chegue lá para conhecê-lo.`));
+        if (visto) card.append(el('span', 'bes-stats', `Visto ${reg.visto}× · derrotado ${reg.vencido}×`));
+        grade.append(card);
+      }
+    }
+    painelBestiario.replaceChildren(topo, abas, intro, grade);
   }
   function abrirBestiario() {
     voltarPara = modo === 'fim' ? 'fim' : 'inicio';
@@ -1810,6 +2041,26 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       for (let k = 3; k >= 0; k--) { g.fillStyle = k === 0 ? '#fff2b0' : k === 1 ? cor : k === 2 ? '#ff6a2a' : '#c0301a'; g.fillRect(Math.round(x - ux * k * 2.4) - 1, Math.round(y - uy * k * 2.4) - 1, k === 0 ? 3 : 2, k === 0 ? 3 : 2); }
       return;
     }
+    const disco = (rr, c) => { g.fillStyle = c; for (let j = -rr; j <= rr; j++) { const w = Math.floor(Math.sqrt(rr * rr - j * j + 0.5)); g.fillRect(x - w, y + j, 2 * w + 1, 1); } };
+    if (b.forma === 'esporo') { disco(r + 1, '#070a1a'); disco(r, cor); if (r >= 2) { g.fillStyle = pisca ? '#ffffff' : '#fff6c0'; g.fillRect(x - 1, y - 1, 1, 1); g.fillRect(x + 1, y + 1, 1, 1); } else { g.fillStyle = '#ffffff'; g.fillRect(x, y, 1, 1); } return; }
+    if (b.forma === 'cristal') { // losango pontudo
+      for (let j = -r - 2; j <= r + 2; j++) { const w = r + 2 - Math.abs(j); g.fillStyle = '#070a1a'; g.fillRect(x - w - 1, y + j, 2 * w + 3, 1); }
+      for (let j = -r - 1; j <= r + 1; j++) { const w = r + 1 - Math.abs(j); g.fillStyle = cor; g.fillRect(x - w, y + j, 2 * w + 1, 1); }
+      g.fillStyle = '#ffffff'; g.fillRect(x, y - 1, 1, 2); return;
+    }
+    if (b.forma === 'bloco') { g.fillStyle = '#070a1a'; g.fillRect(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2); g.fillStyle = pisca ? cor : '#ffffff'; g.fillRect(x - r, y - r, 2 * r, 2 * r); g.fillStyle = '#1b1033'; g.fillRect(x - 1, y - 1, 2, 2); return; }
+    if (b.forma === 'morcego') { // morcego de 5 pixels batendo as asas
+      const asa = Math.floor(S.ta * 10 + b.x) % 2 ? -1 : 1;
+      g.fillStyle = '#070a1a'; g.fillRect(x - 5, y - 2 + (asa < 0 ? -1 : 0), 11, 5); g.fillStyle = cor;
+      g.fillRect(x - 4, y - 1 + asa, 3, 2); g.fillRect(x + 2, y - 1 + asa, 3, 2); g.fillRect(x - 1, y - 2, 3, 4); g.fillStyle = '#ffe14a'; g.fillRect(x - 1, y - 1, 1, 1); g.fillRect(x + 1, y - 1, 1, 1);
+      return;
+    }
+    if (b.forma === 'relogio') { // relógio: enquanto está parado, pisca e mostra o anel de aviso
+      const parado = b.fica > 0;
+      if (parado) { g.strokeStyle = pisca ? '#ffffff' : '#ffd23f'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, r + 3 + Math.sin(S.ta * 18) * 1, 0, Math.PI * 2); g.stroke(); }
+      disco(r + 1, '#070a1a'); disco(r, parado ? '#ffffff' : '#fff6c0'); g.fillStyle = '#7a1f2a'; g.fillRect(x, y - r + 1, 1, r); g.fillRect(x, y, r - 1, 1);
+      return;
+    }
     g.fillStyle = '#070a1a'; g.fillRect(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2);
     g.fillStyle = cor; g.fillRect(x - r, y - r, 2 * r, 2 * r); g.fillStyle = '#ffffff'; g.fillRect(x - 1, y - 1, 2, 2);
   }
@@ -1824,14 +2075,29 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     }
   }
   function desenharTeia(c, cx, cy) { // zona de teia: lenta quem entra
-    g.fillStyle = 'rgba(216, 240, 255, 0.14)'; g.beginPath(); g.arc(cx, cy, c.r, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = 'rgba(235, 248, 255, 0.75)'; g.lineWidth = 1;
+    const rgb = c.cor || '216, 240, 255';
+    g.fillStyle = `rgba(${rgb}, 0.16)`; g.beginPath(); g.arc(cx, cy, c.r, 0, Math.PI * 2); g.fill();
+    if (c.nuvem) { // nuvem de esporos: bolhas que flutuam, em vez de teia
+      g.fillStyle = `rgba(${rgb}, 0.14)`; for (let k = 0; k < 6; k++) { const a = k * 1.05 + S.ta * 0.4; g.beginPath(); g.arc(Math.round(cx + Math.cos(a) * c.r * 0.5), Math.round(cy + Math.sin(a) * c.r * 0.5), c.r * 0.5, 0, Math.PI * 2); g.fill(); }
+      for (let k = 0; k < 10; k++) { const u = (S.ta * 0.35 + k / 10) % 1, a = k * 2.4; g.fillStyle = k % 2 ? 'rgba(125, 255, 154, 0.9)' : `rgba(${rgb}, 0.95)`; g.fillRect(Math.round(cx + Math.cos(a) * c.r * 0.75 * (0.4 + 0.6 * ((k * 7) % 10) / 10)), Math.round(cy + c.r * 0.6 - u * c.r * 1.3), 2, 2); }
+      return;
+    }
+    g.strokeStyle = `rgba(${rgb}, 0.8)`; g.lineWidth = 1;
     for (let k = 0; k < 8; k++) { const a = (k * Math.PI) / 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * c.r, cy + Math.sin(a) * c.r); g.stroke(); }
     for (const f of [0.35, 0.68, 1]) { g.beginPath(); for (let k = 0; k <= 8; k++) { const a = (k * Math.PI) / 4, rr = c.r * f * (k % 2 ? 0.88 : 1); const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr; if (k) g.lineTo(px, py); else g.moveTo(px, py); } g.stroke(); }
   }
   function desenharIntro() {
     const i = S.intro, entra = Math.min(1, i.t / 0.35), sai = Math.min(1, (i.dur - i.t) / 0.5), a = Math.max(0, Math.min(entra, sai));
     g.save(); g.globalAlpha = a;
+    if (i.meio) { // alienígena: faixa no meio da arena, entre ele e a nave
+      const desl = (1 - Math.min(1, i.t / 0.5)) * 40;
+      g.fillStyle = 'rgba(0, 0, 0, 0.74)'; g.fillRect(0, 82, L, 42); g.fillStyle = i.cor; g.fillRect(0, 82, L, 1); g.fillRect(0, 123, L, 1);
+      g.textAlign = 'center';
+      if (i.novo) { g.font = 'bold 7px monospace'; g.fillStyle = Math.floor(S.ta * 6) % 2 ? '#ffe14a' : '#ffffff'; g.fillText('✦ NOVO ALIENÍGENA ✦', CX, 92); }
+      g.font = 'bold 14px monospace'; g.fillStyle = '#070a1a'; g.fillText(i.nome, CX + 1 + desl, 107 + 1); g.fillStyle = i.cor; g.fillText(i.nome, CX + desl, 107);
+      g.font = 'bold 7px monospace'; g.fillStyle = '#ffffff'; g.fillText(i.titulo.toUpperCase(), CX - desl, 118);
+      g.restore(); return;
+    }
     g.fillStyle = 'rgba(0, 0, 0, 0.72)'; g.fillRect(0, 0, L, 30); g.fillRect(0, A - 40, L, 40);
     g.textAlign = 'center';
     const deslize = (1 - Math.min(1, i.t / 0.5)) * 40;
@@ -1857,7 +2123,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     const t = performance.now() / 1000;
     const camX = S ? S.cx : CX, camY = S ? S.cy : CY;
     g.save();
-    if (S && S.alien) desenharArena(t); else fundo.desenhar(g, camX, camY, t, regiaoAtual());
+    if (S && S.alien) desenharArena(t); else { fundo.desenhar(g, camX, camY, t, regiaoAtual()); if (S && S.regiaoForcada == null) desenharAmbiente(g, faseDe(S.fase).ambientes, 'fundo', { camX, camY, t, W: L, H: A }); }
     if (!S) { g.restore(); return; }
     const ox = Math.round(camX - L / 2), oy = Math.round(camY - A / 2);
     const visivel = (x, y, m = 16) => x > ox - m && x < ox + L + m && y > oy - m && y < oy + A + m;
@@ -1927,6 +2193,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     // monstros, chefão e alienígena
     for (const m of S.inimigos) {
       if (!visivel(m.x, m.y, 90)) continue;
+      if (m.tipo === 'nativo') { desenharNativo(m); continue; }
       if (m.lenda) { // criatura lendária: avisos e brilho por baixo, corpo animado em pixel art por cima
         m.lenda.efeitos?.(g, m, S.ta, ctxLenda);
         const cv = renderizarLenda(m.lenda, m, S.ta, m.piscar > 0);
@@ -1937,7 +2204,16 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       }
       const f = Math.floor(S.ta * 6 + m.fase) % 2;
       let spr;
-      if (m.tipo === 'alien') { const as = alienSprite(m.v); spr = (m.piscar > 0 ? as.brancos : as.quadros)[Math.floor(S.ta * 3) % 2]; g.globalAlpha = m.sumido > 0 ? 0.25 : (m.estado === 'carga' && Math.floor(S.ta * 16) % 2 === 0 ? 0.6 : 1); }
+      if (m.tipo === 'alien') {
+        const as = alienSprite(m.v), quadro = Math.floor(S.ta * 3) % 2;
+        desenharAuraAlien(g, m, ALIENS[m.v], S.ta);
+        if (m.rastro) for (const r of m.rastro) { g.globalAlpha = Math.max(0, r.t) * 0.7; g.drawImage(as.quadros[quadro], Math.round(r.x - as.quadros[quadro].width / 2), Math.round(r.y - as.quadros[quadro].height / 2)); } // imagens que o glitch deixa para trás
+        spr = (m.piscar > 0 ? as.brancos : as.quadros)[quadro]; g.globalAlpha = m.sumido > 0 ? 0.25 : (m.estado === 'carga' && Math.floor(S.ta * 16) % 2 === 0 ? 0.6 : 1);
+        const tremer = m.hp < m.hpMax * 0.25 ? (Math.random() - 0.5) * 1.4 : 0; // no desespero ele treme
+        desenharComSurgir(g, spr, Math.round(m.x - spr.width / 2 + tremer), Math.round(m.y - spr.height / 2 + Math.sin(S.ta * 2.2) * 1.5), m);
+        g.globalAlpha = 1;
+        continue;
+      }
       else if (m.tipo === 'chefe') {
         const s = chefeSprite(m.b); spr = (m.piscar > 0 ? s.brancos : s.quadros)[Math.floor(S.ta * 4) % 2];
         const aura = 25 + Math.sin(S.ta * 4) * 3;
@@ -1975,6 +2251,11 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     if (S.alien && S.alien.estado === 'aviso') { // linha de aviso da investida
       const al = S.alien; g.strokeStyle = Math.floor(S.ta * 14) % 2 ? '#ff3b4a' : '#ffb3ba'; g.lineWidth = 2; g.setLineDash([4, 4]);
       g.beginPath(); g.moveTo(Math.round(al.x), Math.round(al.y)); g.lineTo(Math.round(al.x + al.dirX * 300), Math.round(al.y + al.dirY * 300)); g.stroke(); g.setLineDash([]);
+    }
+    if (S.alien && S.alien.estado === 'salvas' && S.alien.salvaTipo === 'ferrao' && S.alien.cdSalva < 0.32 && !S.alien.surgir) { // o ferrão avisa por onde vai passar
+      const al = S.alien, d = Math.hypot(S.nx - al.x, S.ny - al.y) || 1;
+      g.strokeStyle = Math.floor(S.ta * 20) % 2 ? '#8ee8ff' : '#ffffff'; g.lineWidth = 1; g.setLineDash([2, 3]);
+      g.beginPath(); g.moveTo(Math.round(al.x), Math.round(al.y + 10)); g.lineTo(Math.round(al.x + ((S.nx - al.x) / d) * 260), Math.round(al.y + 10 + ((S.ny - al.y - 10) / d) * 260)); g.stroke(); g.setLineDash([]);
     }
     for (const r of S.raios) { // raios de alienígenas, monstros e chefões
       const x2 = r.x + Math.cos(r.ang) * 400, y2 = r.y + Math.sin(r.ang) * 400;
@@ -2049,6 +2330,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       for (const it of S.itens) if (it.tipo === 'moedaEsp' && !visivel(it.x, it.y, 2)) indicador(it.x, it.y, ox, oy, '#38c8ff');
       for (const it of S.itens) if (ESTRELAS[it.tipo] && !visivel(it.x, it.y, 2)) indicador(it.x, it.y, ox, oy, ESTRELAS[it.tipo].cor, `${Math.ceil(it.vida)}s`, it.vida < 5);
     }
+    if (!S.alien && S.regiaoForcada == null) desenharAmbiente(g, faseDe(S.fase).ambientes, 'frente', { camX, camY, t, W: L, H: A });
     if (!S.alien) {
       const rotulo = (txt, x, y, cor, alinha = 'center') => { g.font = 'bold 8px monospace'; g.textAlign = alinha; g.fillStyle = '#070a1a'; g.fillText(txt, x + 1, y + 1); g.fillStyle = cor; g.fillText(txt, x, y); };
       if (S.combo >= 3) rotulo(`COMBO x${S.combo}`, L - 8, 22, S.combo >= 50 ? '#ff7ab8' : S.combo >= 25 ? '#ff9a3a' : S.combo >= 10 ? '#ffe14a' : '#ffffff', 'right');
@@ -2060,6 +2342,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       if (S.chefe.lenda) { g.fillStyle = '#ffffff'; g.fillRect(CX, 10, 1, 6); }
     }
     if (S.intro) desenharIntro();
+    if (S.faseIntro && !S.alien) desenharAnuncioFase();
     if (S.alien) barra(CX - 60, 8, 120, S.alien.hp / S.alien.hpMax, '#ff3bd4');
     if (S.flash > 0) { g.fillStyle = `rgba(255, 255, 255, ${Math.min(0.8, S.flash * 2.5)})`; g.fillRect(0, 0, L, A); }
     g.restore();
@@ -2258,7 +2541,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       rochas: () => S.rochas.map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), hp: r.hp, hpMax: r.hpMax })),
       forcar: {
         buraco: () => { if (!S.buraco) criarBuraco(); S.buraco.x = S.nx + 60; S.buraco.y = S.ny; },
+        alien: (idx) => { if (!S.alien) entrarBuraco(idx); },
+        sairAlien: (vit) => { if (S.alien) S.pendente = vit ? 'vitoria' : 'expulso'; },
         chefe: () => { if (!S.chefe) criarChefeInimigo(); },
+        nativo: (id) => criarNativo(id || faseDe(S.fase).nativo),
+        matarNativos: () => { for (const m of [...S.inimigos]) if (m.tipo === 'nativo') danificar(m, 99999); },
+        anunciar: () => anunciarFase(),
+        irFase: (n) => { S.fase = n; S.onda = Math.max(S.onda, (n - 1) * 3 + 1); anunciarFase(); spawnNativos(1); },
         lenda: (id) => { if (!S.chefe) criarLenda(LENDAS.find((l) => l.id === id) || LENDAS[0]); },
         ataqueLenda: (nome) => { const b = S.chefe; if (b && b.lenda) { b.entrada = 0; b.sumido = 0; b.acao = { nome, t: 0, acc: 0, dir: Math.atan2(S.ny - b.y, S.nx - b.x) }; b.lenda.ataques[nome].iniciar?.(b, ctxLenda, b.acao); b.ultimo = nome; } },
         enfurecerLenda: () => { if (S.chefe) S.chefe.hp = S.chefe.hpMax * 0.45; },
@@ -2284,7 +2573,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
         hp: (n) => { S.hp = n; },
         tempo: (n) => { S.t = n; S.proxBuraco = n + 999; },
         limpar: () => { S.inimigos = []; S.chefe = null; },
-        ataqueAlien: (nome) => { if (S.alien) { S.alien.ataque = nome; S.alien.estado = 'carga'; S.alien.carga = 0.05; } },
+        ataqueAlien: (nome) => { if (S.alien) { S.alien.ataque = nome; S.alien.estado = 'carga'; S.alien.carga = 0.05; S.alien.surgir = 0; S.alien.hp = S.alien.hpMax; S.intro = null; S.hp = S.maxHp; } },
         alienHp: (n) => { if (S.alien) S.alien.hp = n; },
         tipoChefe: (n) => { if (S.chefe) S.chefe.b = n; },
         tipoAlien: (n) => { if (S.alien) S.alien.v = n; },
