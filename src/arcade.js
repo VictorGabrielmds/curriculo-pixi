@@ -17,7 +17,9 @@ import { projetoPadrao, normalizarProjeto, desbloqueiosIniciais, normalizarDesbl
 import { gerarNave, chamasDaNave, TAM_NAVE } from './naveDesenho.js';
 import { criarGaragem } from './garagem.js';
 
-const A = 270;
+// Uma resolução lógica um pouco menor aproxima a câmera sem mudar o tamanho
+// da moldura: nave, inimigos e cenário ganham mais presença na arena.
+const A = 245;
 // A arena acompanha a proporção útil da janela. Em monitores largos, ganhamos
 // espaço jogável nas laterais em vez de centralizar uma tela 16:9 estreita.
 // A largura lógica também cresce, portanto os sprites não são deformados.
