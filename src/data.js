@@ -166,9 +166,9 @@ export const zonas = [
     escala: 0.54,
     titulo: 'Nave Arcade',
     blocos: [
-      { tipo: 'texto', texto: 'A nave atira sozinha e você a pilota pelo espaço enquanto monstrinhos chegam de todos os lados. Cada um solta cristais de XP; tem rochas com itens, estrelas de poder, buracos negros com um alienígena e chefões.' },
+      { tipo: 'texto', texto: 'A nave atira sozinha e você a pilota pelo espaço enquanto monstrinhos chegam de todos os lados. Cada um solta cristais de XP; tem rochas com itens, estrelas de poder, buracos negros com um alienígena, chefões e criaturas lendárias que você ainda não conhece.' },
       { tipo: 'estatisticas', fonte: 'arcade' },
-      { tipo: 'dica', texto: 'As moedas espaciais fabricam chassis, armas, propulsores, reatores e placas eletrônicas. A montagem aparece na nave do planeta e dentro do arcade.' },
+      { tipo: 'dica', texto: 'As moedas espaciais fabricam chassis, armas, propulsores, reatores e placas eletrônicas. A montagem aparece na nave do planeta e dentro do arcade. No Bestiário, as criaturas lendárias ficam em silhueta até você encontrá-las.' },
     ],
   },
 ];

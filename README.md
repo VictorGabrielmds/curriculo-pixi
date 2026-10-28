@@ -30,6 +30,19 @@ Na **Oficina** do jogo de nave (aba **MONTAGEM DA NAVE**) você monta a nave com
 - **A nave gira para onde está indo** no jogo (`S.angNave`); o *giroscópio MEMS* e o *bocal vetorial* a fazem virar mais rápido.
 - A aba **AJUSTE FINO** mantém as melhorias permanentes por subsistema (casco, núcleo, sensores…), que somam com as peças. Quem já tinha a versão antiga (um módulo por sistema) tem o projeto convertido sozinho.
 
+## Criaturas lendárias (chefões do jogo de nave)
+
+Além das naves e monstros-chefes de cada tema, o jogo tem **chefões lendários**: criaturas grandes, animadas de verdade e com poderes que não se repetem. Cada uma está em `src/lendas/` (a base em `base.js`, o registro em `src/arcadeLendas.js`):
+
+- **IGNARAX · o Dragão de Cinzas**: asas que batem, corpo serpenteante, boca que abre. *Sopro de fogo* em leque, *chuva de meteoros* marcada no chão e *rasante* como um cometa; ao enfurecer, o fogo dobra e ele solta *anéis de chamas*.
+- **TECELÃ · a Aranha-Rainha**: oito pernas que andam. *Teias* que prendem (lentidão), *salto* que cai como um meteoro, *crias* e *veneno*; ao enfurecer, *cerco de teias*.
+- **ABISMO · o Kraken do Vazio** (aparece depois de 3 chefões vencidos): *tentáculos* que varrem uma fatia marcada no chão, *tinta* que esconde inimigos e tiros e *redemoinho* que puxa a nave.
+- **CEIFADOR · o Rei Esqueleto** (3 chefões vencidos): *almas* teleguiadas, *muralha de ossos* com uma brecha, *foice* que volta como bumerangue e *legião* de fantasmas.
+- **FÊNIX · a Eterna** (5 chefões vencidos): *penas em chamas*, *mergulho*, *ciranda de fogo* e, ao morrer, vira um **ovo e renasce** mais forte, dourada.
+- **ARAUTO · o Olho do Vazio** (6 chefões vencidos): *loucura* (inverte os controles da nave), *raio de gravidade* giratório, *olhos* em órbita que atiram e *vazio* que puxa tudo; teleporta.
+
+Como funciona: cada criatura é desenhada em vetor (curvas e rotações) e convertida em **pixel art a cada quadro** (borda recortada, poucas cores e contorno), por isso se anima sem arquivos de imagem. A entrada é uma pequena cena (faixas de cinema, nome e título) e, na primeira vez, aparece "NOVA CRIATURA DESCOBERTA". A vida passa de 50% e ela **enfurece**. Os ataques são avisados no chão antes de acertar. O **Bestiário** (botão na tela inicial e no fim da partida) mostra as criaturas em silhueta até você encontrá-las; a primeira vitória sobre cada uma rende moedas extras. O progresso (vistas, derrotadas, chefões vencidos) fica no navegador. Para criar outra criatura, copie um arquivo de `src/lendas/`, mude o desenho e os ataques e acrescente em `LENDAS`.
+
 ## Futebol
 
 Há uma **bola de futebol** e um **gol** em lugares aleatórios do planeta (a primeira vez já nascem à vista; os nomes `bola` e `gol` aparecem em cima de cada um). É só andar em direção à bola: a cada passo você dá um toque e ela rola na sua frente, e você a leva até o gol (as árvores, pedras e estações bloqueiam a bola; pular passa por cima dela). Quando a bola entra no gol saem **cruzes de malta** em pixel art, como os corações da Mazzy, aparece "GOL!", toca uma fanfarra e, um instante depois, o gol e a bola vão para outros lugares do planeta. Os gols ficam contados no navegador e aparecem ao lado do nome do gol. Tudo está em `src/futebol.js` (a bola é um icosaedro com os pentágonos pretos pintados por face; o atrito em `ATRITO` e a distância do toque em `CONTATO` mudam o jeito de conduzir).
