@@ -12,7 +12,12 @@
   width: min(1700px, calc(100vw - 20px)); padding: 10px 12px 8px;
   background: #1a1033; border: 4px solid #8a5cff; box-shadow: 0 0 0 4px #070a1a, 8px 8px 0 4px rgba(0, 0, 0, 0.55);
 }
-.arc-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.arc-topo {
+  position: absolute; z-index: 7; top: 8px; left: 8px; right: 8px;
+  display: flex; align-items: center; gap: 12px; margin: 0; padding: 5px 7px;
+  background: linear-gradient(90deg, rgba(7, 10, 26, .86), rgba(7, 10, 26, .56) 68%, rgba(7, 10, 26, .82));
+  border-bottom: 2px solid rgba(138, 92, 255, .42);
+}
 .arc-topo h2 { margin: 0; font-size: 16px; letter-spacing: 3px; color: #8bd3ff; text-shadow: 2px 2px 0 #070a1a; white-space: nowrap; }
 .arc-hud { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 14px; font-size: 13px; }
 .arc-vidas { display: flex; gap: 3px; }
@@ -28,13 +33,13 @@
 
 /* arena responsiva: ocupa toda a largura interna até a moldura do arcade */
 .arc-tela { position: relative; width: 100%; margin: 0; background: #0b1026; border: 4px solid #070a1a; overflow: hidden; }
-.arc-tela canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-.arc-tela canvas.arc-texto { position: absolute; inset: 0; pointer-events: none; image-rendering: auto; } /* letras na resolução real da tela */
+.arc-tela > canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.arc-tela > canvas.arc-texto { position: absolute; inset: 0; pointer-events: none; image-rendering: auto; } /* letras na resolução real da tela */
 .arc-tela::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.16) 2px 3px); } /* linhas de tubo de TV */
 
-.arc-sobre { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.arc-sobre { position: absolute; z-index: 8; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .arc-painel {
-  z-index: 3; max-width: 86%; padding: 14px 18px; text-align: center; background: rgba(18, 23, 58, 0.94);
+  z-index: 3; max-width: 86%; padding: 14px 18px; pointer-events: auto; text-align: center; background: rgba(18, 23, 58, 0.94);
   border: 4px solid #8a5cff; box-shadow: 0 0 0 4px #070a1a;
 }
 .arc-painel h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: 2px; color: #8bd3ff; }
@@ -143,12 +148,12 @@
 @media (max-width: 700px), (max-height: 520px) {
   #arcade { padding: 4px; }
   .arc-caixa { width: calc(100vw - 8px); padding: 6px; border-width: 3px; box-shadow: 0 0 0 3px #070a1a; }
-  .arc-topo { gap: 6px; margin-bottom: 5px; }
+  .arc-topo { gap: 6px; margin: 0; }
   .arc-icone { width: 26px; height: 26px; }
   .arc-hud { gap: 8px; font-size: 10px; }
   .arc-x, .arc-pausa { width: 29px; height: 29px; }
   .arc-tela { width: 100%; border-width: 3px; }
-  .arc-armas { gap: 3px; margin-top: 4px; }
+  .arc-armas { gap: 3px; margin: 0; }
   .arc-arma { padding: 5px 4px; border-width: 2px; font-size: 9px; }
   .arc-nota { display: none; }
 }
@@ -177,7 +182,7 @@
 .arc-btn.pequeno { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
 .arc-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
 
-.arc-armas { display: flex; gap: 6px; margin-top: 6px; }
+.arc-armas { position: absolute; z-index: 7; left: 8px; right: 8px; bottom: 8px; display: flex; gap: 6px; margin: 0; }
 .arc-arma { position: relative; flex: 1; display: flex; align-items: center; gap: 6px; padding: 4px 6px; overflow: hidden; cursor: pointer; font: inherit; font-size: 11px; color: #c9cdf5; background: #12173a; border: 3px solid #3a2c70; }
 .arc-arma small { color: #ffe14a; font-size: 13px; }
 .arc-arma b { font-weight: normal; letter-spacing: 1px; }
@@ -278,14 +283,14 @@
     padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
     border: 0; box-shadow: none;
   }
-  .arc-topo { flex: none; min-height: 38px; margin: 0 0 5px; flex-wrap: nowrap; }
+  .arc-topo { top: 4px; left: 4px; right: 4px; min-height: 34px; margin: 0; padding: 3px 4px; flex-wrap: nowrap; }
   .arc-topo h2 { display: none; }
   .arc-icone { width: 26px; height: 26px; }
   .arc-hud { min-width: 0; gap: 7px; flex-wrap: wrap; font-size: 10px; line-height: 1; }
   .arc-efeitos { width: 100%; height: 11px; overflow: hidden; text-align: right; font-size: 8px; }
   .arc-x, .arc-pausa { width: 38px; height: 38px; font-size: 13px; }
   .arc-tela { flex: none; width: 100%; margin: auto 0; border-width: 2px; }
-  .arc-armas { flex: none; gap: 4px; margin-top: 5px; }
+  .arc-armas { left: 4px; right: 4px; bottom: 4px; gap: 4px; margin: 0; }
   .arc-arma { min-width: 0; min-height: 43px; padding: 4px 3px; border-width: 2px; gap: 3px; }
   .arc-arma small { font-size: 12px; }
   .arc-arma b { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 8px; white-space: nowrap; }

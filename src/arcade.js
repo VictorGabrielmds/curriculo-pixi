@@ -19,12 +19,12 @@ import { criarGaragem } from './garagem.js';
 
 // Uma resolução lógica um pouco menor aproxima a câmera sem mudar o tamanho
 // da moldura: nave, inimigos e cenário ganham mais presença na arena.
-const A = 245;
+const A = 225;
 // A arena acompanha a proporção útil da janela. Em monitores largos, ganhamos
 // espaço jogável nas laterais em vez de centralizar uma tela 16:9 estreita.
 // A largura lógica também cresce, portanto os sprites não são deformados.
 const MARGEM_ARCADE = window.innerWidth <= 700 ? 12 : 44;
-const ALTURA_INTERFACE = window.innerWidth <= 700 ? 118 : 165;
+const ALTURA_INTERFACE = window.innerWidth <= 700 ? 20 : 44;
 const PROPORCAO_ARENA = Math.min(3.2, Math.max(16 / 9,
   (window.innerWidth - MARGEM_ARCADE) / Math.max(160, window.innerHeight - ALTURA_INTERFACE)));
 const L = Math.round(A * PROPORCAO_ARENA); // resolução lógica ampliada sem suavização; as letras ficam em uma camada à parte
@@ -366,7 +366,9 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     b.onclick = () => selecionarArma(n);
     botoesArma.push({ b, nm, barra }); armasEl.append(b);
   }
-  caixa.append(topo, tela, armasEl, el('p', 'arc-nota', 'de brincadeira: as moedas espaciais só servem na OFICINA da nave, sem dinheiro de verdade'));
+  // HUD e poderes pertencem à própria cabine: o universo continua por trás deles.
+  tela.append(topo, armasEl);
+  caixa.append(tela);
   raiz.append(caixa, painelOficina, painelBestiario);
   raiz.setAttribute('role', 'dialog'); raiz.setAttribute('aria-modal', 'true'); raiz.setAttribute('aria-label', 'Nave Arcade');
   document.body.append(raiz);
