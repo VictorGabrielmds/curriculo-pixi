@@ -698,7 +698,8 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.alienIdx = (S.alienIdx + 1 + Math.floor(Math.random() * (ALIENS.length - 1))) % ALIENS.length; // alienígena diferente a cada buraco
     S.mundoSalvo = { nx: S.nx, ny: S.ny, cx: S.cx, cy: S.cy, inimigos: S.inimigos, tirosInimigos: S.tirosInimigos, campos: S.campos, hp: S.hp, buraco: S.buraco, chefe: S.chefe };
     const hpAlien = Math.round(95 * (1 + S.aliensVencidos * 0.6 + (S.fase - 1) * 0.25) * (1 + S.t / 300));
-    const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: S.alienIdx, cd: 2, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0, combo: 0, modo: 'investida', dashMax: 0.75, padrao: null };
+    const al = { tipo: 'alien', x: CX, y: 50, hp: hpAlien, hpMax: hpAlien, piscar: 0, fase: 0, v: S.alienIdx, cd: 1.7, estado: 'espera', carga: 0, ataque: '', salvas: 0, cdSalva: 0, sumido: 0, ta: 0, combo: 0, modo: 'investida', dashMax: 0.75, padrao: null,
+      vx: 0, vy: 0, orbita: Math.random() < 0.5 ? -1 : 1, mudaOrbita: 2 + Math.random() * 2, memoria: [], plano: [], leituraT: 0 };
     S.hp = S.maxHp; S.invul = 1; // dentro do buraco negro a nave luta com a vida cheia
     S.inimigos = [al]; S.tirosInimigos = []; S.campos = []; S.raios = []; S.tiros = []; S.misseis = []; S.chefe = null;
     S.alien = al; S.nx = CX; S.ny = A - 40; S.cx = CX; S.cy = CY;
@@ -747,29 +748,95 @@ export function iniciarArcade({ bip, somAtivo }) {
     al.sumido = Math.max(0, al.sumido - dt);
     if (furioso && !al.furiaDita) { al.furiaDita = true; mostrarAviso('!! FÚRIA !!', 1.6); S.flash = 0.2; bip(80, 0.4, 'sawtooth', 0.06); }
     if (desespero && !al.desesperoDito) { al.desesperoDito = true; mostrarAviso('!! DESESPERO !!', 1.6); S.flash = 0.25; bip(60, 0.5, 'sawtooth', 0.07); }
-    const rotaX = () => CX + Math.sin(al.ta * 0.7) * 95, rotaY = () => 48 + Math.sin(al.ta * 1.3) * 12;
-    const mover = al.estado === 'espera' || al.estado === 'carga' || al.estado === 'salvas' || al.estado === 'padrao';
-    if (mover && al.sumido <= 0) { al.x = rotaX(); al.y = rotaY(); }
+    const hx = S.nx - al.x, hy = S.ny - al.y, distanciaHeroi = Math.hypot(hx, hy) || 1;
+    const nx = hx / distanciaHeroi, ny = hy / distanciaHeroi, px = -ny, py = nx;
+    const distanciaIdeal = desespero ? 55 : furioso ? 68 : 82;
     const noArena = (x, y) => [Math.max(ARENA.x0 + 6, Math.min(ARENA.x1 - 6, x)), Math.max(ARENA.y0 + 6, Math.min(ARENA.y1 - 6, y))];
+    const rotaX = () => noArena(S.nx - nx * distanciaIdeal + px * al.orbita * 28, S.ny)[0];
+    const rotaY = () => noArena(S.nx, S.ny - ny * distanciaIdeal + py * al.orbita * 28)[1];
+    const mover = al.estado === 'espera' || al.estado === 'carga' || al.estado === 'salvas' || al.estado === 'padrao';
+    if (mover && al.sumido <= 0) {
+      al.mudaOrbita -= dt;
+      if (al.mudaOrbita <= 0) { al.mudaOrbita = 2.2 + Math.random() * 2.8; if (Math.random() < 0.45) al.orbita *= -1; }
+      const radial = distanciaHeroi > distanciaIdeal + 13 ? 1 : distanciaHeroi < distanciaIdeal - 16 ? -0.7 : 0.12;
+      const serpenteia = Math.sin(al.ta * 1.7 + al.fase * 0.4) * 0.22;
+      const velocidade = (desespero ? 92 : furioso ? 78 : 64) * tf * (al.estado === 'carga' ? 0.58 : 1);
+      const alvoVx = (nx * radial + px * (al.orbita * 0.58 + serpenteia)) * velocidade;
+      const alvoVy = (ny * radial + py * (al.orbita * 0.58 + serpenteia)) * velocidade;
+      const suaviza = Math.min(1, dt * (desespero ? 5.5 : 3.6));
+      al.vx += (alvoVx - al.vx) * suaviza; al.vy += (alvoVy - al.vy) * suaviza;
+      al.x += al.vx * dt; al.y += al.vy * dt;
+      const [ax, ay] = noArena(al.x, al.y);
+      if (ax !== al.x || ay !== al.y) { al.orbita *= -1; al.vx *= -0.35; al.vy *= -0.35; }
+      al.x = ax; al.y = ay;
+    }
     const mirarInvestida = () => { // treme e mostra por onde vai passar
-      const dx = S.nx - al.x, dy = S.ny - al.y, d = Math.hypot(dx, dy) || 1;
-      al.dirX = dx / d; al.dirY = dy / d; al.dashMax = 0.75; al.estado = 'aviso'; al.carga = 0.8;
+      const previsao = S.movendo ? (desespero ? 34 : furioso ? 27 : 20) : 0;
+      const tx = S.nx + S.dirX * previsao, ty = S.ny + S.dirY * previsao;
+      const dx = tx - al.x, dy = ty - al.y, d = Math.hypot(dx, dy) || 1;
+      al.dirX = dx / d; al.dirY = dy / d; al.dashMax = 0.75; al.estado = 'aviso'; al.carga = desespero ? 0.38 : furioso ? 0.52 : 0.72;
     };
     const prepararCorte = () => { // corte: sai de um lado da arena, na altura da nave, e atravessa tudo em linha reta
       const daDireita = S.nx < CX;
       al.x = daDireita ? ARENA.x1 - 4 : ARENA.x0 + 4; al.y = noArena(0, S.ny)[1];
-      al.dirX = daDireita ? -1 : 1; al.dirY = 0; al.dashMax = 1.15; al.estado = 'aviso'; al.carga = 0.75;
+      al.dirX = daDireita ? -1 : 1; al.dirY = 0; al.dashMax = 1.15; al.estado = 'aviso'; al.carga = desespero ? 0.34 : furioso ? 0.48 : 0.68;
+    };
+
+    const minarEspaco = (quantidade) => { // minas antecipam a rota e fecham as saídas, em vez de cair só no ponto atual
+      const frenteX = S.movendo ? S.dirX : nx, frenteY = S.movendo ? S.dirY : ny;
+      const ladoX = -frenteY, ladoY = frenteX;
+      for (let i = 0; i < quantidade; i++) {
+        const linha = Math.floor(i / 2) + 1, lado = i % 2 ? 1 : -1;
+        const distancia = 20 + linha * 14, abertura = 18 + linha * 7;
+        const [x, y] = noArena(S.nx + frenteX * distancia + ladoX * abertura * lado, S.ny + frenteY * distancia + ladoY * abertura * lado);
+        const aviso = 1 + i * 0.08;
+        S.campos.push({ x, y, r: 23, aviso, avisoMax: aviso, vida: 4.2, tick: 0, ox: al.x, oy: al.y });
+      }
+      if (furioso) { const [x, y] = noArena(S.nx + frenteX * 50, S.ny + frenteY * 50); S.campos.push({ x, y, r: 25, aviso: 1.25, avisoMax: 1.25, vida: 4.2, tick: 0, ox: al.x, oy: al.y }); }
+      bip(200, 0.1, 'square', 0.04); bip(160, 0.1, 'square', 0.04, 0.1);
+    };
+
+    const escolherAtaque = () => {
+      if (al.plano.length) {
+        const ataquePlanejado = al.plano.shift();
+        al.memoria.push(ataquePlanejado); if (al.memoria.length > 4) al.memoria.shift();
+        return ataquePlanejado;
+      }
+      const gosto = ALIENS[al.v].pesos;
+      const desbloqueado = ([k, , desde]) => S.t >= desde || (gosto[k] || 0) > 0 || desespero || (furioso && desde <= 210);
+      const disponiveis = new Set(ATAQUES_BASE.filter(desbloqueado).map(([k]) => k));
+      let candidatos;
+      if (distanciaHeroi < 62) candidatos = ['tentaculos', 'varredura', 'rajada', 'psiquico', 'investida', 'teleporte', 'corte', 'olhar'];
+      else if (distanciaHeroi > 125) candidatos = ['bombas', 'psiquico', 'cerco', 'chuva', 'investida', 'mira', 'raio', 'corte', 'foice', 'ovnis', 'invocar'];
+      else candidatos = ['mira', 'raio', 'investida', 'espiral', 'aneis', 'olhar', 'rajada', 'psiquico'];
+      for (const k of Object.keys(gosto)) if (disponiveis.has(k) && !candidatos.includes(k)) candidatos.push(k);
+      // Se o chão já está minado, ele explora a limitação com investida/tiros em vez de poluir ainda mais a arena.
+      if (S.campos.length >= 7) candidatos = candidatos.filter((k) => k !== 'bombas' && k !== 'psiquico');
+      if (S.tirosInimigos.length >= 85) candidatos = candidatos.filter((k) => !['rajada', 'espiral', 'chuva', 'aneis', 'cerco'].includes(k));
+      candidatos = candidatos.filter((k) => disponiveis.has(k) && !al.memoria.slice(-2).includes(k));
+      if (!candidatos.length) candidatos = [...disponiveis].filter((k) => !al.memoria.slice(-1).includes(k));
+      if (!candidatos.length) candidatos = ['investida'];
+      const pesos = candidatos.map((k) => {
+        let peso = 1 + (gosto[k] || 0);
+        if (distanciaHeroi < 62 && ['tentaculos', 'varredura', 'rajada', 'psiquico'].includes(k)) peso += 3;
+        if (distanciaHeroi > 125 && ['bombas', 'cerco', 'investida', 'corte'].includes(k)) peso += 3;
+        if (furioso && ['investida', 'foice', 'olhar', 'raio'].includes(k)) peso += 2;
+        if (desespero && ['foice', 'corte', 'varredura', 'tentaculos'].includes(k)) peso += 3;
+        return [k, peso];
+      });
+      const ataque = sorteio(pesos);
+      // Combos táticos: primeiro limita o espaço, depois usa a abertura para alcançar o herói.
+      if (distanciaHeroi > 125 && ['bombas', 'psiquico', 'cerco'].includes(ataque)) al.plano.push(Math.random() < 0.55 ? 'investida' : 'mira');
+      else if (distanciaHeroi < 62 && ['rajada', 'tentaculos'].includes(ataque)) al.plano.push(Math.random() < 0.5 ? 'teleporte' : 'corte');
+      al.memoria.push(ataque); if (al.memoria.length > 4) al.memoria.shift();
+      return ataque;
     };
 
     if (al.estado === 'espera') {
       al.cd -= dt * ritmo;
       if (al.cd <= 0) {
-        const gosto = ALIENS[al.v].pesos; // cada alienígena prefere alguns ataques e tem os seus golpes exclusivos
-        // os poderes (tudo que não é rajada, tiro mirado ou investida) são raros: pesam bem menos e nunca vêm dois seguidos
-        const basico = (k) => k === 'rajada' || k === 'mira' || k === 'investida';
-        al.ataque = sorteio(ATAQUES_BASE.filter(([, , desde]) => S.t >= desde).map(([k, p]) => [k, (p + (gosto[k] || 0)) * (basico(k) ? 1 : 0.3)]).filter(([k, p]) => p > 0 && !(al.ultimoPoder && !basico(k))));
-        al.ultimoPoder = !basico(al.ataque);
-        al.estado = 'carga'; al.carga = 0.5;
+        al.ataque = escolherAtaque();
+        al.estado = 'carga'; al.carga = desespero ? 0.2 : furioso ? 0.3 : 0.46;
         texto(al.x, Math.max(12, al.y - 24), NOMES_ATAQUE[al.ataque] || '', '#ff7ab8');
       }
     } else if (al.estado === 'carga') {
@@ -800,7 +867,7 @@ export function iniciarArcade({ bip, somAtivo }) {
           const base = Math.random() * 6.28, sentido = Math.random() < 0.5 ? 1 : -1, n = furioso ? 6 : 4;
           for (let k = 0; k < n; k++) S.raios.push({ x: al.x, y: al.y + 8, ang: base + (k * Math.PI * 2) / n, giro: 0.9 * sentido, seg: true, aviso: 0.8, vida: 2.2, tick: 0, ligou: false });
           al.estado = 'espera'; al.cd = 3; bip(420, 0.3, 'sine', 0.05);
-        } else if (a === 'bombas') { lancarBombas(al.x, al.y, desespero ? 6 : furioso ? 5 : 4, 1.1); al.estado = 'espera'; al.cd = 2; }
+        } else if (a === 'bombas') { minarEspaco(desespero ? 7 : furioso ? 6 : 4); al.estado = 'espera'; al.cd = desespero ? 0.75 : furioso ? 1.1 : 1.7; }
         else if (a === 'psiquico') { // bombas em círculo ao redor da nave, fechando o cerco
           const ang0 = Math.random() * 6.28, n = furioso ? 6 : 5;
           for (let i = 0; i < n; i++) { const [x, y] = noArena(S.nx + Math.cos(ang0 + (i * Math.PI * 2) / n) * 40, S.ny + Math.sin(ang0 + (i * Math.PI * 2) / n) * 40); S.campos.push({ x, y, r: 24, aviso: 1.1 + i * 0.08, avisoMax: 1.1 + i * 0.08, vida: 3.5, tick: 0, ox: al.x, oy: al.y }); }
@@ -863,9 +930,10 @@ export function iniciarArcade({ bip, somAtivo }) {
     } else if (al.estado === 'teleporte') {
       al.carga -= dt;
       if (al.carga <= 0) {
-        al.x = ARENA.x0 + 20 + Math.random() * (ARENA.x1 - ARENA.x0 - 40); al.y = ARENA.y0 + 10 + Math.random() * 40; al.sumido = 0;
+        const ang = Math.atan2(al.y - S.ny, al.x - S.nx) + Math.PI + (Math.random() - 0.5) * 1.2;
+        const dist = distanciaHeroi < 70 ? 105 : 72;
+        [al.x, al.y] = noArena(S.nx + Math.cos(ang) * dist, S.ny + Math.sin(ang) * dist); al.sumido = 0; al.vx = al.vy = 0;
         const n = desespero ? 16 : 12; for (let i = 0; i < n; i++) atirarInimigo(al.x, al.y, (i * Math.PI * 2) / n, vb(70));
-        al.ta = Math.asin(Math.max(-1, Math.min(1, (al.x - CX) / 95))) / 0.7;
         al.estado = 'espera'; al.cd = 1.3; bip(440, 0.1, 'square', 0.05);
       }
     }
@@ -2004,7 +2072,7 @@ export function iniciarArcade({ bip, somAtivo }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, t: S && S.t, hp: S && S.hp, armadura: S && S.armadura, niveisNave: S && { dano: S.niveis.dano_geral | 0, vida: S.niveis.reparo | 0, velocidade: S.niveis.motor | 0, recarga: S.niveis.recarga_geral | 0 }, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
+        return { modo, t: S && S.t, hp: S && S.hp, armadura: S && S.armadura, niveisNave: S && { dano: S.niveis.dano_geral | 0, vida: S.niveis.reparo | 0, velocidade: S.niveis.motor | 0, recarga: S.niveis.recarga_geral | 0 }, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, iaAlien: S && S.alien ? { estado: S.alien.estado, memoria: [...S.alien.memoria], plano: [...S.alien.plano], distancia: Math.round(Math.hypot(S.alien.x - S.nx, S.alien.y - S.ny)) } : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
       },
     };
   }
