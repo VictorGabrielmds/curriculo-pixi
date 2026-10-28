@@ -194,6 +194,34 @@
 .of-topo { display: flex; align-items: center; gap: 14px; padding-bottom: 8px; border-bottom: 4px solid transparent; border-image: repeating-linear-gradient(135deg, #ffd23f 0 10px, #12172b 10px 20px) 4; }
 .of-topo h3 { margin: 0; flex: 1; font-size: 18px; letter-spacing: 3px; color: #8bd3ff; text-shadow: 2px 2px 0 #070a1a; }
 .of-moedas { font-size: 20px; color: #6fe8ff; text-shadow: 2px 2px 0 #070a1a; }
+.of-bancada { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 8px; padding: 9px; background: rgba(6, 10, 28, .82); border: 3px solid #395fa8; box-shadow: inset 0 0 24px rgba(56, 200, 255, .08); }
+.of-bancada-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 7px; border-bottom: 2px dashed #395fa8; }
+.of-bancada-topo > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.of-bancada-topo small { font-size: 8px; letter-spacing: 2px; color: #7dff9a; }
+.of-bancada-topo b { font-size: 13px; color: #fff; }
+.of-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.of-stats span { padding: 3px 5px; font-size: 8px; color: #dce7ff; background: #17234d; border: 1px solid #456ab8; }
+.of-sistemas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; align-items: start; }
+.of-sistema { min-width: 0; background: #0d1737; border: 2px solid #274b91; }
+.of-sistema[open] { grid-column: span 5; border-color: #6fe8ff; }
+.of-sistema summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 6px 8px; cursor: pointer; list-style: none; }
+.of-sistema summary::-webkit-details-marker { display: none; }
+.of-sistema summary > span { display: grid; grid-template-columns: auto 1fr; gap: 1px 6px; min-width: 0; }
+.of-sistema summary i { grid-row: 1 / 3; align-self: center; font-style: normal; font-size: 18px; color: #6fe8ff; }
+.of-sistema summary b { font-size: 10px; letter-spacing: 1px; color: #fff; }
+.of-sistema summary small { overflow: hidden; font-size: 8px; color: #8f96c9; text-overflow: ellipsis; white-space: nowrap; }
+.of-sistema summary em { max-width: 45%; overflow: hidden; font-size: 8px; font-style: normal; color: #ffe14a; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.of-modulos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; padding: 7px; border-top: 2px dashed #274b91; }
+.of-modulo { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 132px; padding: 8px; background: #121d42; border: 2px solid #293d72; }
+.of-modulo.instalado { background: linear-gradient(145deg, #18335d, #102141); border-color: #6fe8ff; box-shadow: inset 0 0 18px rgba(111, 232, 255, .12); }
+.of-modulo.novo { animation: of-modulo-novo 1s steps(4); }
+@keyframes of-modulo-novo { 50% { transform: translateY(-3px); border-color: #fff; box-shadow: 0 0 18px #6fe8ff; } }
+.of-modulo-tag { align-self: flex-start; margin-bottom: 5px; padding: 2px 4px; font-size: 7px; letter-spacing: 1px; color: #8f96c9; background: #090e25; }
+.of-modulo.instalado .of-modulo-tag { color: #07111f; background: #6fe8ff; }
+.of-modulo > b { font-size: 11px; color: #fff; }
+.of-modulo > small { margin-top: 3px; font-size: 9px; line-height: 1.25; color: #9fb4e0; }
+.of-modulo > p { flex: 1; margin: 6px 0; font-size: 9px; line-height: 1.3; color: #7dff9a; }
+.of-modulo .arc-btn { width: 100%; margin: 0; }
 .of-corpo { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 38%) minmax(0, 1fr); gap: 20px; align-items: center; flex: 1; }
 .of-col { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 2; }
 .of-centro { text-align: center; position: relative; z-index: 1; }
@@ -216,6 +244,12 @@
 .of-ponto { fill: #ff3b4a; stroke: #070a1a; stroke-width: 2; }
 .of-rodape { margin: 0; font-size: 11px; line-height: 1.4; color: #8f96c9; text-align: center; }
 @media (max-width: 780px) {
+  .of-bancada-topo { align-items: flex-start; flex-direction: column; }
+  .of-stats { justify-content: flex-start; }
+  .of-sistemas { grid-template-columns: 1fr; }
+  .of-sistema[open] { grid-column: auto; }
+  .of-modulos { grid-template-columns: 1fr; }
+  .of-modulo { min-height: 0; }
   .of-corpo { grid-template-columns: 1fr; gap: 10px; }
   .of-centro { order: -1; }
   .of-svg { display: none; }
@@ -347,6 +381,17 @@
 #arcade.tema-yas .of-nave { filter: drop-shadow(0 0 18px rgba(216, 139, 85, .42)); }
 #arcade.tema-yas .of-linha { stroke: #d88b55; }
 #arcade.tema-yas .of-ponto { fill: #e5b85c; stroke: #241b17; }
+#arcade.tema-yas .of-bancada { background: rgba(36, 27, 23, .88); border-color: #71835b; box-shadow: inset 0 0 24px rgba(229, 184, 92, .08); }
+#arcade.tema-yas .of-bancada-topo { border-color: #71835b; }
+#arcade.tema-yas .of-stats span { color: #f4e6d2; background: #3b4535; border-color: #71835b; }
+#arcade.tema-yas .of-sistema { background: #332b24; border-color: #71835b; }
+#arcade.tema-yas .of-sistema[open] { border-color: #e5b85c; }
+#arcade.tema-yas .of-sistema summary i, #arcade.tema-yas .of-sistema summary em { color: #e5b85c; }
+#arcade.tema-yas .of-modulos { border-color: #71835b; }
+#arcade.tema-yas .of-modulo { background: #3b4535; border-color: #526b4d; }
+#arcade.tema-yas .of-modulo.instalado { background: linear-gradient(145deg, #526b4d, #332b24); border-color: #e5b85c; }
+#arcade.tema-yas .of-modulo.instalado .of-modulo-tag { color: #241b17; background: #e5b85c; }
+#arcade.tema-yas .of-modulo > p { color: #f2d7ae; }
 
 /* Nave da Fer: abismo azul, cristais, violeta elétrico e bioluminescência. */
 #arcade.tema-fer { background: rgba(5, 8, 23, .93); color: #d6fbff; }
@@ -379,3 +424,8 @@
 #arcade.tema-fer .of-nave { filter: drop-shadow(0 0 18px rgba(85, 226, 224, .48)); }
 #arcade.tema-fer .of-linha { stroke: #55e2e0; }
 #arcade.tema-fer .of-ponto { fill: #8f9cff; stroke: #050817; }
+#arcade.tema-fer .of-bancada { background: rgba(5, 8, 23, .9); border-color: #405ba0; }
+#arcade.tema-fer .of-sistema { background: #0e1437; border-color: #354582; }
+#arcade.tema-fer .of-sistema[open], #arcade.tema-fer .of-modulo.instalado { border-color: #55e2e0; }
+#arcade.tema-fer .of-sistema summary i { color: #55e2e0; }
+#arcade.tema-fer .of-modulo.instalado .of-modulo-tag { background: #55e2e0; }

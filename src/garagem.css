@@ -1,0 +1,101 @@
+/* Bancada de montagem da nave (dentro da oficina do arcade) */
+.of-abas { display: flex; gap: 6px; }
+.of-aba { font: inherit; font-size: 10px; letter-spacing: 2px; padding: 7px 14px; color: #8f96c9; background: #0d1737; border: 3px solid #274b91; cursor: pointer; }
+.of-aba:hover { color: #fff; border-color: #6fe8ff; }
+.of-aba.on { color: #07111f; background: #6fe8ff; border-color: #6fe8ff; }
+
+.gar { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 9px; }
+.gar button { font-family: inherit; }
+.gar-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 10px; background: rgba(6, 10, 28, 0.86); border: 3px solid #274b91; }
+.gar-nome-projeto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gar-nome-projeto small { font-size: 8px; letter-spacing: 2px; color: #7dff9a; }
+.gar-nome-projeto b { font-size: 12px; color: #fff; }
+.gar-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.gar-chip { padding: 3px 5px; font-size: 8px; color: #dce7ff; background: #17234d; border: 1px solid #456ab8; }
+.gar-chip em { font-style: normal; color: #8f96c9; }
+.gar-chip.bom { border-color: #3fae6b; color: #b8ffd0; }
+.gar-chip.ruim { border-color: #c0443f; color: #ffb3ad; }
+
+.gar-corpo { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 10px; align-items: start; }
+.gar-esq, .gar-dir { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.gar-banca { position: relative; width: 100%; max-width: 340px; aspect-ratio: 1; background: radial-gradient(circle at 50% 45%, #12285a 0, #0a1230 70%); border: 3px solid #274b91; box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5); }
+.gar-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.gar-slot { position: absolute; width: 22%; aspect-ratio: 1; transform: translate(-50%, -50%); padding: 0; background: transparent; border: 0; cursor: pointer; }
+.gar-slot:hover { background: rgba(255, 255, 255, 0.08); }
+.gar-slot:focus-visible { outline: 3px solid #ffd23f; }
+.gar-slot.sel { background: rgba(255, 225, 74, 0.1); }
+.gar-slot-tipo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 7px; letter-spacing: 1px; color: var(--c); text-shadow: 0 0 4px #000, 1px 1px 0 #000; pointer-events: none; }
+.gar-slot.vazio .gar-slot-tipo { animation: gar-pisca 1.4s steps(2) infinite; }
+@keyframes gar-pisca { 50% { opacity: 0.45; } }
+
+.gar-medidores { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(6, 10, 28, 0.86); border: 3px solid #274b91; }
+.gar-medidor { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.gar-nome { font-size: 8px; letter-spacing: 1px; color: #8f96c9; }
+.gar-barra { position: relative; height: 11px; background: #060a1c; border: 2px solid #070a1a; box-shadow: 0 0 0 1px #274b91; }
+.gar-barra i { display: block; height: 100%; background: #7dff9a; transition: width 0.25s steps(6); }
+.gar-barra.aviso i { background: #ffd23f; } .gar-barra.ruim i { background: #ff5a59; }
+.gar-barra b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; opacity: 0.75; }
+.gar-valor { font-size: 9px; color: #7dff9a; white-space: nowrap; }
+.gar-valor.aviso { color: #ffd23f; } .gar-valor.ruim { color: #ff8a84; }
+.gar-status { font-size: 9px; letter-spacing: 1px; padding: 4px 6px; color: #07111f; background: #7dff9a; text-align: center; }
+.gar-status.ruim { background: #ff5a59; color: #fff; animation: gar-pisca 0.8s steps(2) infinite; }
+.gar-alerta { margin: 0; font-size: 9px; line-height: 1.35; color: #ffb3ad; }
+.gar-alerta.aviso { color: #ffd23f; }
+
+.gar-ajuste { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 8px; background: rgba(6, 10, 28, 0.86); border: 3px solid #274b91; }
+.gar-knob { grid-row: 1 / 3; position: relative; width: 42px; height: 42px; padding: 0; cursor: pointer; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5a6894, #1c2447 70%); border: 3px solid #070a1a; box-shadow: 0 0 0 2px #456ab8, inset 0 -4px 0 rgba(0, 0, 0, 0.35); }
+.gar-knob i { position: absolute; left: 50%; top: 50%; width: 4px; height: 17px; margin: -17px 0 0 -2px; background: #ffd23f; transform-origin: 50% 100%; transition: transform 0.18s steps(4); box-shadow: 0 0 6px #ffd23f; }
+.gar-knob:hover { filter: brightness(1.2); }
+.gar-ajuste-texto { display: flex; flex-direction: column; gap: 1px; }
+.gar-ajuste-texto b { font-size: 10px; letter-spacing: 1px; color: #fff; }
+.gar-ajuste-texto small { font-size: 8px; line-height: 1.3; color: #8f96c9; }
+.gar-passos { grid-column: 1 / 3; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+.gar-passo { padding: 5px 0; font-size: 7px; letter-spacing: 0; color: #8f96c9; background: #0d1737; border: 2px solid #274b91; cursor: pointer; }
+.gar-passo.on { color: #07111f; background: #6fe8ff; border-color: #6fe8ff; }
+.gar-passo.on.max { background: #ff7a3a; border-color: #ff7a3a; color: #fff; }
+.gar-teste { width: 100%; }
+
+.gar-titulo { margin: 0; font-size: 10px; letter-spacing: 2px; color: #6fe8ff; }
+.gar-chassis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gar-chassi { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; text-align: center; cursor: pointer; background: #0d1737; border: 3px solid #274b91; }
+.gar-chassi:hover { border-color: #6fe8ff; }
+.gar-chassi.instalado { background: linear-gradient(145deg, #18335d, #102141); border-color: #6fe8ff; }
+.gar-chassi.em-previa { border-color: #ffb347; border-style: dashed; }
+.gar-icone-chassi { width: 48px; height: 48px; image-rendering: pixelated; }
+.gar-chassi b { font-size: 9px; color: #fff; }
+.gar-chassi small { font-size: 7px; letter-spacing: 1px; color: #8f96c9; }
+.gar-chassi.instalado small { color: #7dff9a; }
+.gar-faixa { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 9px; font-size: 9px; line-height: 1.35; color: #ffe6b8; background: rgba(255, 179, 71, 0.12); border: 2px dashed #ffb347; }
+
+.gar-pecas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 7px; }
+.gar-peca { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 8px; cursor: pointer; background: #121d42; border: 3px solid #274b91; }
+.gar-peca:hover { border-color: #6fe8ff; }
+.gar-peca.instalado { background: linear-gradient(145deg, #18335d, #102141); border-color: #6fe8ff; box-shadow: inset 0 0 18px rgba(111, 232, 255, 0.12); }
+.gar-peca.em-previa { border-color: #ffb347; border-style: dashed; background: #1d2547; }
+.gar-peca.bloqueada .gar-icone { filter: grayscale(0.6) brightness(0.85); }
+.gar-peca.novo { animation: of-modulo-novo 1s steps(4); }
+.gar-peca-cab { display: flex; gap: 8px; align-items: flex-start; }
+.gar-peca-cab > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gar-peca-cab b { font-size: 11px; color: #fff; }
+.gar-peca-cab small { font-size: 8px; line-height: 1.3; color: #9fb4e0; }
+.gar-icone { flex: none; width: 56px; height: 56px; image-rendering: pixelated; background: #0a1230; border: 2px solid #274b91; }
+.gar-efeito { margin: 0; font-size: 9px; line-height: 1.35; color: #ffe14a; }
+.gar-stats { display: flex; flex-wrap: wrap; gap: 3px; }
+.gar-stats span { padding: 2px 4px; font-size: 8px; background: #090e25; border: 1px solid #274b91; color: #c9cdf5; }
+.gar-stats .w { color: #ffd23f; } .gar-stats .p { color: #7dff9a; } .gar-stats .c { color: #ff9a6a; } .gar-stats .f { color: #8bd3ff; }
+.gar-peca .arc-btn { margin-top: auto; }
+.gar-dica { margin: 0; font-size: 9px; color: #7dff9a; }
+
+@media (max-width: 760px) {
+  .gar-corpo { grid-template-columns: minmax(0, 1fr); }
+  .gar-banca { margin: 0 auto; }
+  .gar-chassis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.gar-pintura { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px; background: rgba(6, 10, 28, 0.86); border: 3px solid #274b91; }
+.gar-pintura b { font-size: 10px; letter-spacing: 1px; color: #fff; }
+.gar-pintura small { font-size: 8px; letter-spacing: 1px; color: #8f96c9; }
+.gar-cores { display: flex; gap: 6px; }
+.gar-cor { width: 28px; height: 28px; padding: 0; cursor: pointer; border: 3px solid #070a1a; box-shadow: 0 0 0 2px #274b91; }
+.gar-cor:hover { box-shadow: 0 0 0 2px #6fe8ff; }
+.gar-cor.on { box-shadow: 0 0 0 3px #ffe14a; }

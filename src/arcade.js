@@ -7,6 +7,9 @@ import { criarFundo, REGIOES } from './arcadeFundo.js';
 import { criarObstaculos } from './arcadeObstaculos.js';
 import { criarRochas, criarItens, desenharBuracoNegro } from './arcadeSprites.js';
 import { TEMAS, ALIENS, CHEFES } from './arcadeTemas.js';
+import { projetoPadrao, normalizarProjeto, desbloqueiosIniciais, normalizarDesbloqueios, calcularEfeitosNave, pecasPrincipais } from './naveModular.js';
+import { gerarNave, chamasDaNave, TAM_NAVE } from './naveDesenho.js';
+import { criarGaragem } from './garagem.js';
 
 const L = 320, A = 180; // resolução lógica da tela (ampliada sem suavização)
 const CX = L / 2, CY = A / 2;
@@ -121,7 +124,12 @@ const ESTRELAS = {
 const PESOS_ESTRELAS = Object.entries(ESTRELAS).map(([k, v]) => [k, v.peso]);
 const PESOS_ITENS = [['ima', 0.25], ['explosao', 0.2], ['coracao', 0.2], ['escudo', 0.15], ['turbo', 0.2]];
 
-const dadosPadrao = () => ({ tempo: 0, kills: 0, moedas: 0, skin: 0, onda: 0, oficina: Object.fromEntries(OFICINA.map((o) => [o.id, 0])) });
+const dadosPadrao = () => ({
+  tempo: 0, kills: 0, moedas: 0, skin: 0, onda: 0,
+  oficina: Object.fromEntries(OFICINA.map((o) => [o.id, 0])),
+  projeto: projetoPadrao(), // a nave montada na garagem: chassi, peças por encaixe e ajustes finos
+  pecasLiberadas: desbloqueiosIniciais(), // peças e chassis já fabricados
+});
 function carregarDados() {
   const d = dadosPadrao();
   try {
@@ -129,6 +137,9 @@ function carregarDados() {
     if (j) {
       d.tempo = j.tempo | 0; d.kills = j.kills | 0; d.moedas = Math.max(0, j.moedas | 0); d.skin = Math.max(0, j.skin | 0); d.onda = Math.max(0, j.onda | 0);
       for (const o of OFICINA) d.oficina[o.id] = Math.max(0, Math.min(o.max, (j.oficina && j.oficina[o.id]) | 0));
+      d.projeto = normalizarProjeto(j.projeto || j.modulos); // aceita também o formato antigo (um módulo por sistema)
+      d.pecasLiberadas = normalizarDesbloqueios([...(j.pecasLiberadas || []), ...(j.modulosDesbloqueados || [])]);
+      for (const id of [d.projeto.chassi, ...d.projeto.pecas]) if (id && !d.pecasLiberadas.includes(id)) d.pecasLiberadas.push(id);
     }
   } catch { /* sem armazenamento */ }
   return d;
@@ -150,37 +161,7 @@ function criarSprites() {
   return { cristais };
 }
 
-// nave do jogo (20x20): o desenho muda conforme o nível de cada parte
-function gerarNave(t, tema = 'padrao') {
-  const s = novoSprite(20, 20), o = 2;
-  const R = (x, y, w, h, c) => s.retangulo(x + o, y + o, w, h, c);
-  const temaYas = tema === 'yas', temaFer = tema === 'fer';
-  const P = temaYas
-    ? { aleta: '#b7683f', metal: '#b9a58b', casco: '#496044', nucleo: '#f2d7ae', nucleo2: '#e5b85c', brilho: '#fff1d7', alerta: '#d88b55', contorno: '#241b17' }
-    : temaFer
-      ? { aleta: '#6c5cff', metal: '#91a0c8', casco: '#172b59', nucleo: '#55e2e0', nucleo2: '#8b6cff', brilho: '#d6fbff', alerta: '#4fe7ff', contorno: '#050817' }
-    : { aleta: '#ff7a59', metal: '#8b93a8', casco: '#4aa8ff', nucleo: '#8bd3ff', nucleo2: '#7dff9a', brilho: '#ffffff', alerta: '#ff3b4a', contorno: '#0b1026' };
-  R(1, 7, 3, 2, P.aleta); R(12, 7, 3, 2, P.aleta); R(7, 1, 2, 3, P.aleta); R(7, 12, 2, 3, P.aleta);
-  if (t.motor >= 2) { R(2, 11, 2, 3, P.metal); R(12, 11, 2, 3, P.metal); s.pixel(3 + o, 14 + o, '#ffa23a'); s.pixel(12 + o, 14 + o, '#ffa23a'); }
-  if (t.motor >= 4) { R(1, 4, 2, 3, P.metal); R(13, 4, 2, 3, P.metal); }
-  s.disco(8 + o, 8 + o, 5, P.casco);
-  s.disco(8 + o, 8 + o, 3, t.nucleo >= 4 ? '#ffc14a' : t.nucleo >= 2 ? P.nucleo2 : P.nucleo);
-  s.disco(8 + o, 8 + o, 1, P.brilho);
-  if (temaYas) { // pequena flor/folha no casco
-    for (const [x, y] of [[7, 6], [9, 6], [7, 8], [9, 8]]) s.pixel(x + o, y + o, '#91a56b');
-    s.pixel(8 + o, 7 + o, '#e5b85c');
-  }
-  if (temaFer) { // crescente e centelha elétrica
-    for (const [x, y] of [[7, 6], [7, 7], [7, 8], [8, 8], [9, 8]]) s.pixel(x + o, y + o, '#9daaff');
-    s.pixel(9 + o, 6 + o, '#55e2e0'); s.pixel(10 + o, 5 + o, '#d6fbff');
-  }
-  if (t.casco >= 1) for (const [x, y] of [[2, 2], [12, 2], [2, 12], [12, 12]]) { R(x, y, 2, 2, P.metal); if (t.casco >= 3) s.pixel(x + o, y + o, P.brilho); }
-  if (t.ima >= 1) { s.pixel(8 + o, o - 1, P.alerta); if (t.ima >= 3) R(10, 0, 2, 1, temaYas ? '#e8d5b8' : temaFer ? '#aab6df' : '#c9cdd8'); }
-  s.contorno(t.casco >= 5 ? '#ffd23f' : t.casco >= 3 ? (temaYas ? '#d8b68e' : temaFer ? '#55e2e0' : '#8bd3ff') : P.contorno);
-  return { c: s.c, branca: silhuetaBranca(s.c) };
-}
-
-export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
+export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   const temaYas = tema === 'yas', temaFer = tema === 'fer';
   // Durante o desenvolvimento o Vite pode recarregar este módulo sem destruir a instância anterior.
   // Uma geração global faz o loop velho se encerrar no frame seguinte e evita dois jogos disputando a mesma aba.
@@ -232,7 +213,8 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     for (const el of [musicaChefe, musicaFim]) { el.muted = true; el.play().then(() => { el.pause(); el.currentTime = 0; el.muted = false; }).catch(() => { el.muted = false; faixasDestravadas = false; }); }
   }
   const fundo = criarFundo(L, A);
-  let naveSpr = gerarNave({ casco: 0, motor: 0, nucleo: 0, armas: 0, ima: 0 }, tema);
+  let naveSpr = gerarNave({ casco: 0, motor: 0, nucleo: 0, armas: 0, ima: 0 }, tema, projetoPadrao());
+  let chamasNave = chamasDaNave(projetoPadrao());
   let dados = carregarDados();
   const ultimoSom = {};
   const som = (cat, folga, fn) => { const t = performance.now(); if (t - (ultimoSom[cat] || 0) < folga) return; ultimoSom[cat] = t; fn(); };
@@ -250,13 +232,16 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
       else bip(1000, 0.03, 'square', 0.025); // inseto: estalinho
     });
   }
-  const salvarDados = () => { try { localStorage.setItem(CHAVE, JSON.stringify(dados)); } catch { /* ignora */ } };
+  const salvarDados = () => {
+    try { localStorage.setItem(CHAVE, JSON.stringify(dados)); } catch { /* ignora */ }
+    aoMudarNave?.(JSON.parse(JSON.stringify(dados.projeto)));
+  };
 
   // ---------- interface ----------
   const raiz = el('div'); raiz.id = 'arcade'; raiz.classList.toggle('tema-yas', temaYas); raiz.classList.toggle('tema-fer', temaFer);
   const caixa = el('div', 'arc-caixa');
   const topo = el('div', 'arc-topo');
-  const icone = document.createElement('canvas'); icone.width = icone.height = 20; icone.className = 'arc-icone';
+  const icone = document.createElement('canvas'); icone.width = icone.height = TAM_NAVE; icone.className = 'arc-icone';
   icone.getContext('2d').drawImage(naveSpr.c, 0, 0);
   const titulo = el('h2', null, temaYas ? 'NAVE VIAJANTE' : temaFer ? 'NAVE ABISSAL' : 'NAVE ARCADE');
   const hud = el('div', 'arc-hud');
@@ -349,10 +334,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
   }
   function atualizarNaveSpr() {
     const t = tiersNave();
-    naveSpr = gerarNave(t, tema);
+    naveSpr = gerarNave(t, tema, dados.projeto);
+    chamasNave = chamasDaNave(dados.projeto);
     if (S) S.tiers = t;
-    const ic = icone.getContext('2d'); ic.clearRect(0, 0, 20, 20); ic.drawImage(naveSpr.c, 0, 0);
+    const ic = icone.getContext('2d'); ic.clearRect(0, 0, TAM_NAVE, TAM_NAVE); ic.drawImage(naveSpr.c, 0, 0);
+    aoMudarNave?.(JSON.parse(JSON.stringify(dados.projeto)));
   }
+  atualizarNaveSpr();
 
   // o céu muda a cada fase e fica mais grandioso: nebulosas (fases 1-2), galáxias (3-4) e, depois, o mais sobrenatural do universo
   const regiaoAtual = () => {
@@ -373,15 +361,16 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
 
   function novoJogo() {
     const of = dados.oficina;
+    const mod = calcularEfeitosNave(dados.projeto);
     const elencoRun = sortearElenco();
     const temas = embaralhar(Array.from({ length: TEMAS.length }, (_, i) => i));
     const skinsRun = Object.fromEntries(elencoRun.map((tipo, i) => [tipo, temas[i % temas.length]]));
     const entradaRun = Object.fromEntries(elencoRun.map((tipo, i) => [tipo, i < 2 ? 1 : i < 4 ? 2 : i === 4 ? 4 : 5]));
     S = {
-      t: 0, ta: 0, nx: CX, ny: CY, cx: CX, cy: CY, velNave: 75 * (1 + 0.08 * of.motor), cristais: [], raioIma: 26 * (1 + 0.25 * of.ima), raioPegar: 8, bonusXp: 1 + 0.1 * of.xp,
+      t: 0, ta: 0, nx: CX, ny: CY, cx: CX, cy: CY, velNave: 75 * (1 + 0.08 * of.motor) * mod.velocidade, cristais: [], raioIma: 26 * (1 + 0.25 * of.ima) * mod.ima, raioPegar: 8, bonusXp: (1 + 0.1 * of.xp) * mod.xp,
       onda: 0, ondaEstado: 'calma', calmaT: 20, proxOnda: 20, ondaT: 0, ondaDur: 0, ondaFila: 0, ondaSpawnT: 0, combo: 0, comboT: 0, melhorCombo: 0, aviso: 0, avisoTxt: '', fase: 1,
-      hp: 6 + of.casco, maxHp: 6 + of.casco, armadura: of.armadura, nivel: 1, xp: 0, xpProx: 5, kills: 0,
-      dano: 1 + 0.25 * of.dano, danoGlobal: 1, recargaGlobal: (1 + 0.08 * of.cadencia) * (1 + 0.12 * of.nucleo), cadencia: 2.6, projeteis: 1 + of.projetil, perfura: 0, velTiro: 160, critico: 0,
+      hp: Math.max(3, 6 + of.casco + mod.vida), maxHp: Math.max(3, 6 + of.casco + mod.vida), armadura: of.armadura + mod.armadura, nivel: 1, xp: 0, xpProx: 5, kills: 0,
+      dano: (1 + 0.25 * of.dano) * mod.dano, danoGlobal: 1, recargaGlobal: (1 + 0.08 * of.cadencia) * (1 + 0.12 * of.nucleo) * mod.recarga, cadencia: 2.6 * mod.cadencia, projeteis: Math.min(4, 1 + of.projetil + mod.projeteis), perfura: mod.perfura, velTiro: 160, critico: mod.critico,
       inimigos: [], tiros: [], tirosInimigos: [], campos: [], raios: [], rochas: [], itens: [], parts: [], ondas: [], textos: [],
       spawnAcc: 0, recarga: 0.3, invul: 0, mira: 0, tremor: 0, flash: 0, niveis: {},
       imaT: 0, turboT: 0, escudoT: 0, buffDanoT: 0, buffVelT: 0, buffXpT: 0, proxEstrela: 10 + Math.random() * 8,
@@ -389,7 +378,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
       chefeIdx: Math.floor(Math.random() * CHEFES.length), alienIdx: Math.floor(Math.random() * ALIENS.length), chefe: null, chefesVencidos: 0, moedasRun: 0,
       skinBase: Math.floor(Math.random() * TEMAS.length), elencoRun, entradaRun, skinsRun,
       fundoBase: Math.floor(Math.random() * REGIOES.length),
-      movendo: false, tiers: null, upgFx: null,
+      movendo: false, angNave: 0, giro: mod.giro, tiers: null, upgFx: null,
       arma: 1, slots: [null, null, null],
       poderes: { laser: false, missil: false, orbes: false, turbo: false, cura: false, escudo: false, salto: false, drift: false },
       armasNivel: { normal: 1, laser: 0, missil: 0, orbes: 0, turbo: 0, cura: 0, escudo: 0, salto: 0, drift: 0 },
@@ -397,7 +386,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
       laserDano: 4.2 * (1 + 0.1 * of.lente), laserAlc: 66 * (1 + 0.1 * of.lente), recM: 1,
       missilT: 1, missilMax: 3.6, misseis: [], orbeAng: 0,
       boostE: 3, boostMax: 3, curaCd: 0, curaMax: 11, escudoCd: 0, escudoMax: 13, saltoCd: 0, saltoMax: 8, saltoCarga: 0, saltoCargaMax: 0.8, driftCd: 0, driftMax: 7, driftT: 0, driftAcc: 0, trilhasFogo: [], dirX: 0, dirY: -1,
-      barreiraMax: of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0, barreira: of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0, barreiraT: 0, tempoBarreira: 45 - 6 * of.escudo,
+      barreiraMax: (of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0) + mod.escudo, barreira: (of.escudo > 0 ? 1 + (of.escudo >= 4 ? 1 : 0) : 0) + mod.escudo, barreiraT: 0, tempoBarreira: 45 - 6 * of.escudo,
     };
     atualizarNaveSpr();
   }
@@ -969,6 +958,9 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     S.movendo = tam > 0.08;
     if (tam > 0.08) {
       S.dirX = mx / tam; S.dirY = my / tam;
+      const alvoAngulo = Math.atan2(S.dirY, S.dirX) + Math.PI / 2;
+      const diferenca = Math.atan2(Math.sin(alvoAngulo - S.angNave), Math.cos(alvoAngulo - S.angNave));
+      S.angNave += diferenca * Math.min(1, dt * 9 * (S.giro || 1)); // a nave vira para onde está indo; o giroscópio e o bocal vetorial a fazem virar mais rápido
       const ativa = S.arma >= 2 ? S.slots[S.arma - 2] : 'normal';
       const nvTurbo = S.armasNivel.turbo || 1, nvDrift = S.armasNivel.drift || 1;
       const multTurbo = ativa === 'turbo' && S.boostE > 0 ? 1.55 + 0.18 * (nvTurbo - 1) : 1;
@@ -1471,6 +1463,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
 
   function montarNave(nv) { // desenha a nave aberta (parte parada); as luzes e chamas são animadas por cima
     const s = novoSprite(128, 128);
+    const pp = pecasPrincipais(dados.projeto), mods = { chassi: pp.chassi, arma: pp.arma, propulsor: pp.motor, reator: pp.reator, eletronica: pp.placa };
     const AZ = temaYas ? '#496044' : temaFer ? '#172b59' : '#2e7de0';
     const CIN = temaYas ? '#b9a58b' : temaFer ? '#91a0c8' : '#8b93a8';
     const CIN2 = temaYas ? '#76513d' : temaFer ? '#354582' : '#5a6176';
@@ -1485,6 +1478,9 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     s.retangulo(0, 122, 128, 6, temaYas ? '#332b24' : temaFer ? '#090d24' : '#12172b'); // plataforma com faixas de alerta
     for (let i = 0; i < 128; i += 8) s.retangulo(i, 123, 4, 4, temaYas ? '#d8b68e' : temaFer ? '#55e2e0' : '#ffd23f');
     s.disco(62, 60, 38, AZ); // casco
+    if (mods.chassi === 'interceptor') { s.poligono([[58, 21], [94, 48], [103, 60], [94, 72], [58, 99]], AZ); s.poligono([[35, 31], [55, 43], [45, 49]], LAR); s.poligono([[35, 89], [55, 77], [45, 71]], LAR); }
+    else if (mods.chassi === 'blindado') { for (const [x, y, w, h] of [[29, 33, 16, 12], [29, 76, 16, 12], [77, 30, 17, 13], [78, 77, 17, 13]]) { s.retangulo(x, y, w, h, CIN); s.retangulo(x + 2, y + 2, w - 4, h - 4, CIN2); } }
+    else if (mods.chassi === 'modular') for (const [x, y] of [[34, 34], [88, 34], [34, 85], [88, 85]]) { s.disco(x, y, 5, CIN); s.disco(x, y, 2, temaFer ? '#55e2e0' : '#7dff9a'); }
     s.disco(65, 62, 33, ESC); // interior aberto
     s.elipse(46, 30, 7, 3, temaYas ? '#fff1d7' : temaFer ? '#d6fbff' : '#cfe9ff'); s.elipse(40, 36, 3, 2, temaYas ? '#d8b68e' : temaFer ? '#8faeff' : '#9cc9ff');
     for (const [x, y, w, h] of [[40, 44, 14, 9], [42, 70, 12, 10], [78, 44, 12, 8], [80, 72, 14, 9], [56, 84, 16, 7], [56, 36, 14, 7]]) { s.retangulo(x, y, w, h, CIN2); s.retangulo(x, y, w, 1, CIN); s.retangulo(x + 2, y + 3, w - 4, 2, '#2d3348'); }
@@ -1509,9 +1505,10 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
       const an = 2.6 + k * 0.5, px = Math.round(62 + Math.cos(an) * 35), py = Math.round(60 + Math.sin(an) * 35);
       s.retangulo(px - 2, py - 2, 5, 5, CIN2); s.retangulo(px - 1, py - 1, 3, 3, CIN3);
     }
-    const n = 1 + nv.projetil, len = 18 + Math.floor(nv.dano * 1.6);
+    const bonusCanos = mods.arma === 'duplo' ? 1 : mods.arma === 'dispersor' ? 2 : 0;
+    const n = Math.min(4, 1 + nv.projetil + bonusCanos), len = (mods.arma === 'rail' ? 28 : 18) + Math.floor(nv.dano * 1.6);
     for (let i = 0; i < n; i++) { // canhões laterais
-      const y = 48 + i * 9;
+      const y = 48 + i * (n > 3 ? 7 : 9);
       s.retangulo(88, y - 2, 8, 9, CIN); s.retangulo(90, y, len, 5, VERM); s.retangulo(90, y, len, 1, '#ff9a6a'); s.retangulo(90 + len, y - 1, 3, 7, CIN3);
       if (nv.lente > 0) s.disco(90 + len + 5, y + 2, 2, '#7be3ff');
       for (let k = 0; k < nv.cadencia; k++) s.retangulo(92 + k * 4, y + 1, 1, 3, '#ffd23f');
@@ -1520,9 +1517,15 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     s.poligono([[16, 50], [8, 44], [8, 78], [16, 72]], CIN2); s.poligono([[14, 54], [10, 50], [10, 72], [14, 68]], '#10131f');
     if (nv.motor >= 3) { s.retangulo(18, 76, 14, 6, CIN); s.retangulo(14, 76, 4, 6, CIN2); }
     if (nv.motor >= 2) { s.poligono([[28, 50], [32, 41], [36, 50]], LAR); s.poligono([[28, 72], [32, 81], [36, 72]], LAR); }
+    if (mods.propulsor === 'ionico') { s.retangulo(10, 48, 8, 8, CIN); s.retangulo(10, 67, 8, 8, CIN); s.retangulo(7, 50, 4, 4, '#55e2e0'); s.retangulo(7, 69, 4, 4, '#55e2e0'); }
+    else if (mods.propulsor === 'plasma') { s.disco(12, 61, 8, '#6c5cff'); s.disco(12, 61, 4, '#d6fbff'); }
+    else if (mods.propulsor === 'vetorial') for (const y of [48, 61, 74]) { s.retangulo(8, y, 9, 6, CIN2); s.retangulo(5, y + 1, 4, 4, '#7dff9a'); }
     s.retangulo(63, 10, 3, 14, CIN); s.disco(64, 8, 4, temaYas ? '#d88b55' : temaFer ? '#55e2e0' : '#e2243a'); s.pixel(63, 6, temaYas ? '#fff1d7' : temaFer ? '#d6fbff' : '#ffb3ba'); // antena
     for (let k = 0; k < Math.min(4, nv.ima); k++) s.elipse(72 + k * 5, 17 - k * 2, 4, 2, k % 2 ? CIN : CIN3);
     if (nv.xp > 0) { s.retangulo(55, 14, 2, 8, CIN); s.disco(56, 13, 2, '#7dff9a'); }
+    if (mods.eletronica === 'mira') { s.linha(72, 20, 82, 12, '#ff3b4a'); s.disco(83, 11, 3, '#ff3b4a'); }
+    else if (mods.eletronica === 'coletor') { s.elipse(48, 14, 11, 4, '#55e2e0'); s.linha(48, 14, 55, 23, CIN3); }
+    else if (mods.eletronica === 'overclock') for (const [x, y] of [[45, 45], [83, 45], [45, 78], [83, 78]]) { s.retangulo(x, y, 4, 4, '#7dff9a'); s.pixel(x + 1, y + 1, '#ffffff'); }
     s.contorno(temaYas ? '#241b17' : temaFer ? '#050817' : '#070a1a');
     return s.c;
   }
@@ -1532,23 +1535,32 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     const fx = fxOficina && t - fxOficina.t0 < 1.2 ? { i: fxOficina.i, u: (t - fxOficina.t0) / 1.2 } : null;
     gNave.clearRect(0, 0, 128, 128);
     if (naveBase) gNave.drawImage(naveBase, 0, 0);
-    const cor = nv.nucleo >= 4 ? ['#ff7a2a', '#ffc14a'] : nv.nucleo >= 2 ? ['#22b85a', '#7dff9a'] : (temaYas ? ['#b7683f', '#f2d7ae'] : temaFer ? ['#2f72ff', '#55e2e0'] : ['#2f8cff', '#8bd3ff']);
+    const pm = pecasPrincipais(dados.projeto);
+    const reator = pm.reator;
+    const cor = reator === 'fusao' ? ['#ff5a2a', '#ffc14a'] : reator === 'quantico' ? ['#6c5cff', '#d6a4ff'] : reator === 'solar' ? ['#e5b85c', '#fff3a0'] : nv.nucleo >= 4 ? ['#ff7a2a', '#ffc14a'] : nv.nucleo >= 2 ? ['#22b85a', '#7dff9a'] : (temaYas ? ['#b7683f', '#f2d7ae'] : temaFer ? ['#2f72ff', '#55e2e0'] : ['#2f8cff', '#8bd3ff']);
     const pulso = Math.sin(t * 4) > 0 ? 1 : 0;
     discoNave(65, 62, 9 + pulso, cor[0]); discoNave(65, 62, 6, cor[1]); discoNave(65, 62, 3, '#ffffff');
     gNave.fillStyle = cor[1]; for (let k = 0; k < 6; k++) { const an = t * 2 + (k * Math.PI) / 3; gNave.fillRect(Math.round(65 + Math.cos(an) * 12), Math.round(62 + Math.sin(an) * 12), 1, 1); }
-    const chama = (y) => { const comp = Math.round((8 + nv.motor * 3 + Math.floor(Math.random() * 4)) * (fx && fx.i === 1 ? 1 + 1.5 * (1 - fx.u) : 1)); for (let i = 0; i < comp; i++) { const h = Math.max(1, Math.round((1 - i / comp) * 12)); gNave.fillStyle = i < comp * 0.35 ? '#fff0a0' : i < comp * 0.7 ? '#ffc83d' : '#ff7a3a'; gNave.fillRect(7 - i, y - (h >> 1), 1, h); } };
-    chama(61); if (nv.motor >= 3) chama(79);
+    const chama = (y) => { const comp = Math.round((8 + nv.motor * 3 + Math.floor(Math.random() * 4)) * (fx && fx.i === 1 ? 1 + 1.5 * (1 - fx.u) : 1)); for (let i = 0; i < comp; i++) { const h = Math.max(1, Math.round((1 - i / comp) * 12)); gNave.fillStyle = pm.motor === 'ionico' ? (i < comp * .55 ? '#d6fbff' : '#55e2e0') : pm.motor === 'plasma' ? (i < comp * .55 ? '#d6a4ff' : '#6c5cff') : i < comp * 0.35 ? '#fff0a0' : i < comp * 0.7 ? '#ffc83d' : '#ff7a3a'; gNave.fillRect(7 - i, y - (h >> 1), 1, h); } };
+    chama(61); if (nv.motor >= 3 || pm.motor !== 'quimico') chama(79);
     if (Math.floor(t * 2) % 2) { gNave.fillStyle = '#ff9aa6'; gNave.fillRect(63, 6, 2, 2); }
-    const nCan = 1 + nv.projetil, len = 18 + Math.floor(nv.dano * 1.6);
-    if (Math.floor(t * 3) % 2) for (let i = 0; i < nCan; i++) { gNave.fillStyle = '#ffe14a'; gNave.fillRect(90 + len + 3, 48 + i * 9 + 2, 2, 1); }
-    const alfa = nv.escudo > 0 ? 0.35 + 0.13 * nv.escudo : 0.12;
+    const bonusCanos = pm.arma === 'duplo' ? 1 : pm.arma === 'dispersor' ? 2 : 0;
+    const nCan = Math.min(4, 1 + nv.projetil + bonusCanos), len = (pm.arma === 'rail' ? 28 : 18) + Math.floor(nv.dano * 1.6);
+    if (Math.floor(t * 3) % 2) for (let i = 0; i < nCan; i++) { gNave.fillStyle = '#ffe14a'; gNave.fillRect(90 + len + 3, 48 + i * (nCan > 3 ? 7 : 9) + 2, 2, 1); }
+    const escudoModulo = pm.reator === 'quantico' ? 1 : 0;
+    const alfa = nv.escudo > 0 || escudoModulo ? 0.35 + 0.13 * (nv.escudo + escudoModulo) : 0.12;
     gNave.globalAlpha = Math.min(1, alfa); gNave.fillStyle = '#7dff9a';
     for (const [raio, ativo] of [[48, true], [51, nv.escudo >= 4]]) {
       if (!ativo) continue;
       for (let k = 0; k < 72; k += 2) { const an = (k * Math.PI * 2) / 72 + t * 0.4; gNave.fillRect(Math.round(62 + Math.cos(an) * raio), Math.round(60 + Math.sin(an) * raio), 2, 2); }
     }
     gNave.globalAlpha = 1;
-    if (fx) efeitoParte(fx, nv);
+    if (fx && fx.i >= 0) efeitoParte(fx, nv);
+    else if (fx) { // instalar uma peça inteira ilumina a nave toda, sem apontar para um subsistema antigo
+      const u = fx.u; gNave.globalAlpha = 1 - u; gNave.strokeStyle = '#55e2e0';
+      const r = 42 + Math.round(u * 18); for (let k = 0; k < 64; k += 2) { const an = (k * Math.PI * 2) / 64; gNave.fillStyle = k % 4 ? '#55e2e0' : '#ffffff'; gNave.fillRect(Math.round(62 + Math.cos(an) * r), Math.round(60 + Math.sin(an) * r), 2, 2); }
+      gNave.globalAlpha = 1;
+    }
   }
   function efeitoParte(fx, nv) { // a peça melhorada brilha: anel que se expande, faíscas e um efeito próprio de cada parte
     const p = PARTES[fx.i], ax = Math.round(p.ancora[0] * 128), ay = Math.round(p.ancora[1] * 128), u = fx.u;
@@ -1581,15 +1593,25 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
   }
   window.addEventListener('resize', () => { if (modo === 'oficina') desenharLinhas(); });
 
+  // garagem: a bancada de montagem (aba MONTAGEM); a aba AJUSTE FINO mantém as melhorias permanentes por subsistema
+  let abaOficina = 'montagem', moedasOficinaEl = null;
+  const garagem = criarGaragem({
+    el, obterDados: () => dados, tema, bip,
+    aoMudar: () => { salvarDados(); atualizarNaveSpr(); atualizarBotoesMoedas(); if (moedasOficinaEl) moedasOficinaEl.textContent = `◆ ${dados.moedas}`; garagem.render(); },
+  });
+
   function renderOficina(destaque = -1, idDest = '') {
     const nv = dados.oficina;
     naveBase = montarNave(nv);
     const topo = el('div', 'of-topo');
     const voltar = el('button', 'arc-btn', 'VOLTAR [ESC]'); voltar.onclick = fecharOficina;
-    topo.append(el('h3', null, 'OFICINA · ENGENHARIA DA NAVE'), el('span', 'of-moedas', `◆ ${dados.moedas}`), voltar);
+    moedasOficinaEl = el('span', 'of-moedas', `◆ ${dados.moedas}`);
+    topo.append(el('h3', null, 'OFICINA · GARAGEM MECATRÔNICA'), moedasOficinaEl, voltar);
+    const abas = el('div', 'of-abas');
+    for (const [id, nome] of [['montagem', 'MONTAGEM DA NAVE'], ['ajuste', 'AJUSTE FINO · UPGRADES']]) { const b = el('button', `of-aba${abaOficina === id ? ' on' : ''}`, nome); b.onclick = () => { abaOficina = id; renderOficina(); }; abas.append(b); }
     const corpo = el('div', 'of-corpo');
     const esq = el('div', 'of-col'), dir = el('div', 'of-col'), centro = el('div', 'of-centro');
-    centro.append(canvasNave, el('p', null, 'Cada peça da nave tem melhorias permanentes. Moedas espaciais caem dos chefões e de alguns monstros.'));
+    centro.append(canvasNave, el('p', null, 'Melhorias permanentes por subsistema: elas somam com as peças montadas na aba MONTAGEM.'));
     PARTES.forEach((p, i) => {
       const card = el('div', i === destaque ? 'of-parte upgradiada' : 'of-parte'); card.dataset.i = String(i);
       if (i === destaque) card.append(el('span', 'of-selo', '▲ UPGRADE!'));
@@ -1610,15 +1632,21 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'of-svg');
     corpo.append(esq, centro, dir, svg);
     const rodape = el('p', 'of-rodape', 'ARMAS DE BORDO: toda run começa apenas com o canhão [1]. Laser, mísseis e orbes aparecem por sorte nos upgrades e ocupam os slots [2], [3] e [4].');
-    painelOficina.replaceChildren(topo, corpo, rodape);
-    animarNave(performance.now() / 1000);
-    requestAnimationFrame(desenharLinhas);
+    if (abaOficina === 'montagem') {
+      garagem.render();
+      painelOficina.replaceChildren(topo, abas, garagem.raiz, el('p', 'of-rodape', 'Clique num encaixe da nave, escolha a peça e acompanhe energia, calor e massa. Peças bloqueadas podem ser testadas em prévia sem gastar nada; fabricar custa moedas espaciais (uma vez só). A nave montada aparece no jogo e no planeta.'));
+    } else {
+      painelOficina.replaceChildren(topo, abas, corpo, rodape);
+      animarNave(performance.now() / 1000);
+      requestAnimationFrame(desenharLinhas);
+    }
   }
   function atualizarBotoesMoedas() { btnOficinaIni.textContent = `OFICINA (◆${dados.moedas})`; }
   function abrirOficina() {
     voltarPara = modo === 'fim' ? 'fim' : 'inicio';
     modo = 'oficina';
     painelInicio.hidden = true; painelFim.hidden = true;
+    abaOficina = 'montagem'; garagem.ao_abrir();
     renderOficina(); painelOficina.hidden = false;
     requestAnimationFrame(desenharLinhas);
   }
@@ -1819,11 +1847,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     const passo = Math.PI / 8, ang = Math.round(S.mira / passo) * passo;
     const nx = Math.round(S.nx), ny = Math.round(S.ny);
     const tr = S.tiers || { motor: 0, armas: 0, casco: 0, nucleo: 0, ima: 0 };
-    const chamaNave = (cx, cy, comp) => { for (let k = 0; k < comp; k++) { g.fillStyle = k < comp * 0.35 ? '#fff0a0' : k < comp * 0.7 ? '#ffc83d' : '#ff7a3a'; g.fillRect(cx - (k < comp * 0.6 ? 1 : 0), cy + k, k < comp * 0.6 ? 2 : 1, 1); } };
+    const chamaNave = (cx, cy, comp, cores) => { for (let k = 0; k < comp; k++) { g.fillStyle = k < comp * 0.35 ? cores[0] : k < comp * 0.7 ? cores[1] : cores[2]; g.fillRect(cx - (k < comp * 0.6 ? 1 : 0), cy + k, k < comp * 0.6 ? 2 : 1, 1); } };
     const armaAtiva = S.arma >= 2 ? S.slots[S.arma - 2] : 'normal', hiper = armaAtiva === 'turbo' && S.boostE > 0;
     const cmp = 2 + tr.motor + (S.movendo ? 3 : 0) + (S.turboT > 0 || hiper ? 3 : 0) + (S.driftT > 0 ? 5 : 0) + Math.floor(Math.random() * 2);
-    chamaNave(nx, ny + 8, cmp);
-    if (tr.motor >= 2) { chamaNave(nx - 5, ny + 7, Math.max(2, cmp - 3)); chamaNave(nx + 4, ny + 7, Math.max(2, cmp - 3)); }
+    g.save(); g.translate(nx, ny); g.rotate(S.angNave || 0);
+    for (const f of chamasNave) chamaNave(f.x - TAM_NAVE / 2, f.y - TAM_NAVE / 2, f.tipo === 'plasma' ? cmp + 2 : cmp, f.cores); // uma chama em cada motor instalado
+    if (tr.motor >= 2) for (const x of [-7, 7]) chamaNave(x, 7, Math.max(2, cmp - 3), ['#fff0a0', '#ffc83d', '#ff7a3a']);
+    g.restore();
     g.fillStyle = S.driftT > 0 ? '#ffffff' : S.turboT > 0 || hiper ? '#ff7a3a' : '#ffd23f';
     const nb = Math.min(4, S.projeteis), lenB = 5 + Math.min(4, Math.floor(tr.armas / 2)), px = -Math.sin(ang), py = Math.cos(ang);
     for (let b = 0; b < nb; b++) {
@@ -1831,10 +1861,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
       for (let k = 4; k <= 4 + lenB; k++) g.fillRect(Math.round(nx + Math.cos(ang) * k + px * off) - 1, Math.round(ny + Math.sin(ang) * k + py * off) - 1, 2, 2);
       if (dados.oficina.lente > 0) { g.fillStyle = '#7be3ff'; g.fillRect(Math.round(nx + Math.cos(ang) * (5 + lenB) + px * off) - 1, Math.round(ny + Math.sin(ang) * (5 + lenB) + py * off) - 1, 2, 2); g.fillStyle = S.turboT > 0 ? '#ff7a3a' : '#ffd23f'; }
     }
-    g.drawImage(piscando ? naveSpr.branca : naveSpr.c, nx - 10, ny - 10);
+    const desenharNaveRotacionada = (sprite, alpha = 1) => {
+      g.save(); g.globalAlpha *= alpha; g.translate(nx, ny); g.rotate(S.angNave || 0); g.drawImage(sprite, -TAM_NAVE / 2, -TAM_NAVE / 2); g.restore();
+    };
+    desenharNaveRotacionada(piscando ? naveSpr.branca : naveSpr.c);
     if (S.upgFx) { // brilho de upgrade: anel que se expande e a nave acende
       const u = 1 - S.upgFx.t / S.upgFx.max;
-      g.globalAlpha = 0.7 * (1 - u); g.drawImage(naveSpr.branca, nx - 10, ny - 10);
+      desenharNaveRotacionada(naveSpr.branca, 0.7 * (1 - u));
       g.globalAlpha = 1 - u; g.strokeStyle = '#ffe14a'; g.lineWidth = 2; g.beginPath(); g.arc(nx, ny, Math.max(0, 8 + u * 22), 0, Math.PI * 2); g.stroke();
       g.strokeStyle = '#ffffff'; g.lineWidth = 1; g.beginPath(); g.arc(nx, ny, Math.max(0, 5 + u * 14), 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
     }
@@ -1945,7 +1978,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
     const dt = Math.min((agora - ultimo) / 1000, 0.05);
     ultimo = agora;
     if (modo === 'jogando') atualizar(dt);
-    if (modo === 'oficina') animarNave(agora / 1000);
+    if (modo === 'oficina') { if (abaOficina === 'montagem') garagem.animar(agora / 1000); else animarNave(agora / 1000); }
     fundo.passo(dt);
     desenhar();
     atualizarHud();
@@ -2056,7 +2089,8 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
   // gancho só do modo dev: avança a simulação sem depender do relógio do navegador e força eventos (usado nos testes)
   if (import.meta.env.DEV) {
     window.__arcadeTeste = {
-      abrir, oficina: () => abrirOficina(),
+      abrir, oficina: () => abrirOficina(), dados: () => dados,
+      projeto(p) { dados.projeto = normalizarProjeto(p); for (const id of [dados.projeto.chassi, ...dados.projeto.pecas]) if (id && !dados.pecasLiberadas.includes(id)) dados.pecasLiberadas.push(id); salvarDados(); atualizarNaveSpr(); garagem.render(); return dados.projeto; },
       musicas: () => ({ normal: !musica.paused, chefe: !musicaChefe.paused, fim: !musicaFim.paused, tN: +musica.currentTime.toFixed(1), tC: +musicaChefe.currentTime.toFixed(1), estadoC: musicaChefe.readyState, errC: musicaChefe.error && musicaChefe.error.code, volC: musicaChefe.volume, mudoC: musicaChefe.muted }),
       mirar(x, y) { ponteiro.ativo = x != null; if (x != null) { ponteiro.x = x - (S.cx - L / 2); ponteiro.y = y - (S.cy - A / 2); } },
       inimigosXY: () => S.inimigos.map((m) => [Math.round(m.x - S.nx), Math.round(m.y - S.ny)]),
@@ -2104,7 +2138,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao' }) {
           if (modo === 'jogando') atualizar(0.05);
         }
         desenhar(); atualizarHud();
-        return { modo, t: S && S.t, hp: S && S.hp, armadura: S && S.armadura, niveisNave: S && { dano: S.niveis.dano_geral | 0, vida: S.niveis.reparo | 0, velocidade: S.niveis.motor | 0, recarga: S.niveis.recarga_geral | 0 }, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, iaAlien: S && S.alien ? { estado: S.alien.estado, memoria: [...S.alien.memoria], plano: [...S.alien.plano], distancia: Math.round(Math.hypot(S.alien.x - S.nx, S.alien.y - S.ny)) } : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
+        return { modo, ang: S && +S.angNave.toFixed(2), giro: S && S.giro, t: S && S.t, hp: S && S.hp, armadura: S && S.armadura, niveisNave: S && { dano: S.niveis.dano_geral | 0, vida: S.niveis.reparo | 0, velocidade: S.niveis.motor | 0, recarga: S.niveis.recarga_geral | 0 }, nivel: S && S.nivel, kills: S && S.kills, fase: S && S.fase, onda: S && S.onda, ondaEstado: S && S.ondaEstado, ondaT: S && +S.ondaT.toFixed(1), combo: S && S.combo, inimigos: S && S.inimigos.length, rochas: S && S.rochas.length, itens: S && S.itens.length, cristais: S && S.cristais.length, chefe: S && !!S.chefe, chefeHp: S && S.chefe && S.chefe.hp, alien: S && !!S.alien, alienHp: S && S.alien && S.alien.hp, buraco: S && !!S.buraco, poderes: S && Object.keys(S.poderes).filter((k) => S.poderes[k]), armasNivel: S && { ...S.armasNivel }, elenco: S && [...S.elencoRun], arma: S && S.arma, laserE: S && +S.laserE.toFixed(2), quente: S && S.laserQuente, misseis: S && S.misseis.length, skinBase: S && S.skinBase, projeteis: S && S.projeteis, ataqueAlien: S && S.alien ? S.alien.ataque : null, iaAlien: S && S.alien ? { estado: S.alien.estado, memoria: [...S.alien.memoria], plano: [...S.alien.plano], distancia: Math.round(Math.hypot(S.alien.x - S.nx, S.alien.y - S.ny)) } : null, tiros: S && S.tiros.length, alienXY: S && S.alien ? [Math.round(S.alien.x), Math.round(S.alien.y)] : null, imaT: S && +S.imaT.toFixed(1), aliensVencidos: S && S.aliensVencidos, barreira: S && S.barreira, moedas: dados.moedas, campos: S && S.campos.length, raios: S && S.raios.length, estadoAlien: S && S.alien && S.alien.estado, tirosInimigos: S && S.tirosInimigos.length, nx: S && Math.round(S.nx), ny: S && Math.round(S.ny) };
       },
     };
   }

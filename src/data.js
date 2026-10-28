@@ -168,7 +168,7 @@ export const zonas = [
     blocos: [
       { tipo: 'texto', texto: 'A nave atira sozinha e você a pilota pelo espaço enquanto monstrinhos chegam de todos os lados. Cada um solta cristais de XP; tem rochas com itens, estrelas de poder, buracos negros com um alienígena e chefões.' },
       { tipo: 'estatisticas', fonte: 'arcade' },
-      { tipo: 'dica', texto: 'As moedas espaciais compram melhorias permanentes na Oficina da nave.' },
+      { tipo: 'dica', texto: 'As moedas espaciais fabricam chassis, armas, propulsores, reatores e placas eletrônicas. A montagem aparece na nave do planeta e dentro do arcade.' },
     ],
   },
 ];

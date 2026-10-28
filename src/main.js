@@ -7,6 +7,8 @@ import { montarPainel } from './painel.js';
 import { iniciarMusicaAmbiente } from './musica.js';
 import { criarJasmim, criarMazzy, soltarCoracoes, lerCarinhos, guardarCarinhos } from './carinhos.js';
 import { criarFutebol } from './futebol.js';
+import { construirPecas3D, formaDoCasco } from './naveModelo3d.js';
+import { PINTURAS } from './naveModular.js';
 
 // ---------- constantes ----------
 const ROTA_PERSONAGEM = location.pathname.match(/(?:^|\/)(yas|fer)\/?$/i)?.[1]?.toLowerCase() || 'padrao';
@@ -515,8 +517,8 @@ function modelo(tipo, cor) {
       const vidro = mat(corVidro, { emissive: USA_PERSONAGEM_YAS ? 0xb7683f : USA_PERSONAGEM_FER ? 0x146fa0 : 0x4aa8ff, emissiveIntensity: 0.6 });
       const aleta = mat(corAleta, { emissive: USA_PERSONAGEM_YAS ? 0x6f3426 : USA_PERSONAGEM_FER ? 0x342278 : 0x8a3a20, emissiveIntensity: 0.3 });
       const metalNave = USA_PERSONAGEM_YAS ? mat(0xb9a58b) : USA_PERSONAGEM_FER ? mat(0x91a0c8) : metal;
-      add(new THREE.SphereGeometry(0.95, 16, 12), casco, 0, 1.85, 0).scale.set(1, 0.85, 1); // casco redondo, como no sprite
-      add(new THREE.TorusGeometry(0.92, 0.05, 8, 28), metalNave, 0, 1.85, 0).rotation.x = Math.PI / 2; // anel do casco
+      const cascoBase = add(new THREE.SphereGeometry(0.95, 16, 12), casco, 0, 1.85, 0); cascoBase.scale.set(1, 0.85, 1); cascoBase.name = 'nave-casco-base'; // casco redondo, como no sprite
+      const anelBase = add(new THREE.TorusGeometry(0.92, 0.05, 8, 28), metalNave, 0, 1.85, 0); anelBase.rotation.x = Math.PI / 2; anelBase.name = 'nave-anel-base'; // anel do casco
       add(new THREE.SphereGeometry(0.58, 14, 10), vidro, 0, 2.15, 0.35); // cabine
       add(new THREE.SphereGeometry(0.2, 8, 8), mat(USA_PERSONAGEM_YAS ? 0xfff1d7 : USA_PERSONAGEM_FER ? 0xd6fbff : 0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.9 }), 0.1, 2.35, 0.8); // brilho no vidro
       for (let k = 0; k < 4; k++) { // quatro aletas laranjas
@@ -530,7 +532,7 @@ function modelo(tipo, cor) {
         p.rotation.z = Math.cos(ang) * 0.3; p.rotation.x = -Math.sin(ang) * 0.3;
         add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), metalNave, Math.cos(ang) * 0.78, 0.12, Math.sin(ang) * 0.78);
       }
-      add(new THREE.ConeGeometry(0.3, 0.55, 10), mat(0xffd23f, { emissive: 0xff7a3a, emissiveIntensity: 1 }), 0, 1.05, 0).rotation.x = Math.PI; // chama do motor
+      const chamaBase = add(new THREE.ConeGeometry(0.3, 0.55, 10), mat(0xffd23f, { emissive: 0xff7a3a, emissiveIntensity: 1 }), 0, 1.05, 0); chamaBase.rotation.x = Math.PI; chamaBase.name = 'nave-chama-base'; // chama do motor
       cil(0.03, 0.03, 0.6, metalNave, 0, 2.95, 0, 6); // antena
       esfera(0.1, mat(USA_PERSONAGEM_YAS ? 0xd88b55 : USA_PERSONAGEM_FER ? 0x55e2e0 : 0xff3b4a, { emissive: USA_PERSONAGEM_YAS ? 0xb7683f : USA_PERSONAGEM_FER ? 0x2f72ff : 0xff3b4a, emissiveIntensity: 0.8 }), 0, 3.28, 0);
       if (USA_PERSONAGEM_YAS) { // emblema botânico e adesivos de viagem no casco
@@ -544,6 +546,8 @@ function modelo(tipo, cor) {
         const crescente = add(new THREE.TorusGeometry(.18,.05,7,20,Math.PI * 1.45), luaM, 0, 1.93, .91); crescente.rotation.z = -.65;
         for (const [x, y, cor] of [[-.5,1.62,0x55e2e0],[.5,1.7,0x8b6cff]]) { const cristal = add(new THREE.ConeGeometry(.075,.28,5), mat(cor,{emissive:cor,emissiveIntensity:.7}), x, y, .83); cristal.rotation.z = x * .4; }
       }
+      // Peças da garagem mecatrônica: o grupo é reconstruído quando você monta a nave no arcade (ver aplicarModulosNavePlaneta).
+      const pecasNave = new THREE.Group(); pecasNave.name = 'nave-pecas'; pecasNave.userData.ctx = { mat, metal: metalNave, casco, aleta, cascoOriginal: casco.color.getHex(), aletaOriginal: aleta.color.getHex() }; g.add(pecasNave);
       break;
     }
     case 'carta': { // caixa de correio grande de rua: poste, corpo com tampa arredondada, bandeirinha, envelope e poste de luz
@@ -594,6 +598,24 @@ const estacoes = zonas.map((z, i) => {
   const gira = icone.getObjectByName('gira');
   return { raiz, anel, icone, topo, gira, giraY: gira ? gira.position.y : 0 };
 });
+
+// A garagem do arcade envia o projeto montado para a miniatura 3D do planeta: o chassi muda a silhueta e as peças aparecem nos encaixes.
+const indiceEstacaoNave = zonas.findIndex((z) => z.id === 'nave');
+function aplicarModulosNavePlaneta(projeto) {
+  const iconeNave = estacoes[indiceEstacaoNave]?.icone;
+  const pecas = iconeNave?.getObjectByName('nave-pecas');
+  if (!pecas) return;
+  for (const filho of [...pecas.children]) { pecas.remove(filho); filho.traverse((o) => { o.geometry?.dispose(); }); }
+  const novo = construirPecas3D(projeto, pecas.userData.ctx);
+  pecas.add(novo);
+  const ctx = pecas.userData.ctx, pintura = PINTURAS[projeto?.pintura | 0];
+  ctx.casco.color.set(pintura?.casco ?? ctx.cascoOriginal); ctx.aleta.color.set(pintura?.aleta ?? ctx.aletaOriginal); // a pintura escolhida na garagem
+  const forma = formaDoCasco(projeto?.chassi);
+  iconeNave.getObjectByName('nave-casco-base')?.scale.set(...forma.casco);
+  iconeNave.getObjectByName('nave-anel-base')?.scale.setScalar(forma.anel);
+  const chama = iconeNave.getObjectByName('nave-chama-base');
+  if (chama) chama.visible = false; // cada motor instalado tem a sua própria chama
+}
 
 // ---------- Jasmim e Mazzy ----------
 const jasmim = criarJasmim(mat), mazzy = criarMazzy();
@@ -970,7 +992,7 @@ function aplicarSkins(equipadas) {
   }
 }
 const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins, aoMudarFichas: (n) => { fichasHudEl.textContent = String(n); } });
-const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a), somAtivo: () => cassino.somAtivo(), tema: ROTA_PERSONAGEM });
+const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a), somAtivo: () => cassino.somAtivo(), tema: ROTA_PERSONAGEM, aoMudarNave: aplicarModulosNavePlaneta });
 const futebol = criarFutebol({ planeta, fincar, R, q, altura, NIVEL_MAR, dirsZonas, raioBloqueio, obstaculos, dirsSitios, camera, rotulosEl, camDir, bip: (...a) => cassino.bip(...a) });
 if (import.meta.env.DEV) window.__futebol = { ...futebol, aFrente: (rad, graus) => dirPolar(rad, graus).applyQuaternion(q.clone().invert()), mundo: (d) => d.clone().applyQuaternion(q) }; // só no servidor de desenvolvimento
 const musica = iniciarMusicaAmbiente({ somAtivo: () => cassino.somAtivo() });
