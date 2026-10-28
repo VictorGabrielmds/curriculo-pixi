@@ -26,20 +26,26 @@ export function construirPecas3D(projeto, { mat, metal }) {
       case 'rail': { const x = sx * 1.4; add(new THREE.BoxGeometry(0.22, 0.2, 1.8), metal, x, 2.05, 0.8); add(new THREE.BoxGeometry(0.07, 0.08, 1.9), ciano, x, 2.17, 0.82); break; }
       case 'dispersor': { const x = sx * 1.4; for (const d of [-1, 0, 1]) add(cil(0.07, 0.1, 0.95), d === 0 ? ciano : metal, x + d * 0.3, 2.0, 0.76, Math.PI / 2, 0, d * 0.5); break; }
       case 'bobina': { const x = sx * 1.4; for (let k = 0; k < 4; k++) add(new THREE.TorusGeometry(0.13, 0.04, 6, 10), k % 2 ? violeta : claro, x, 2.0, 0.55 + k * 0.2); add(new THREE.SphereGeometry(0.13, 8, 8), brilho(0xe6d2ff, 1.2), x, 2.0, 1.4); break; }
+      case 'gatling': { const x = sx * 1.4; for (let k = 0; k < 3; k++) { const a = (k * Math.PI * 2) / 3; add(cil(0.045, 0.055, 1.0, 6), k ? metal : claro, x + Math.cos(a) * 0.1, 2.0 + Math.sin(a) * 0.1, 0.82, Math.PI / 2); } add(cil(0.13, 0.13, 0.2, 8), escuro, x, 2.0, 0.4, Math.PI / 2); break; }
+      case 'lanca': { const x = sx * 1.4; add(cil(0.1, 0.14, 1.2), metal, x, 2.0, 0.85, Math.PI / 2); add(new THREE.SphereGeometry(0.15, 8, 8), brilho(0xff6a2a, 1.3), x, 2.0, 1.5); break; }
+      case 'singular': { const x = sx * 1.4; add(cil(0.09, 0.13, 1.3), metal, x, 2.0, 0.85, Math.PI / 2); add(new THREE.TorusGeometry(0.24, 0.05, 8, 18), violeta, x, 2.0, 1.35); add(new THREE.SphereGeometry(0.14, 10, 8), mat(0x05030f), x, 2.0, 1.35); break; }
       // ---- motores: bocais embaixo, com a chama do tipo do motor ----
-      case 'quimico': case 'ionico': case 'plasma': case 'vetorial': {
-        const x = sx * 1.7, z = -0.05, c = CHAMAS[e.peca.id], tam = e.peca.id === 'plasma' ? 1.2 : 0.9;
-        if (e.peca.id === 'plasma') add(new THREE.TorusGeometry(0.4, 0.1, 8, 20), violeta, x, 1.08, z, Math.PI / 2);
+      case 'quimico': case 'ionico': case 'plasma': case 'vetorial': case 'magneto': case 'antimateria': {
+        const x = sx * 1.7, z = -0.05, c = CHAMAS[e.peca.id], grande = e.peca.id === 'plasma' || e.peca.id === 'antimateria', tam = grande ? 1.2 : 0.9;
+        if (grande) add(new THREE.TorusGeometry(0.4, 0.1, 8, 20), e.peca.id === 'antimateria' ? brilho(0xff3bd4, 0.8) : violeta, x, 1.08, z, Math.PI / 2);
+        else if (e.peca.id === 'magneto') for (const d of [-1, 1]) add(new THREE.TorusGeometry(0.2, 0.05, 6, 14), ciano, x, 1.0 + d * 0.12, z, Math.PI / 2);
         else if (e.peca.id === 'vetorial') for (let k = 0; k < 3; k++) { const a = (k * Math.PI * 2) / 3, b = add(new THREE.ConeGeometry(0.13, 0.5, 8), verde, x + Math.cos(a) * 0.3, 0.95, z + Math.sin(a) * 0.3, Math.PI); b.rotation.z += Math.cos(a) * 0.3; b.rotation.x += Math.sin(a) * 0.3; }
         else add(cil(0.17, 0.24, 0.45, 10), metal, x, 1.08, z);
-        add(new THREE.ConeGeometry(e.peca.id === 'plasma' ? 0.34 : 0.2, 0.7 * tam, 10), brilho(cor(c[1]), 1.1), x, 0.66, z, Math.PI);
-        add(new THREE.ConeGeometry(e.peca.id === 'plasma' ? 0.2 : 0.11, 0.45 * tam, 8), brilho(cor(c[0]), 1.3), x, 0.78, z, Math.PI);
+        add(new THREE.ConeGeometry(grande ? 0.34 : 0.2, 0.7 * tam, 10), brilho(cor(c[1]), 1.1), x, 0.66, z, Math.PI);
+        add(new THREE.ConeGeometry(grande ? 0.2 : 0.11, 0.45 * tam, 8), brilho(cor(c[0]), 1.3), x, 0.78, z, Math.PI);
         break;
       }
       // ---- reatores: um cinturão luminoso em volta do casco ----
       case 'fusao': add(new THREE.TorusGeometry(1.0, 0.08, 8, 28), brilho(0xff7a2a, 1.1), 0, 1.87, 0, Math.PI / 2); break;
       case 'quantico': add(new THREE.IcosahedronGeometry(1.2, 1), new THREE.MeshBasicMaterial({ color: 0xa56bff, wireframe: true, transparent: true, opacity: 0.6 }), 0, 1.86, 0); break;
       case 'solar': for (const s of [-1, 1]) { add(new THREE.BoxGeometry(0.8, 0.05, 0.6), mat(0x3755a8, { emissive: 0x17285f, emissiveIntensity: 0.5 }), s * 1.3, 1.85, 0, 0, 0, s * 0.12); add(new THREE.BoxGeometry(0.1, 0.05, 0.1), metal, s * 0.98, 1.85, 0); } break;
+      case 'tokamak': add(new THREE.TorusGeometry(1.0, 0.1, 8, 28), brilho(0x7dff9a, 0.9), 0, 1.87, 0, Math.PI / 2); add(new THREE.TorusGeometry(1.0, 0.05, 6, 28), escuro, 0, 1.87, 0, 0, 0, 0); break;
+      case 'estelar': add(new THREE.SphereGeometry(0.42, 14, 10), brilho(0xcfe7ff, 1.3), 0, 1.9, 0); add(new THREE.TorusGeometry(1.0, 0.06, 8, 28), brilho(0x7da6ff, 1), 0, 1.87, 0, Math.PI / 2); break;
       case 'capacitor': for (const s of [-1, 1]) add(cil(0.1, 0.1, 0.4, 8), mat(0x2f8cff, { emissive: 0x153f85, emissiveIntensity: 0.6 }), s * 0.98, 1.85, -0.2); break;
       // ---- placas: componentes no topo da nave ----
       case 'analogica': add(new THREE.BoxGeometry(0.34, 0.1, 0.34), mat(0x3b4a45), sx * 1.2, 2.62, 0.1 + sy * 0.3); break;
@@ -47,12 +53,18 @@ export function construirPecas3D(projeto, { mat, metal }) {
       case 'coletor': { const x = sx * 1.2, z = 0.1 + sy * 0.3; add(cil(0.3, 0.3, 0.05, 18), ciano, x, 2.8, z, 0.35, 0, 0.2); add(cil(0.025, 0.025, 0.4, 6), metal, x, 2.65, z); break; }
       case 'overclock': { const x = sx * 1.2, z = 0.1 + sy * 0.3; add(new THREE.BoxGeometry(0.3, 0.1, 0.3), mat(0x1f6b4a), x, 2.62, z); for (const [dx, dz] of [[-0.1, -0.1], [0.1, 0.1]]) add(new THREE.BoxGeometry(0.1, 0.14, 0.1), verde, x + dx, 2.74, z + dz); break; }
       case 'giroscopio': add(new THREE.TorusGeometry(0.17, 0.04, 6, 14), claro, sx * 1.2, 2.7, 0.1 + sy * 0.3); break;
+      case 'tatica': { const x = sx * 1.2, z = 0.1 + sy * 0.3; add(new THREE.BoxGeometry(0.34, 0.1, 0.34), mat(0x1f4a6b), x, 2.62, z); add(new THREE.SphereGeometry(0.08, 8, 6), brilho(0xffd23f, 0.9), x, 2.74, z); break; }
+      case 'quantica': { const x = sx * 1.2, z = 0.1 + sy * 0.3; add(new THREE.BoxGeometry(0.34, 0.1, 0.34), mat(0x2a1a6b), x, 2.62, z); add(new THREE.IcosahedronGeometry(0.12, 0), brilho(0xa56bff, 1.1), x, 2.76, z); break; }
       // ---- módulos: caixas nas laterais ----
       case 'dissipador': { const x = sx * 1.35; for (let k = -1; k <= 1; k++) add(new THREE.BoxGeometry(0.06, 0.5, 0.5), k === 0 ? ciano : claro, x + k * 0.14, 1.75, sy * 0.5); break; }
       case 'barreira': { const x = sx * 1.3; add(new THREE.SphereGeometry(0.22, 10, 8), brilho(0x38c8ff, 1), x, 1.75, sy * 0.5); add(new THREE.TorusGeometry(0.34, 0.03, 6, 20), claro, x, 1.75, sy * 0.5, Math.PI / 2); break; }
       case 'blindagem': add(new THREE.BoxGeometry(0.22, 0.75, 0.55), mat(0x5a6176), sx * 1.38, 1.8, sy * 0.5); break;
       case 'bateria': add(cil(0.2, 0.2, 0.6, 10), escuro, sx * 1.32, 1.75, sy * 0.5); add(cil(0.21, 0.21, 0.12, 10), brilho(0x7dff9a, 0.9), sx * 1.32, 1.9, sy * 0.5); break;
       case 'ima': { const x = sx * 1.32; add(new THREE.TorusGeometry(0.26, 0.07, 6, 14, Math.PI), vermelho, x, 1.75, sy * 0.5, 0, 0, Math.PI); break; }
+      case 'criogenico': { const x = sx * 1.32; add(cil(0.2, 0.2, 0.7, 10), mat(0x8bd3ff, { emissive: 0x2a6f8c, emissiveIntensity: 0.6 }), x, 1.78, sy * 0.5); add(cil(0.21, 0.21, 0.1, 10), claro, x, 1.98, sy * 0.5); break; }
+      case 'supercap': { const x = sx * 1.34; add(new THREE.BoxGeometry(0.3, 0.55, 0.5), escuro, x, 1.76, sy * 0.5); add(new THREE.BoxGeometry(0.32, 0.08, 0.52), brilho(0xffd23f, 0.8), x, 1.98, sy * 0.5); break; }
+      case 'autorreparo': { const x = sx * 1.36; add(new THREE.BoxGeometry(0.26, 0.5, 0.5), escuro, x, 1.76, sy * 0.5); add(new THREE.BoxGeometry(0.28, 0.32, 0.08), brilho(0x7dff9a, 0.9), x, 1.78, sy * 0.5); add(new THREE.BoxGeometry(0.28, 0.08, 0.32), brilho(0x7dff9a, 0.9), x, 1.78, sy * 0.5); break; }
+      case 'fase': { const x = sx * 1.3; add(new THREE.SphereGeometry(0.2, 10, 8), brilho(0xa56bff, 1.1), x, 1.75, sy * 0.5); add(new THREE.TorusGeometry(0.34, 0.03, 6, 20), brilho(0xe6d2ff, 0.8), x, 1.75, sy * 0.5, Math.PI / 2); break; }
       default: break;
     }
   }
@@ -65,6 +77,12 @@ export function construirPecas3D(projeto, { mat, metal }) {
     for (const [x, z] of [[-0.85, -0.55], [0.85, -0.55], [-0.85, 0.55], [0.85, 0.55]]) add(new THREE.BoxGeometry(0.5, 0.35, 0.68), metal, x, 1.84, z, 0, 0, x * 0.12);
   } else if (proj.chassi === 'modular') {
     for (let k = 0; k < 6; k++) { const a = (k * Math.PI) / 3; add(new THREE.OctahedronGeometry(0.16, 0), k % 2 ? ciano : violeta, Math.cos(a) * 1.06, 1.86, Math.sin(a) * 1.06); }
+  } else if (proj.chassi === 'aurora') {
+    add(new THREE.OctahedronGeometry(0.34, 0), brilho(0x55e2e0, 0.9), 0, 2.0, 0.95).scale.set(0.6, 0.6, 1.9);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(1.0, 0.06, 0.42), mat(0xff7a3a), s * 1.15, 1.74, -0.25, 0, 0, s * -0.18);
+  } else if (proj.chassi === 'titan') {
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.5, 0.5, 1.5), metal, s * 1.05, 1.82, 0.1, 0, 0, s * 0.1);
+    add(new THREE.BoxGeometry(1.1, 0.2, 0.45), mat(0x5a6176), 0, 2.05, 0.95);
   }
   return g;
 }
@@ -73,6 +91,6 @@ export function construirPecas3D(projeto, { mat, metal }) {
 export function formaDoCasco(chassiId) {
   return {
     interceptor: { casco: [1, 0.7, 1.18], anel: 0.96 }, blindado: { casco: [1.14, 0.98, 1.14], anel: 1.12 },
-    modular: { casco: [1.06, 0.82, 1.06], anel: 1.06 },
+    modular: { casco: [1.06, 0.82, 1.06], anel: 1.06 }, aurora: { casco: [0.92, 0.72, 1.28], anel: 0.98 }, titan: { casco: [1.3, 1.08, 1.26], anel: 1.28 },
   }[chassiId] || { casco: [1, 0.85, 1], anel: 1 };
 }

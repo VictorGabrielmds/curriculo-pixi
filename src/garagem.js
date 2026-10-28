@@ -4,7 +4,7 @@
 import './garagem.css';
 import {
   CHASSIS, TIPOS, AJUSTES, PINTURAS, pecaPorId, chassiPorId, pecasDoTipo, normalizarProjeto, diagnosticarProjeto, calcularEfeitosNave,
-  descreverPeca, descreverChassi, resumoEfeitos, nomeProjetoNave, encaixesDoProjeto,
+  descreverPeca, descreverChassi, resumoEfeitos, nomeProjetoNave, encaixesDoProjeto, itemPorId, chefesFaltando,
 } from './naveModular.js';
 import { gerarNave, desenharBancada, iconePeca, iconeChassi, TAM_NAVE } from './naveDesenho.js';
 
@@ -21,6 +21,8 @@ export function criarGaragem({ el, obterDados, tema, bip, aoMudar }) {
   const ctx = canvas.getContext('2d');
   const dados = () => obterDados();
   const liberado = (id) => dados().pecasLiberadas.includes(id);
+  const faltamChefes = (item) => chefesFaltando(item, dados().chefesDerrotados); // chefões que ainda faltam derrotar para poder fabricar
+  const textoExige = (item) => `DERROTE ${item.exige} CHEFÕES (${Math.min(item.exige, dados().chefesDerrotados | 0)}/${item.exige})`;
   let spriteVisual = null, chaveSprite = '';
 
   // o projeto que a bancada mostra: o instalado ou, se houver prévia, ele com a peça (ou o chassi) em teste
@@ -41,7 +43,7 @@ export function criarGaragem({ el, obterDados, tema, bip, aoMudar }) {
   const emitir = (projeto) => { dados().projeto = normalizarProjeto(projeto); aoMudar(); };
   function comprar(id, custo) { // fabrica uma peça pela primeira vez
     if (liberado(id)) return true;
-    if (dados().moedas < custo) return false;
+    if (faltamChefes(itemPorId(id)) > 0 || dados().moedas < custo) return false;
     dados().moedas -= custo; dados().pecasLiberadas.push(id);
     return true;
   }
@@ -77,8 +79,9 @@ export function criarGaragem({ el, obterDados, tema, bip, aoMudar }) {
     const motores = encaixesDoProjeto(p).filter((e) => e.tipo === 'motor' && e.peca).length;
     for (let k = 0; k < 10; k++) bip(70 + k * 9 + motores * 12, 0.28, 'sawtooth', 0.025, k * 0.24);
     encaixesDoProjeto(p).filter((e) => e.tipo === 'arma' && e.peca).forEach((e, n) => {
-      const f = { canhao: 520, duplo: 600, rail: 900, dispersor: 700, bobina: 1100 }[e.peca.id] || 600;
-      for (let k = 0; k < 7; k++) bip(f - k * 8, 0.05, e.peca.id === 'rail' ? 'sawtooth' : 'square', 0.03, 0.2 + k * 0.3 + n * 0.1);
+      const f = { canhao: 520, duplo: 600, rail: 900, dispersor: 700, bobina: 1100, gatling: 480, lanca: 780, singular: 300 }[e.peca.id] || 600;
+      const rapido = e.peca.id === 'gatling', onda = ['rail', 'singular'].includes(e.peca.id) ? 'sawtooth' : 'square';
+      for (let k = 0; k < (rapido ? 18 : 7); k++) bip(f - k * 8, 0.05, onda, 0.03, 0.2 + k * (rapido ? 0.12 : 0.3) + n * 0.1);
     });
     dica = 'TESTE NA BANCADA: ligando motores, reator e armas.';
     render();
@@ -153,7 +156,9 @@ export function criarGaragem({ el, obterDados, tema, bip, aoMudar }) {
     const card = el('article', `gar-chassi${atual ? ' instalado' : ''}${emPrevia ? ' em-previa' : ''}`);
     const ic = iconeChassi(c.id, tema); ic.className = 'gar-icone-chassi';
     const lib = liberado(c.id);
-    card.append(ic, el('b', null, c.nome), el('small', null, lib ? (atual ? 'INSTALADO' : 'NA BANCADA') : `PROJETO ◆${c.custo}`));
+    const trancado = !lib && faltamChefes(c) > 0;
+    card.append(ic, el('b', null, c.nome), el('small', null, lib ? (atual ? 'INSTALADO' : 'NA BANCADA') : trancado ? `🔒 ${c.exige} CHEFÕES` : `PROJETO ◆${c.custo}`));
+    if (trancado) card.classList.add('trancada');
     card.title = `${c.resumo}\n${descreverChassi(c)}\nEncaixes: ${c.encaixes.map((e) => TIPOS[e.tipo].nome).join(', ')}`;
     card.onclick = () => { previa = atual ? null : { chassi: c.id }; selecionado = Math.min(selecionado, chassiPorId(c.id).encaixes.length - 1); render(); };
     return card;
@@ -176,6 +181,10 @@ export function criarGaragem({ el, obterDados, tema, bip, aoMudar }) {
     const botao = el('button', 'arc-btn pequeno');
     if (instalada) { botao.textContent = 'INSTALADA'; botao.disabled = true; }
     else if (lib) { botao.textContent = 'INSTALAR'; botao.onclick = (ev) => { ev.stopPropagation(); instalarPeca(encaixe.i, peca.id); }; }
+    else if (faltamChefes(peca) > 0) { // do topo da bancada: antes das moedas, pede experiência
+      card.classList.add('trancada'); card.append(el('p', 'gar-req', `🔒 ${textoExige(peca)} · ◆${peca.custo}`));
+      botao.textContent = `BLOQUEADA · ◆${peca.custo}`; botao.disabled = true; botao.title = `Faltam ${faltamChefes(peca)} chefões derrotados`;
+    }
     else { const falta = peca.custo - dados().moedas; botao.textContent = falta > 0 ? `FABRICAR ◆${peca.custo}` : `FABRICAR E INSTALAR ◆${peca.custo}`; botao.disabled = falta > 0; botao.title = falta > 0 ? `Faltam ${falta} moedas espaciais` : ''; botao.onclick = (ev) => { ev.stopPropagation(); instalarPeca(encaixe.i, peca.id); }; }
     card.append(botao);
     card.onclick = () => { previa = instalada ? null : { slot: encaixe.i, peca: peca.id }; render(); };
@@ -213,7 +222,9 @@ export function criarGaragem({ el, obterDados, tema, bip, aoMudar }) {
     if (previa?.chassi) {
       const c = chassiPorId(previa.chassi), lib = liberado(c.id), falta = c.custo - dados().moedas;
       const faixa = el('div', 'gar-faixa'); faixa.append(el('span', null, `${c.nome}: ${c.resumo} ${descreverChassi(c)}`));
-      const b = el('button', 'arc-btn pequeno', lib ? 'TROCAR DE CHASSI' : `FABRICAR ◆${c.custo}`); b.disabled = !lib && falta > 0; b.onclick = () => instalarChassi(c.id);
+      const trancado = !lib && faltamChefes(c) > 0;
+      if (trancado) faixa.append(el('span', 'gar-req', `🔒 ${textoExige(c)}`));
+      const b = el('button', 'arc-btn pequeno', lib ? 'TROCAR DE CHASSI' : trancado ? `BLOQUEADO · ◆${c.custo}` : `FABRICAR ◆${c.custo}`); b.disabled = !lib && (falta > 0 || trancado); b.onclick = () => instalarChassi(c.id);
       faixa.append(b); dir.append(faixa);
     }
     const tipo = TIPOS[enc.tipo];

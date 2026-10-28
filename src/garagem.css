@@ -56,7 +56,7 @@
 .gar-teste { width: 100%; }
 
 .gar-titulo { margin: 0; font-size: 10px; letter-spacing: 2px; color: #6fe8ff; }
-.gar-chassis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gar-chassis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .gar-chassi { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; text-align: center; cursor: pointer; background: #0d1737; border: 3px solid #274b91; }
 .gar-chassi:hover { border-color: #6fe8ff; }
 .gar-chassi.instalado { background: linear-gradient(145deg, #18335d, #102141); border-color: #6fe8ff; }
@@ -65,6 +65,10 @@
 .gar-chassi b { font-size: 9px; color: #fff; }
 .gar-chassi small { font-size: 7px; letter-spacing: 1px; color: #8f96c9; }
 .gar-chassi.instalado small { color: #7dff9a; }
+.gar-chassi.trancada { opacity: 0.8; border-color: #5a3a55; }
+.gar-chassi.trancada small { color: #ff9aa6; }
+.gar-peca.trancada { border-color: #5a3a55; }
+.gar-req { margin: 0; font-size: 9px; letter-spacing: 1px; color: #ff9aa6; }
 .gar-faixa { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 9px; font-size: 9px; line-height: 1.35; color: #ffe6b8; background: rgba(255, 179, 71, 0.12); border: 2px dashed #ffb347; }
 
 .gar-pecas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 7px; }

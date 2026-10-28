@@ -15,8 +15,13 @@ export const paletaDoTema = (tema) => PALETAS[tema] || PALETAS.padrao;
 export const CHAMAS = {
   quimico: ['#fff0a0', '#ffc83d', '#ff7a3a'], ionico: ['#ffffff', '#d6fbff', '#55e2e0'],
   plasma: ['#ffffff', '#d6a4ff', '#6c5cff'], vetorial: ['#ffffff', '#b8ffd0', '#7dff9a'],
+  magneto: ['#ffffff', '#bfe8ff', '#38c8ff'], antimateria: ['#ffffff', '#ffb8f0', '#ff3bd4'],
 };
-export const CORES_REATOR = { capacitor: ['#8bd3ff', '#2f8cff'], fusao: ['#ffc14a', '#ff5a2a'], quantico: ['#d6a4ff', '#6c5cff'], solar: ['#fff3a0', '#e5b85c'] };
+export const CORES_REATOR = {
+  capacitor: ['#8bd3ff', '#2f8cff'], fusao: ['#ffc14a', '#ff5a2a'], quantico: ['#d6a4ff', '#6c5cff'], solar: ['#fff3a0', '#e5b85c'],
+  tokamak: ['#7dff9a', '#1f6b4a'], estelar: ['#ffffff', '#7da6ff'],
+};
+export const COR_TIRO = { rail: '#38c8ff', bobina: '#d6a4ff', lanca: '#ff6a2a', singular: '#a56bff' }; // cor do tiro no teste da bancada (o resto é amarelo)
 
 // ---------- o casco de cada chassi ----------
 function desenharCasco(s, chassiId, P) {
@@ -36,6 +41,18 @@ function desenharCasco(s, chassiId, P) {
     for (const [x, y] of [[4, 8], [20, 8], [4, 16], [20, 16]]) { s.disco(x, y, 2, P.metal); s.pixel(x, y, P.nucleo2); }
     for (const [x0, y0, x1, y1] of [[6, 9, 5, 8], [18, 9, 19, 8], [6, 15, 5, 16], [18, 15, 19, 16]]) s.linha(x0, y0, x1, y1, P.metalEscuro);
     r(6, 12, 12, 1, P.metalEscuro);
+  } else if (chassiId === 'aurora') { // fuselagem longa de cristal com asas em lâmina
+    s.poligono([[8, 9], [1, 15], [3, 20], [8, 17]], P.aleta); s.poligono([[16, 9], [23, 15], [21, 20], [16, 17]], P.aleta);
+    s.poligono([[8, 11], [3, 15], [8, 15]], P.metalEscuro); s.poligono([[16, 11], [21, 15], [16, 15]], P.metalEscuro);
+    s.poligono([[12, 1], [16, 6], [17, 16], [14, 22], [10, 22], [7, 16], [8, 6]], P.casco);
+    r(11, 3, 2, 4, P.nucleo); s.pixel(11, 3, P.brilho);
+    for (const [x, y] of [[2, 16], [22, 16], [3, 19], [21, 19]]) s.pixel(x, y, P.nucleo2);
+    r(9, 14, 6, 1, P.metalEscuro);
+  } else if (chassiId === 'titan') { // casco largo e blindado, com ombreiras
+    s.poligono([[12, 1], [19, 3], [22, 9], [22, 18], [18, 22], [6, 22], [2, 18], [2, 9], [5, 3]], P.casco);
+    for (const [x, y, w, h] of [[2, 6, 4, 11], [18, 6, 4, 11]]) { r(x, y, w, h, P.metal); r(x + 1, y + 1, w - 2, h - 2, P.metalEscuro); r(x, y, w, 1, P.metal2); }
+    r(8, 2, 8, 2, P.metal2); r(7, 17, 10, 1, P.metalEscuro); r(11, 20, 2, 3, P.aleta);
+    for (const [x, y] of [[4, 4], [19, 4], [4, 20], [19, 20]]) s.pixel(x, y, P.ouro);
   } else { // explorador
     r(5, 11, 3, 2, P.aleta); r(16, 11, 3, 2, P.aleta); r(11, 5, 2, 3, P.aleta); r(11, 16, 2, 3, P.aleta);
     s.disco(12, 12, 5, P.casco);
@@ -54,15 +71,22 @@ function desenharPeca(s, peca, cx, cy, P) {
     case 'rail': r(-2, -1, 4, 3, P.metal); r(-2, -7, 1, 6, P.metal2); r(1, -7, 1, 6, P.metal2); r(-1, -7, 2, 6, '#38c8ff'); p(-2, -8, P.brilho); p(1, -8, P.brilho); break;
     case 'dispersor': r(-4, -1, 8, 3, P.metal); r(-4, -3, 1, 2, P.metal2); r(-1, -4, 2, 3, P.metal2); r(3, -3, 1, 2, P.metal2); p(-4, -4, '#ffe14a'); r(-1, -5, 2, 1, '#ffe14a'); p(3, -4, '#ffe14a'); break;
     case 'bobina': r(-2, -1, 4, 3, P.metal); r(-1, -4, 2, 3, '#a56bff'); p(-1, -3, '#e6d2ff'); p(0, -2, '#e6d2ff'); d(0, -6, 1, '#e6d2ff'); p(0, -7, '#ffffff'); break;
+    case 'gatling': r(-3, -1, 6, 3, P.metal); r(-2, -6, 5, 5, P.metalEscuro); for (const x of [-2, 0, 2]) { r(x, -6, 1, 5, P.metal2); p(x, -7, '#ffe14a'); } break;
+    case 'lanca': r(-2, -1, 4, 3, P.metal); r(-2, -6, 1, 5, P.metal2); r(1, -6, 1, 5, P.metal2); r(-1, -6, 2, 5, '#ff6a2a'); p(-1, -7, '#ffd23f'); p(0, -7, '#ffffff'); p(1, -7, '#ffd23f'); break;
+    case 'singular': r(-3, -1, 6, 3, P.metal); r(-1, -9, 2, 3, P.metal2); d(0, -5, 3, '#6c5cff'); d(0, -5, 2, '#0b0820'); p(0, -5, '#ffffff'); p(-3, -5, '#d6a4ff'); p(3, -5, '#d6a4ff'); p(0, -10, '#d6a4ff'); break;
     // motores: o bloco fica no encaixe e a chama sai para baixo (desenhada à parte, animada)
     case 'quimico': r(-2, -2, 4, 4, P.metal); r(-2, -2, 4, 1, P.metal2); r(-1, 2, 2, 1, '#2d3348'); p(0, 1, '#ffa23a'); break;
     case 'ionico': r(-2, -2, 4, 3, P.metal); r(-2, 1, 4, 1, '#55e2e0'); r(-1, 2, 2, 1, '#d6fbff'); break;
     case 'plasma': d(0, 0, 2, '#6c5cff'); d(0, 0, 1, '#d6fbff'); r(-2, 2, 4, 1, '#a56bff'); break;
     case 'vetorial': r(-3, -1, 1, 3, P.metal); r(-1, -2, 2, 4, P.metal2); r(2, -1, 1, 3, P.metal); p(-3, 2, '#7dff9a'); r(-1, 2, 2, 1, '#7dff9a'); p(2, 2, '#7dff9a'); break;
+    case 'magneto': r(-3, -2, 6, 3, P.metal); r(-1, -1, 2, 3, P.metal2); r(-3, 1, 2, 1, '#38c8ff'); r(1, 1, 2, 1, '#38c8ff'); p(0, 2, '#d6fbff'); break;
+    case 'antimateria': d(0, 0, 2, '#ff3bd4'); d(0, 0, 1, '#ffe6fb'); r(-3, 2, 6, 1, '#ff3bd4'); p(-3, -1, P.metal2); p(3, -1, P.metal2); break;
     // reatores: o núcleo brilha no centro do casco
     case 'capacitor': d(0, 0, 3, '#2f6fb0'); d(0, 0, 2, CORES_REATOR.capacitor[0]); p(-3, 0, P.metalEscuro); p(3, 0, P.metalEscuro); p(0, 0, P.brilho); break;
     case 'fusao': d(0, 0, 3, '#ff5a2a'); d(0, 0, 2, '#ffc14a'); for (const [x, y] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) p(x, y, '#ffd23f'); p(0, 0, P.brilho); break;
     case 'quantico': d(0, 0, 3, '#6c5cff'); d(0, 0, 2, '#d6a4ff'); for (const [x, y] of [[0, -4], [4, 0], [0, 4], [-4, 0]]) p(x, y, '#e6d2ff'); p(0, 0, P.brilho); break;
+    case 'tokamak': d(0, 0, 4, '#1f6b4a'); d(0, 0, 2, '#0b0820'); for (const [x, y] of [[-3, 0], [3, 0], [0, -3], [0, 3], [-2, -2], [2, -2], [-2, 2], [2, 2]]) p(x, y, '#7dff9a'); p(0, 0, P.brilho); break;
+    case 'estelar': d(0, 0, 4, '#7da6ff'); d(0, 0, 3, '#cfe7ff'); d(0, 0, 2, '#ffffff'); for (const [x, y] of [[0, -5], [5, 0], [0, 5], [-5, 0]]) p(x, y, '#cfe7ff'); for (const [x, y] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) p(x, y, '#7da6ff'); break;
     case 'solar': r(-7, -1, 3, 3, '#3755a8'); r(5, -1, 3, 3, '#3755a8'); p(-6, 0, '#7da6ff'); p(6, 0, '#7da6ff'); d(0, 0, 3, '#e5b85c'); d(0, 0, 2, '#fff3a0'); p(0, 0, P.brilho); break;
     // placas eletrônicas: chips com LEDs
     case 'analogica': r(-1, -1, 3, 3, '#3b4a45'); p(0, 0, '#8bd3ff'); break;
@@ -70,12 +94,18 @@ function desenharPeca(s, peca, cx, cy, P) {
     case 'coletor': r(-1, -1, 3, 3, '#1f6b4a'); r(-1, -2, 3, 1, '#55e2e0'); p(0, 0, '#d6fbff'); break;
     case 'overclock': r(-1, -1, 3, 3, '#1f6b4a'); p(-1, -1, '#7dff9a'); p(1, 1, '#7dff9a'); p(0, 0, '#ff7a3a'); p(1, -1, '#ffd23f'); break;
     case 'giroscopio': d(0, 0, 2, P.metal2); p(0, 0, '#38c8ff'); p(-2, 0, P.metalEscuro); p(2, 0, P.metalEscuro); break;
+    case 'tatica': r(-1, -1, 3, 3, '#1f4a6b'); p(1, -1, '#ffd23f'); p(-1, 1, '#ffd23f'); p(0, 0, '#38c8ff'); break;
+    case 'quantica': r(-1, -1, 3, 3, '#2a1a6b'); p(-1, -1, '#a56bff'); p(1, 1, '#a56bff'); p(1, -1, '#38e8ff'); p(-1, 1, '#38e8ff'); p(0, 0, '#e6d2ff'); break;
     // módulos: caixas encaixadas nas laterais
     case 'dissipador': r(-2, -2, 4, 4, P.metal2); r(-1, -2, 1, 4, '#8bd3ff'); r(1, -2, 1, 4, '#8bd3ff'); break;
     case 'barreira': d(0, 0, 2, '#2f8cff'); d(0, 0, 1, '#d6fbff'); p(-3, 0, '#38c8ff'); p(3, 0, '#38c8ff'); p(0, -3, '#38c8ff'); p(0, 3, '#38c8ff'); break;
     case 'blindagem': r(-2, -3, 4, 6, P.metalEscuro); r(-2, -3, 4, 1, P.metal2); p(-1, -1, P.metal2); p(0, 1, P.metal2); break;
     case 'bateria': r(-2, -2, 4, 4, '#10131f'); r(-1, -1, 1, 2, '#7dff9a'); r(1, -1, 1, 2, '#7dff9a'); p(0, -2, '#ffd23f'); break;
     case 'ima': r(-2, -2, 1, 4, '#ff3b4a'); r(1, -2, 1, 4, '#3f8cff'); r(-2, 1, 4, 1, P.metal2); break;
+    case 'criogenico': r(-2, -3, 4, 6, '#8bd3ff'); r(-1, -3, 2, 6, '#d6fbff'); p(-2, -3, P.metal2); r(-2, 0, 4, 1, '#38c8ff'); break;
+    case 'supercap': r(-3, -2, 6, 4, '#10131f'); r(-3, -2, 6, 1, '#ffd23f'); p(-2, 0, '#7dff9a'); p(0, 0, '#7dff9a'); p(2, 0, '#7dff9a'); break;
+    case 'autorreparo': r(-2, -2, 4, 4, '#10131f'); r(-1, 0, 3, 1, '#7dff9a'); r(0, -1, 1, 3, '#7dff9a'); p(-2, -2, P.metal2); p(1, 1, P.metal2); break;
+    case 'fase': d(0, 0, 3, '#a56bff'); d(0, 0, 2, '#0b0820'); d(0, 0, 1, '#e6d2ff'); p(-4, 0, '#38c8ff'); p(3, 0, '#38c8ff'); break;
     default: break;
   }
 }
@@ -149,7 +179,7 @@ export function desenharBancada(ctx, sprite, projeto, t, opcoes = {}) {
   const encaixes = encaixesDoProjeto(projeto);
   // chamas dos motores
   for (const f of chamasDaNave(projeto)) {
-    const intensidade = teste ? 1.8 : 1, comp = Math.round((3 + Math.floor((Math.sin(t * 22 + f.x) + 1) * 1.5)) * intensidade * (f.tipo === 'plasma' ? 1.5 : 1));
+    const intensidade = teste ? 1.8 : 1, comp = Math.round((3 + Math.floor((Math.sin(t * 22 + f.x) + 1) * 1.5)) * intensidade * (f.tipo === 'plasma' || f.tipo === 'antimateria' ? 1.5 : 1));
     for (let k = 0; k < comp; k++) {
       ctx.fillStyle = k < comp * 0.35 ? f.cores[0] : k < comp * 0.7 ? f.cores[1] : f.cores[2];
       const larg = k < comp * 0.6 ? 2 : 1;
@@ -166,7 +196,7 @@ export function desenharBancada(ctx, sprite, projeto, t, opcoes = {}) {
   // armas disparando no teste
   if (teste) {
     for (const e of encaixes) if (e.tipo === 'arma' && e.peca && Math.floor(t * 9 + e.x) % 2) {
-      const n = e.peca.proj || 1, cor = e.peca.id === 'rail' ? '#38c8ff' : e.peca.id === 'bobina' ? '#d6a4ff' : '#ffe14a';
+      const n = e.peca.proj || 1, cor = COR_TIRO[e.peca.id] || '#ffe14a';
       for (let k = 0; k < n; k++) { const dx = (k - (n - 1) / 2) * 2; ctx.fillStyle = cor; ctx.fillRect((e.x + dx) * K, (e.y - 9 - ((t * 40) % 8)) * K, K, K * 3); }
     }
   }

@@ -2,6 +2,7 @@
 // de encaixe. Cada peça pesa, consome energia (W) e esquenta (°C): a soma tem de caber no reator e no sistema de arrefecimento,
 // senão a nave sofre subtensão ou superaquecimento. Dois ajustes finos (clock da eletrônica e tensão do reator) levam tudo ao limite.
 // Este catálogo é usado pela oficina, pelo sprite do arcade e pela nave 3D do planeta.
+// Preços em moedas espaciais (◆): o equipamento comum custa de 12 a 55; o do topo custa de 90 a 120 e ainda exige derrotar chefões ("exige").
 
 export const TIPOS = {
   arma: { nome: 'ARMA', cor: '#ff7a59', icone: '⌁', plural: 'ARMAS' },
@@ -22,7 +23,7 @@ export const CHASSIS = [
     ],
   },
   {
-    id: 'interceptor', nome: 'Interceptor Flecha', custo: 8, massa: 34, dissipacao: 20, bonus: { velocidade: 0.14, dano: 0.08, vida: -1 },
+    id: 'interceptor', nome: 'Interceptor Flecha', custo: 20, massa: 34, dissipacao: 20, bonus: { velocidade: 0.14, dano: 0.08, vida: -1 },
     resumo: 'Leve, afilado e agressivo: duas armas e dois motores, mas sem espaço para módulos.',
     encaixes: [
       { tipo: 'arma', x: 8, y: 8 }, { tipo: 'arma', x: 16, y: 8 }, { tipo: 'motor', x: 8, y: 17 }, { tipo: 'motor', x: 16, y: 17 },
@@ -30,7 +31,7 @@ export const CHASSIS = [
     ],
   },
   {
-    id: 'blindado', nome: 'Couraçado Tatu', custo: 12, massa: 62, dissipacao: 26, bonus: { vida: 3, armadura: 2, velocidade: -0.1 },
+    id: 'blindado', nome: 'Couraçado Tatu', custo: 28, massa: 62, dissipacao: 26, bonus: { vida: 3, armadura: 2, velocidade: -0.1 },
     resumo: 'Placas grossas e estrutura pesada: duas armas, dois módulos e muita resistência.',
     encaixes: [
       { tipo: 'arma', x: 7, y: 8 }, { tipo: 'arma', x: 17, y: 8 }, { tipo: 'motor', x: 12, y: 18 }, { tipo: 'reator', x: 12, y: 12 },
@@ -38,12 +39,30 @@ export const CHASSIS = [
     ],
   },
   {
-    id: 'modular', nome: 'Chassi Colmeia', custo: 18, massa: 48, dissipacao: 30, bonus: { vida: 1, recarga: 0.12, xp: 0.12 },
+    id: 'modular', nome: 'Chassi Colmeia', custo: 40, massa: 48, dissipacao: 30, bonus: { vida: 1, recarga: 0.12, xp: 0.12 },
     resumo: 'Baias e conectores experimentais: três placas, dois módulos e dois motores.',
     encaixes: [
       { tipo: 'arma', x: 12, y: 8 }, { tipo: 'motor', x: 8, y: 17 }, { tipo: 'motor', x: 16, y: 17 }, { tipo: 'reator', x: 12, y: 12 },
       { tipo: 'placa', x: 8, y: 9 }, { tipo: 'placa', x: 16, y: 9 }, { tipo: 'placa', x: 12, y: 16 },
       { tipo: 'modulo', x: 5, y: 12 }, { tipo: 'modulo', x: 19, y: 12 },
+    ],
+  },
+  {
+    id: 'aurora', nome: 'Fragata Aurora', custo: 65, massa: 52, dissipacao: 36, bonus: { recarga: 0.1, escudo: 1, ima: 0.15 },
+    resumo: 'Casco longo de cristal energético, com uma barreira embutida: duas armas, duas placas, dois motores e dois módulos.',
+    encaixes: [
+      { tipo: 'arma', x: 7, y: 8 }, { tipo: 'arma', x: 17, y: 8 }, { tipo: 'motor', x: 9, y: 19 }, { tipo: 'motor', x: 15, y: 19 },
+      { tipo: 'reator', x: 12, y: 12 }, { tipo: 'placa', x: 12, y: 6 }, { tipo: 'placa', x: 12, y: 16 },
+      { tipo: 'modulo', x: 5, y: 13 }, { tipo: 'modulo', x: 19, y: 13 },
+    ],
+  },
+  {
+    id: 'titan', nome: 'Titã Dreadnought', custo: 110, exige: 8, massa: 96, dissipacao: 48, bonus: { vida: 4, armadura: 3, velocidade: -0.22, dano: 0.1 },
+    resumo: 'Fortaleza voadora: três armas, três módulos e dois motores, com uma blindagem absurda e muito peso.',
+    encaixes: [
+      { tipo: 'arma', x: 6, y: 8 }, { tipo: 'arma', x: 12, y: 5 }, { tipo: 'arma', x: 18, y: 8 }, { tipo: 'motor', x: 8, y: 19 }, { tipo: 'motor', x: 16, y: 19 },
+      { tipo: 'reator', x: 12, y: 12 }, { tipo: 'placa', x: 12, y: 9 },
+      { tipo: 'modulo', x: 5, y: 14 }, { tipo: 'modulo', x: 19, y: 14 }, { tipo: 'modulo', x: 12, y: 16 },
     ],
   },
 ];
@@ -52,32 +71,45 @@ export const CHASSIS = [
 export const PECAS = [
   // ---- armas ----
   { id: 'canhao', tipo: 'arma', nome: 'Canhão de Pulso', custo: 0, massa: 6, consumo: 4, calor: 3, proj: 1, resumo: 'Bobina simples e eletroímã de disparo: confiável.' },
-  { id: 'duplo', tipo: 'arma', nome: 'Canhão Geminado', custo: 8, massa: 10, consumo: 7, calor: 5, proj: 2, bonus: { dano: -0.06 }, resumo: 'Dois eletroímãs sincronizados por um relé.' },
-  { id: 'rail', tipo: 'arma', nome: 'Railgun Linear', custo: 14, massa: 14, consumo: 12, calor: 8, proj: 1, bonus: { dano: 0.35, perfura: 2, cadencia: -0.18 }, resumo: 'Dois trilhos de cobre e um banco de capacitores aceleram o projétil.' },
-  { id: 'dispersor', tipo: 'arma', nome: 'Dispersor Tridente', custo: 16, massa: 12, consumo: 9, calor: 6, proj: 3, bonus: { cadencia: 0.08, dano: -0.18 }, resumo: 'Três bocas cobrem uma área maior.' },
-  { id: 'bobina', tipo: 'arma', nome: 'Bobina Tesla', custo: 15, massa: 9, consumo: 10, calor: 4, proj: 1, bonus: { critico: 0.1, perfura: 1 }, resumo: 'Arco elétrico que salta entre eletrodos e atravessa alvos.' },
+  { id: 'duplo', tipo: 'arma', nome: 'Canhão Geminado', custo: 18, massa: 10, consumo: 7, calor: 5, proj: 2, bonus: { dano: -0.06 }, resumo: 'Dois eletroímãs sincronizados por um relé.' },
+  { id: 'bobina', tipo: 'arma', nome: 'Bobina Tesla', custo: 30, massa: 9, consumo: 10, calor: 4, proj: 1, bonus: { critico: 0.1, perfura: 1 }, resumo: 'Arco elétrico que salta entre eletrodos e atravessa alvos.' },
+  { id: 'dispersor', tipo: 'arma', nome: 'Dispersor Tridente', custo: 32, massa: 12, consumo: 9, calor: 6, proj: 3, bonus: { cadencia: 0.08, dano: -0.18 }, resumo: 'Três bocas cobrem uma área maior.' },
+  { id: 'rail', tipo: 'arma', nome: 'Railgun Linear', custo: 36, massa: 14, consumo: 12, calor: 8, proj: 1, bonus: { dano: 0.35, perfura: 2, cadencia: -0.18 }, resumo: 'Dois trilhos de cobre e um banco de capacitores aceleram o projétil.' },
+  { id: 'gatling', tipo: 'arma', nome: 'Metralhadora Rotativa', custo: 44, massa: 15, consumo: 9, calor: 10, proj: 1, bonus: { cadencia: 0.4, dano: -0.14 }, resumo: 'Três canos giratórios: chove tiro, mas esquenta muito.' },
+  { id: 'lanca', tipo: 'arma', nome: 'Lança de Plasma', custo: 52, massa: 13, consumo: 11, calor: 7, proj: 1, bonus: { dano: 0.22, perfura: 1, critico: 0.05, cadencia: -0.08 }, resumo: 'Um filete de plasma superaquecido que fura e queima.' },
+  { id: 'singular', tipo: 'arma', nome: 'Canhão de Singularidade', custo: 120, exige: 12, massa: 22, consumo: 17, calor: 12, proj: 1, bonus: { dano: 0.5, perfura: 3, critico: 0.1, cadencia: -0.2 }, resumo: 'Dobra o espaço na boca do cano: o projétil leva um mini buraco negro.' },
   // ---- motores ----
   { id: 'quimico', tipo: 'motor', nome: 'Foguete Químico', custo: 0, massa: 8, consumo: 0, calor: 5, resumo: 'Robusto, quente e sem eletrônica: funciona até sem energia.' },
-  { id: 'ionico', tipo: 'motor', nome: 'Matriz Iônica', custo: 6, massa: 6, consumo: 4, calor: 1, bonus: { velocidade: 0.12 }, resumo: 'Jatos frios de íons, aceleração suave e precisa.' },
-  { id: 'plasma', tipo: 'motor', nome: 'Turbina de Plasma', custo: 12, massa: 11, consumo: 9, calor: 6, bonus: { velocidade: 0.22, recarga: 0.08 }, resumo: 'Empuxo violeta de altíssima energia.' },
-  { id: 'vetorial', tipo: 'motor', nome: 'Bocal Vetorial', custo: 18, massa: 9, consumo: 6, calor: 3, bonus: { velocidade: 0.16, armadura: 1, giro: 0.35 }, resumo: 'Microatuadores giram o bocal e corrigem a trajetória.' },
+  { id: 'ionico', tipo: 'motor', nome: 'Matriz Iônica', custo: 14, massa: 6, consumo: 4, calor: 1, bonus: { velocidade: 0.12 }, resumo: 'Jatos frios de íons, aceleração suave e precisa.' },
+  { id: 'plasma', tipo: 'motor', nome: 'Turbina de Plasma', custo: 28, massa: 11, consumo: 9, calor: 6, bonus: { velocidade: 0.22, recarga: 0.08 }, resumo: 'Empuxo violeta de altíssima energia.' },
+  { id: 'vetorial', tipo: 'motor', nome: 'Bocal Vetorial', custo: 38, massa: 9, consumo: 6, calor: 3, bonus: { velocidade: 0.16, armadura: 1, giro: 0.35 }, resumo: 'Microatuadores giram o bocal e corrigem a trajetória.' },
+  { id: 'magneto', tipo: 'motor', nome: 'Impulsor Magnético', custo: 40, massa: 8, consumo: 6, calor: 2, bonus: { velocidade: 0.18, giro: 0.25 }, resumo: 'Bobinas empurram a nave contra o campo do espaço: frio e ágil.' },
+  { id: 'antimateria', tipo: 'motor', nome: 'Propulsor de Antimatéria', custo: 100, exige: 8, massa: 12, consumo: 12, calor: 7, bonus: { velocidade: 0.34, recarga: 0.1, giro: 0.3 }, resumo: 'Aniquila partículas num bocal magnético: o empuxo mais forte que existe.' },
   // ---- reatores ----
   { id: 'capacitor', tipo: 'reator', nome: 'Banco de Capacitores', custo: 0, massa: 6, potencia: 14, calor: 4, resumo: 'Células simples de descarga rápida.' },
-  { id: 'fusao', tipo: 'reator', nome: 'Microfusão', custo: 8, massa: 10, potencia: 26, calor: 9, bonus: { recarga: 0.15 }, resumo: 'Plasma confinado num anel magnético.' },
-  { id: 'quantico', tipo: 'reator', nome: 'Núcleo Quântico', custo: 15, massa: 12, potencia: 34, calor: 12, bonus: { recarga: 0.25, escudo: 1 }, resumo: 'Energia instável dobrada no espaço.' },
-  { id: 'solar', tipo: 'reator', nome: 'Reator Fotônico', custo: 12, massa: 7, potencia: 20, calor: 2, bonus: { recarga: 0.08, xp: 0.18, ima: 0.2 }, resumo: 'Converte luz e cristais em energia, quase sem calor.' },
+  { id: 'fusao', tipo: 'reator', nome: 'Microfusão', custo: 20, massa: 10, potencia: 26, calor: 9, bonus: { recarga: 0.15 }, resumo: 'Plasma confinado num anel magnético.' },
+  { id: 'solar', tipo: 'reator', nome: 'Reator Fotônico', custo: 26, massa: 7, potencia: 20, calor: 2, bonus: { recarga: 0.08, xp: 0.18, ima: 0.2 }, resumo: 'Converte luz e cristais em energia, quase sem calor.' },
+  { id: 'quantico', tipo: 'reator', nome: 'Núcleo Quântico', custo: 36, massa: 12, potencia: 34, calor: 12, bonus: { recarga: 0.25, escudo: 1 }, resumo: 'Energia instável dobrada no espaço.' },
+  { id: 'tokamak', tipo: 'reator', nome: 'Anel Tokamak', custo: 50, massa: 13, potencia: 32, calor: 7, bonus: { recarga: 0.12 }, resumo: 'Fusão estável em anel: quase a força do quântico, bem mais fria.' },
+  { id: 'estelar', tipo: 'reator', nome: 'Núcleo de Anã Branca', custo: 115, exige: 12, massa: 18, potencia: 48, calor: 15, bonus: { recarga: 0.3, dano: 0.08, escudo: 1 }, resumo: 'Um pedaço de estrela morta preso num campo: energia de sobra.' },
   // ---- placas eletrônicas ----
   { id: 'analogica', tipo: 'placa', nome: 'Computador Analógico', custo: 0, massa: 2, consumo: 2, calor: 1, resumo: 'Poucos chips, nenhuma surpresa.' },
-  { id: 'mira', tipo: 'placa', nome: 'Coprocessador de Mira', custo: 7, massa: 3, consumo: 4, calor: 2, bonus: { dano: 0.08, critico: 0.08 }, resumo: 'Prevê o movimento dos alvos e corrige os disparos.' },
-  { id: 'coletor', tipo: 'placa', nome: 'LIDAR Coletor', custo: 7, massa: 3, consumo: 4, calor: 1, bonus: { xp: 0.15, ima: 0.45 }, resumo: 'Varre cristais e rotas de aproximação.' },
-  { id: 'overclock', tipo: 'placa', nome: 'Placa Overclock', custo: 16, massa: 4, consumo: 8, calor: 5, bonus: { dano: 0.16, recarga: 0.18, vida: -1 }, resumo: 'Clock brutal com refrigeração improvisada.' },
-  { id: 'giroscopio', tipo: 'placa', nome: 'Giroscópio MEMS', custo: 9, massa: 3, consumo: 5, calor: 1, bonus: { giro: 0.5, velocidade: 0.04 }, resumo: 'Sensor de rotação: a nave vira muito mais rápido.' },
+  { id: 'mira', tipo: 'placa', nome: 'Coprocessador de Mira', custo: 16, massa: 3, consumo: 4, calor: 2, bonus: { dano: 0.08, critico: 0.08 }, resumo: 'Prevê o movimento dos alvos e corrige os disparos.' },
+  { id: 'coletor', tipo: 'placa', nome: 'LIDAR Coletor', custo: 16, massa: 3, consumo: 4, calor: 1, bonus: { xp: 0.15, ima: 0.45 }, resumo: 'Varre cristais e rotas de aproximação.' },
+  { id: 'giroscopio', tipo: 'placa', nome: 'Giroscópio MEMS', custo: 20, massa: 3, consumo: 5, calor: 1, bonus: { giro: 0.5, velocidade: 0.04 }, resumo: 'Sensor de rotação: a nave vira muito mais rápido.' },
+  { id: 'overclock', tipo: 'placa', nome: 'Placa Overclock', custo: 32, massa: 4, consumo: 8, calor: 5, bonus: { dano: 0.16, recarga: 0.18, vida: -1 }, resumo: 'Clock brutal com refrigeração improvisada.' },
+  { id: 'tatica', tipo: 'placa', nome: 'Computador Tático', custo: 44, massa: 3, consumo: 7, calor: 3, bonus: { dano: 0.1, cadencia: 0.1, critico: 0.05 }, resumo: 'Distribui a mira e o ritmo de tiro entre todas as armas.' },
+  { id: 'quantica', tipo: 'placa', nome: 'Processador Quântico', custo: 95, exige: 8, massa: 4, consumo: 11, calor: 4, bonus: { dano: 0.18, critico: 0.14, recarga: 0.15, xp: 0.12 }, resumo: 'Calcula todos os futuros possíveis e escolhe o melhor tiro.' },
   // ---- módulos ----
-  { id: 'dissipador', tipo: 'modulo', nome: 'Dissipador de Calor', custo: 6, massa: 4, consumo: 1, calor: 0, dissipacao: 10, resumo: 'Aletas de cobre e uma ventoinha minúscula.' },
-  { id: 'barreira', tipo: 'modulo', nome: 'Gerador de Barreira', custo: 14, massa: 6, consumo: 7, calor: 3, bonus: { escudo: 1 }, resumo: 'Projeta uma barreira que absorve um golpe.' },
-  { id: 'blindagem', tipo: 'modulo', nome: 'Placa Balística', custo: 10, massa: 10, consumo: 0, calor: 1, bonus: { armadura: 2, vida: 1 }, resumo: 'Cerâmica e liga de titânio: pesada e resistente.' },
-  { id: 'bateria', tipo: 'modulo', nome: 'Banco de Baterias', custo: 8, massa: 7, consumo: 0, calor: 1, potencia: 10, resumo: 'Células extras de lítio para o reator respirar.' },
-  { id: 'ima', tipo: 'modulo', nome: 'Bobina de Atração', custo: 7, massa: 3, consumo: 3, calor: 1, bonus: { ima: 0.4 }, resumo: 'Eletroímã que puxa cristais de longe.' },
+  { id: 'dissipador', tipo: 'modulo', nome: 'Dissipador de Calor', custo: 12, massa: 4, consumo: 1, calor: 0, dissipacao: 10, resumo: 'Aletas de cobre e uma ventoinha minúscula.' },
+  { id: 'ima', tipo: 'modulo', nome: 'Bobina de Atração', custo: 14, massa: 3, consumo: 3, calor: 1, bonus: { ima: 0.4 }, resumo: 'Eletroímã que puxa cristais de longe.' },
+  { id: 'bateria', tipo: 'modulo', nome: 'Banco de Baterias', custo: 18, massa: 7, consumo: 0, calor: 1, potencia: 10, resumo: 'Células extras de lítio para o reator respirar.' },
+  { id: 'blindagem', tipo: 'modulo', nome: 'Placa Balística', custo: 24, massa: 10, consumo: 0, calor: 1, bonus: { armadura: 2, vida: 1 }, resumo: 'Cerâmica e liga de titânio: pesada e resistente.' },
+  { id: 'barreira', tipo: 'modulo', nome: 'Gerador de Barreira', custo: 30, massa: 6, consumo: 7, calor: 3, bonus: { escudo: 1 }, resumo: 'Projeta uma barreira que absorve um golpe.' },
+  { id: 'criogenico', tipo: 'modulo', nome: 'Criogênico Líquido', custo: 42, massa: 9, consumo: 4, calor: 0, dissipacao: 24, resumo: 'Nitrogênio líquido em circuito fechado: esfria o dobro de um dissipador.' },
+  { id: 'supercap', tipo: 'modulo', nome: 'Supercapacitor', custo: 48, massa: 9, consumo: 0, calor: 2, potencia: 24, resumo: 'Armazena e despeja energia em rajadas: bem mais que uma bateria.' },
+  { id: 'autorreparo', tipo: 'modulo', nome: 'Casco Autorreparável', custo: 50, massa: 8, consumo: 5, calor: 1, bonus: { vida: 2, armadura: 1 }, resumo: 'Enxame de nanobots que remenda o casco durante o voo.' },
+  { id: 'fase', tipo: 'modulo', nome: 'Barreira de Fase', custo: 90, exige: 6, massa: 8, consumo: 11, calor: 5, bonus: { escudo: 2, armadura: 1 }, resumo: 'Tira a nave do tempo por um instante: absorve dois golpes.' },
 ];
 
 // pinturas: trocam a cor do casco e das aletas (a primeira usa as cores do tema da rota)
@@ -221,10 +253,14 @@ export function descreverPeca(peca) {
 export function descreverChassi(chassi) {
   const b = chassi.bonus, t = [];
   const add = (chave, nome, f = pct) => { if (b[chave]) t.push(`${f(b[chave])} ${nome}`); };
-  add('velocidade', 'velocidade'); add('dano', 'dano'); add('recarga', 'recarga'); add('xp', 'XP');
-  add('vida', 'vida', (v) => `${v > 0 ? '+' : ''}${v}`); add('armadura', 'armadura', (v) => `${v > 0 ? '+' : ''}${v}`);
+  add('velocidade', 'velocidade'); add('dano', 'dano'); add('recarga', 'recarga'); add('xp', 'XP'); add('ima', 'ímã');
+  add('vida', 'vida', (v) => `${v > 0 ? '+' : ''}${v}`); add('armadura', 'armadura', (v) => `${v > 0 ? '+' : ''}${v}`); add('escudo', 'escudo', (v) => `${v > 0 ? '+' : ''}${v}`);
   return t.length ? t.join(' · ') : 'Sem modificadores.';
 }
+
+// as peças e os chassis do topo da bancada, além de moedas, pedem experiência: chefões derrotados no total (campo "exige")
+export const itemPorId = (id) => pecaPorId(id) || chassiPorId(id);
+export const chefesFaltando = (item, chefesDerrotados) => Math.max(0, (item?.exige || 0) - (chefesDerrotados | 0));
 
 export function resumoEfeitos(e) { // chips de status da nave montada (só o que difere do padrão)
   const itens = [], p = (nome, v) => { if (Math.abs(v - 1) > 0.005) itens.push({ nome, valor: `${v > 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`, bom: v > 1 }); };

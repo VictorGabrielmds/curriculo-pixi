@@ -17,8 +17,9 @@ import { projetoPadrao, normalizarProjeto, desbloqueiosIniciais, normalizarDesbl
 import { gerarNave, chamasDaNave, TAM_NAVE } from './naveDesenho.js';
 import { criarGaragem } from './garagem.js';
 
-const L = 320, A = 180; // resolução lógica da tela (ampliada sem suavização)
+const L = 480, A = 270; // resolução lógica da tela (ampliada sem suavização); as letras ficam numa camada à parte, na resolução real
 const CX = L / 2, CY = A / 2;
+const RAIO_TELA = Math.hypot(L, A) / 2; // do centro ao canto da tela: monstros e rochas surgem além disso
 const RAIO_NAVE = 6;
 const CHAVE = 'curriculo-arcade-v1';
 const BONUS_MAXIMO = 12; // moedas espaciais de bônus no fim da partida
@@ -284,6 +285,28 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   cv.setAttribute('aria-label', 'Área do jogo. Mova a nave com WASD, setas ou arrastando o dedo.');
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
+  // camada de letras: desenhada na resolução real da tela (nítida), por cima do quadro em pixel art; as coordenadas são as do quadro
+  const cvTexto = document.createElement('canvas'); cvTexto.className = 'arc-texto'; cvTexto.setAttribute('aria-hidden', 'true');
+  const gt = cvTexto.getContext('2d');
+  let escalaTexto = 1;
+  const FONTE_TEXTO = '"Cascadia Mono", Consolas, "Lucida Console", ui-monospace, monospace';
+  function prepararTexto() {
+    const dpr = window.devicePixelRatio || 1, w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+    if (cvTexto.width !== w || cvTexto.height !== h) { cvTexto.width = w; cvTexto.height = h; }
+    escalaTexto = w / L;
+    gt.setTransform(1, 0, 0, 1, 0, 0); gt.clearRect(0, 0, w, h);
+    gt.setTransform(escalaTexto, 0, 0, escalaTexto, 0, 0);
+    gt.lineJoin = 'round'; gt.textBaseline = 'alphabetic';
+  }
+  // escreve uma linha com contorno escuro; larguraMax encolhe a letra se o texto for comprido
+  function escrever(txt, x, y, cor, tam = 10, alinha = 'center', alfa = 1, larguraMax = 0) {
+    gt.font = `bold ${tam}px ${FONTE_TEXTO}`;
+    if (larguraMax) { const w = gt.measureText(txt).width; if (w > larguraMax) { tam *= larguraMax / w; gt.font = `bold ${tam}px ${FONTE_TEXTO}`; } }
+    gt.globalAlpha = alfa; gt.textAlign = alinha;
+    gt.lineWidth = Math.max(1.4, tam * 0.26); gt.strokeStyle = '#070a1a'; gt.strokeText(txt, x, y);
+    gt.fillStyle = cor; gt.fillText(txt, x, y);
+    gt.globalAlpha = 1;
+  }
 
   const joystick = el('div', 'arc-joystick'); joystick.hidden = true;
   const joystickMiolo = el('i'); joystick.append(joystickMiolo);
@@ -321,7 +344,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   const painelBestiario = el('div', 'of-raiz'); painelBestiario.hidden = true;
 
   sobre.append(painelInicio, painelEscolha, painelPausa, painelFim);
-  tela.append(cv, avisoOnda, joystick, sobre);
+  tela.append(cv, cvTexto, avisoOnda, joystick, sobre);
   const armasEl = el('div', 'arc-armas');
   const botoesArma = [];
   for (let n = 1; n <= 4; n++) {
@@ -435,7 +458,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     const grupo = 1 + Math.min(3, Math.floor(Math.max(0, S.onda - 1) / 3));
     const n = Math.max(1, Math.min(max, tipo === 'inseto' ? 1 + Math.floor(Math.random() * (grupo + 1)) : Math.round(grupo * (0.75 + Math.random() * 0.35))));
     const ang = angPref == null ? Math.random() * Math.PI * 2 : angPref + (Math.random() - 0.5) * 1.8;
-    const r = 215 + (Math.random() < 0.35 ? Math.random() * 230 : Math.random() * 60);
+    const r = RAIO_TELA + 30 + (Math.random() < 0.35 ? Math.random() * 230 : Math.random() * 60);
     const px = S.nx + Math.cos(ang) * r, py = S.ny + Math.sin(ang) * r;
     for (let i = 0; i < n; i++) criarInimigo(tipo, px + (Math.random() - 0.5) * 30, py + (Math.random() - 0.5) * 30);
     return n;
@@ -564,7 +587,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
 
   // ---------- rochas e itens ----------
   function criarRocha() {
-    const ang = Math.random() * Math.PI * 2, d = 230 + Math.random() * 120, tam = Math.floor(Math.random() * 3);
+    const ang = Math.random() * Math.PI * 2, d = RAIO_TELA + 45 + Math.random() * 120, tam = Math.floor(Math.random() * 3);
     const hp = [4, 6, 9][tam];
     S.rochas.push({ x: S.nx + Math.cos(ang) * d, y: S.ny + Math.sin(ang) * d, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, tam, r: [8, 10, 13][tam], hp, hpMax: hp, piscar: 0 });
   }
@@ -633,7 +656,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   }
   function criarNativo(id) {
     const nat = NATIVOS[id], f = faseDe(S.fase), forca = 1 + 0.12 * (S.fase - 1) + (f.volta || 0) * 0.35;
-    const a = Math.random() * Math.PI * 2, r = 215 + Math.random() * 40, hp = Math.max(4, Math.round(nat.hp * forca * (1 + S.t / 400)));
+    const a = Math.random() * Math.PI * 2, r = RAIO_TELA + 30 + Math.random() * 40, hp = Math.max(4, Math.round(nat.hp * forca * (1 + S.t / 400)));
     const m = { tipo: 'nativo', nat, x: S.nx + Math.cos(a) * r, y: S.ny + Math.sin(a) * r, hp, hpMax: hp, vel: nat.vel * (1 + Math.min(0.35, S.t / 900)), raio: nat.raio, xp: nat.xp, piscar: 0, fase: Math.random() * 6, v: 0, cd: 1, tl: 0, sumido: 0, buffT: 0, suporteFx: 0, olhar: 0 };
     S.inimigos.push(m);
     const reg = (dados.nativos[id] ??= { visto: 0, vencido: 0 }); if (reg.visto === 0) { texto(S.nx, S.ny - 24, `NATIVO: ${nat.nome}`, nat.cor); salvarDados(); }
@@ -663,13 +686,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   }
   function desenharAnuncioFase() {
     const i = S.faseIntro, entra = Math.min(1, i.t / 0.4), sai = Math.min(1, (i.dur - i.t) / 0.7), a = Math.max(0, Math.min(entra, sai)), dy = (1 - Math.min(1, i.t / 0.5)) * -16;
-    g.save(); g.globalAlpha = a; g.textAlign = 'center';
-    g.fillStyle = 'rgba(4, 2, 14, 0.62)'; g.fillRect(CX - 124, 14 + dy, 248, 52); g.fillStyle = i.cor; g.fillRect(CX - 124, 14 + dy, 248, 1); g.fillRect(CX - 124, 65 + dy, 248, 1);
-    g.font = 'bold 7px monospace'; g.fillStyle = i.cor; g.fillText(`FASE ${i.numero}${i.volta ? ` · VOLTA ${i.volta + 1}` : ''}`, CX, 25 + dy);
-    g.font = 'bold 12px monospace'; g.fillStyle = '#070a1a'; g.fillText(i.nome, CX + 1, 38 + dy + 1); g.fillStyle = '#ffffff'; g.fillText(i.nome, CX, 38 + dy);
-    g.font = 'bold 7px monospace'; g.fillStyle = '#c9d4ff'; g.fillText(i.sub.toUpperCase(), CX, 48 + dy);
-    g.fillStyle = '#ffe14a'; g.fillText(`NATIVO: ${i.nativo} · ${i.dica}`, CX, 59 + dy);
+    g.save(); g.globalAlpha = a;
+    g.fillStyle = 'rgba(4, 2, 14, 0.62)'; g.fillRect(CX - 170, 16 + dy, 340, 66); g.fillStyle = i.cor; g.fillRect(CX - 170, 16 + dy, 340, 1); g.fillRect(CX - 170, 81 + dy, 340, 1);
     g.restore();
+    escrever(`FASE ${i.numero}${i.volta ? ` · VOLTA ${i.volta + 1}` : ''}`, CX, 29 + dy, i.cor, 9, 'center', a);
+    escrever(i.nome, CX, 47 + dy, '#ffffff', 17, 'center', a, 320);
+    escrever(i.sub.toUpperCase(), CX, 60 + dy, '#c9d4ff', 9, 'center', a, 320);
+    escrever(`NATIVO: ${i.nativo} · ${i.dica}`, CX, 74 + dy, '#ffe14a', 9, 'center', a, 320);
   }
 
   // escolhe uma lenda: só as que já estão liberadas pelas vitórias, com preferência pelas que você nunca viu
@@ -809,7 +832,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
 
   // ---------- buraco negro e alienígena ----------
   function criarBuraco() {
-    const ang = Math.random() * Math.PI * 2, d = 100 + Math.random() * 40;
+    const ang = Math.random() * Math.PI * 2, d = 140 + Math.random() * 60;
     S.buraco = { x: S.nx + Math.cos(ang) * d, y: S.ny + Math.sin(ang) * d, vida: 28, r: 22 };
     mostrarAviso('BURACO NEGRO!', 2.4);
     bip(70, 0.5, 'sine', 0.07); bip(55, 0.6, 'sine', 0.07, 0.3);
@@ -2090,21 +2113,20 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     const i = S.intro, entra = Math.min(1, i.t / 0.35), sai = Math.min(1, (i.dur - i.t) / 0.5), a = Math.max(0, Math.min(entra, sai));
     g.save(); g.globalAlpha = a;
     if (i.meio) { // alienígena: faixa no meio da arena, entre ele e a nave
-      const desl = (1 - Math.min(1, i.t / 0.5)) * 40;
-      g.fillStyle = 'rgba(0, 0, 0, 0.74)'; g.fillRect(0, 82, L, 42); g.fillStyle = i.cor; g.fillRect(0, 82, L, 1); g.fillRect(0, 123, L, 1);
-      g.textAlign = 'center';
-      if (i.novo) { g.font = 'bold 7px monospace'; g.fillStyle = Math.floor(S.ta * 6) % 2 ? '#ffe14a' : '#ffffff'; g.fillText('✦ NOVO ALIENÍGENA ✦', CX, 92); }
-      g.font = 'bold 14px monospace'; g.fillStyle = '#070a1a'; g.fillText(i.nome, CX + 1 + desl, 107 + 1); g.fillStyle = i.cor; g.fillText(i.nome, CX + desl, 107);
-      g.font = 'bold 7px monospace'; g.fillStyle = '#ffffff'; g.fillText(i.titulo.toUpperCase(), CX - desl, 118);
-      g.restore(); return;
+      const desl = (1 - Math.min(1, i.t / 0.5)) * 40, topo = Math.round(CY - 12);
+      g.fillStyle = 'rgba(0, 0, 0, 0.74)'; g.fillRect(0, topo, L, 56); g.fillStyle = i.cor; g.fillRect(0, topo, L, 1); g.fillRect(0, topo + 55, L, 1);
+      g.restore();
+      if (i.novo) escrever('✦ NOVO ALIENÍGENA ✦', CX, topo + 14, Math.floor(S.ta * 6) % 2 ? '#ffe14a' : '#ffffff', 9, 'center', a);
+      escrever(i.nome, CX + desl, topo + 35, i.cor, 20, 'center', a, L - 24);
+      escrever(i.titulo.toUpperCase(), CX - desl, topo + 49, '#ffffff', 9, 'center', a, L - 24);
+      return;
     }
-    g.fillStyle = 'rgba(0, 0, 0, 0.72)'; g.fillRect(0, 0, L, 30); g.fillRect(0, A - 40, L, 40);
-    g.textAlign = 'center';
-    const deslize = (1 - Math.min(1, i.t / 0.5)) * 40;
-    if (i.novo) { g.font = 'bold 7px monospace'; g.fillStyle = Math.floor(S.ta * 6) % 2 ? '#ffe14a' : '#ffffff'; g.fillText('✦ NOVA CRIATURA DESCOBERTA ✦', CX, 18); }
-    g.font = 'bold 17px monospace'; g.fillStyle = '#070a1a'; g.fillText(i.nome, CX + 1 + deslize, A - 20 + 1); g.fillStyle = i.cor; g.fillText(i.nome, CX + deslize, A - 20);
-    g.font = 'bold 8px monospace'; g.fillStyle = '#070a1a'; g.fillText(i.titulo, CX + 1 - deslize, A - 8 + 1); g.fillStyle = '#ffffff'; g.fillText(i.titulo, CX - deslize, A - 8);
+    g.fillStyle = 'rgba(0, 0, 0, 0.72)'; g.fillRect(0, 0, L, 34); g.fillRect(0, A - 56, L, 56);
     g.restore();
+    const deslize = (1 - Math.min(1, i.t / 0.5)) * 40;
+    if (i.novo) escrever('✦ NOVA CRIATURA DESCOBERTA ✦', CX, 22, Math.floor(S.ta * 6) % 2 ? '#ffe14a' : '#ffffff', 9, 'center', a);
+    escrever(i.nome, CX + deslize, A - 28, i.cor, 24, 'center', a, L - 24);
+    escrever(i.titulo, CX - deslize, A - 10, '#ffffff', 10, 'center', a, L - 24);
   }
   function indicador(wx, wy, ox, oy, cor, rotulo = '', alerta = false) {
     const dx = wx - (ox + L / 2), dy = wy - (oy + A / 2);
@@ -2113,15 +2135,15 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     if (alerta && Math.floor(S.ta * 6) % 2 === 0) return; // quando está acabando o tempo, o pontinho pisca
     g.fillStyle = '#070a1a'; g.fillRect(sx - 3, sy - 3, 7, 7); g.fillStyle = cor; g.fillRect(sx - 2, sy - 2, 5, 5); g.fillStyle = '#ffffff'; g.fillRect(sx - 1, sy - 1, 3, 3);
     if (rotulo) { // tempo que falta, ao lado do pontinho (para dentro da tela)
-      const esq = sx < L / 2; g.font = 'bold 8px monospace'; g.textAlign = esq ? 'left' : 'right';
-      const tx = sx + (esq ? 7 : -7), ty = Math.max(10, Math.min(A - 4, sy + 3));
-      g.fillStyle = '#070a1a'; g.fillText(rotulo, tx + 1, ty + 1); g.fillStyle = alerta ? '#ff9aa6' : cor; g.fillText(rotulo, tx, ty);
+      const esq = sx < L / 2, tx = sx + (esq ? 7 : -7), ty = Math.max(12, Math.min(A - 4, sy + 4));
+      escrever(rotulo, tx, ty, alerta ? '#ff9aa6' : cor, 10, esq ? 'left' : 'right');
     }
   }
 
   function desenhar() {
     const t = performance.now() / 1000;
     const camX = S ? S.cx : CX, camY = S ? S.cy : CY;
+    prepararTexto();
     g.save();
     if (S && S.alien) desenharArena(t); else { fundo.desenhar(g, camX, camY, t, regiaoAtual()); if (S && S.regiaoForcada == null) desenharAmbiente(g, faseDe(S.fase).ambientes, 'fundo', { camX, camY, t, W: L, H: A }); }
     if (!S) { g.restore(); return; }
@@ -2161,8 +2183,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
       if (S.buraco && visivel(S.buraco.x, S.buraco.y, 30)) {
         desenharBuracoNegro(g, S.buraco.x, S.buraco.y, S.ta, Math.min(1, S.buraco.vida / 3));
         const tempo = `${Math.ceil(S.buraco.vida)}s`, bx = Math.round(S.buraco.x), by = Math.round(S.buraco.y) - 28; // quanto tempo falta para ele sumir
-        g.save(); g.font = 'bold 8px monospace'; g.textAlign = 'center'; g.fillStyle = '#070a1a'; g.fillText(tempo, bx + 1, by + 1);
-        g.fillStyle = S.buraco.vida < 8 && Math.floor(S.ta * 6) % 2 === 0 ? '#ff9aa6' : '#d9a8ff'; g.fillText(tempo, bx, by); g.restore();
+        escrever(tempo, bx - ox, by - oy, S.buraco.vida < 8 && Math.floor(S.ta * 6) % 2 === 0 ? '#ff9aa6' : '#d9a8ff', 10);
       }
       for (const r of S.rochas) {
         if (!visivel(r.x, r.y, 20)) continue;
@@ -2315,8 +2336,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     for (const o of orbesPos()) { const px = Math.round(o.x), py = Math.round(o.y); g.fillStyle = '#070a1a'; g.fillRect(px - 3, py - 3, 7, 7); g.fillStyle = '#ff3bd4'; g.fillRect(px - 2, py - 2, 5, 5); g.fillStyle = '#ffffff'; g.fillRect(px - 1, py - 1, 2, 2); }
     for (const p of S.parts) { if (visivel(p.x, p.y, 4)) { g.fillStyle = p.cor; g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); } }
     for (const o of S.ondas) { g.strokeStyle = o.cor; g.lineWidth = 2; g.globalAlpha = Math.max(0, 1 - o.r / o.max); g.beginPath(); g.arc(Math.round(o.x), Math.round(o.y), Math.max(0, o.r), 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
-    g.font = 'bold 8px monospace'; g.textAlign = 'center';
-    for (const tx of S.textos) { g.globalAlpha = Math.min(1, tx.vida * 2); g.fillStyle = '#070a1a'; g.fillText(tx.txt, Math.round(tx.x) + 1, Math.round(tx.y) + 1); g.fillStyle = tx.cor; g.fillText(tx.txt, Math.round(tx.x), Math.round(tx.y)); g.globalAlpha = 1; }
+    for (const tx of S.textos) escrever(tx.txt, tx.x - ox, tx.y - oy, tx.cor, 10, 'center', Math.min(1, tx.vida * 2));
     g.restore();
 
     // indicadores na borda (cristais fora de vista, buraco negro, chefão, moedas espaciais)
@@ -2332,14 +2352,13 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
     }
     if (!S.alien && S.regiaoForcada == null) desenharAmbiente(g, faseDe(S.fase).ambientes, 'frente', { camX, camY, t, W: L, H: A });
     if (!S.alien) {
-      const rotulo = (txt, x, y, cor, alinha = 'center') => { g.font = 'bold 8px monospace'; g.textAlign = alinha; g.fillStyle = '#070a1a'; g.fillText(txt, x + 1, y + 1); g.fillStyle = cor; g.fillText(txt, x, y); };
-      if (S.combo >= 3) rotulo(`COMBO x${S.combo}`, L - 8, 22, S.combo >= 50 ? '#ff7ab8' : S.combo >= 25 ? '#ff9a3a' : S.combo >= 10 ? '#ffe14a' : '#ffffff', 'right');
+      if (S.combo >= 3) escrever(`COMBO x${S.combo}`, L - 8, 24, S.combo >= 50 ? '#ff7ab8' : S.combo >= 25 ? '#ff9a3a' : S.combo >= 10 ? '#ffe14a' : '#ffffff', 11, 'right');
     }
     if (S.chefe) {
       g.fillStyle = 'rgba(40, 0, 15, .34)'; g.fillRect(0, 0, L, 5); g.fillRect(0, A - 5, L, 5); g.fillRect(0, 0, 5, A); g.fillRect(L - 5, 0, 5, A);
-      g.font = 'bold 7px monospace'; g.textAlign = 'center'; g.fillStyle = '#070a1a'; const nomeChefe = (S.chefe.lenda || CHEFES[S.chefe.b]).nome; g.fillText(nomeChefe, CX + 1, 8); g.fillStyle = S.chefe.lenda ? S.chefe.lenda.cor : '#ff7084'; g.fillText(nomeChefe, CX, 7);
-      barra(CX - 60, 11, 120, S.chefe.hp / S.chefe.hpMax, S.chefe.lenda ? S.chefe.lenda.cor : '#ff3b4a');
-      if (S.chefe.lenda) { g.fillStyle = '#ffffff'; g.fillRect(CX, 10, 1, 6); }
+      escrever((S.chefe.lenda || CHEFES[S.chefe.b]).nome, CX, 10, S.chefe.lenda ? S.chefe.lenda.cor : '#ff7084', 9);
+      barra(CX - 60, 14, 120, S.chefe.hp / S.chefe.hpMax, S.chefe.lenda ? S.chefe.lenda.cor : '#ff3b4a');
+      if (S.chefe.lenda) { g.fillStyle = '#ffffff'; g.fillRect(CX, 13, 1, 6); }
     }
     if (S.intro) desenharIntro();
     if (S.faseIntro && !S.alien) desenharAnuncioFase();

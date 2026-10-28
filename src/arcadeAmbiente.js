@@ -99,7 +99,7 @@ const EFEITOS = {
   feixes(g, c, o) {
     const { cor = '140, 210, 255', n = 2, vel = 0.5, px = 0.75, py = 0.3 } = o, cx = c.W * px - c.camX * 0.05, cy = c.H * py - c.camY * 0.05;
     for (let k = 0; k < n; k++) {
-      const a = c.t * vel + (k * TAU) / n, l = 320, w = 0.07;
+      const a = c.t * vel + (k * TAU) / n, l = c.W, w = 0.07;
       g.fillStyle = rgba(cor, 0.09 + 0.05 * Math.sin(c.t * 8)); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a - w) * l, cy + Math.sin(a - w) * l); g.lineTo(cx + Math.cos(a + w) * l, cy + Math.sin(a + w) * l); g.closePath(); g.fill();
       g.strokeStyle = rgba(cor, 0.35); g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); g.stroke();
     }
