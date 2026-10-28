@@ -17,7 +17,15 @@ import { projetoPadrao, normalizarProjeto, desbloqueiosIniciais, normalizarDesbl
 import { gerarNave, chamasDaNave, TAM_NAVE } from './naveDesenho.js';
 import { criarGaragem } from './garagem.js';
 
-const L = 480, A = 270; // resolução lógica da tela (ampliada sem suavização); as letras ficam numa camada à parte, na resolução real
+const A = 270;
+// A arena acompanha a proporção útil da janela. Em monitores largos, ganhamos
+// espaço jogável nas laterais em vez de centralizar uma tela 16:9 estreita.
+// A largura lógica também cresce, portanto os sprites não são deformados.
+const MARGEM_ARCADE = window.innerWidth <= 700 ? 12 : 44;
+const ALTURA_INTERFACE = window.innerWidth <= 700 ? 118 : 165;
+const PROPORCAO_ARENA = Math.min(3.2, Math.max(16 / 9,
+  (window.innerWidth - MARGEM_ARCADE) / Math.max(160, window.innerHeight - ALTURA_INTERFACE)));
+const L = Math.round(A * PROPORCAO_ARENA); // resolução lógica ampliada sem suavização; as letras ficam em uma camada à parte
 const CX = L / 2, CY = A / 2;
 const RAIO_TELA = Math.hypot(L, A) / 2; // do centro ao canto da tela: monstros e rochas surgem além disso
 const RAIO_NAVE = 6;
@@ -280,6 +288,7 @@ export function iniciarArcade({ bip, somAtivo, tema = 'padrao', aoMudarNave }) {
   topo.append(icone, titulo, hud, pausarBtn, fechar);
 
   const tela = el('div', 'arc-tela');
+  tela.style.aspectRatio = `${L} / ${A}`;
   const cv = document.createElement('canvas'); cv.width = L; cv.height = A;
   cv.setAttribute('role', 'img');
   cv.setAttribute('aria-label', 'Área do jogo. Mova a nave com WASD, setas ou arrastando o dedo.');
