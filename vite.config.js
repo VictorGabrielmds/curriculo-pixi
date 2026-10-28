@@ -9,10 +9,12 @@ const paginasAlternativas = {
     const indexPath = resolve(pastaDist, 'index.html');
     const html = readFileSync(indexPath, 'utf8');
 
-    // GitHub Pages serve /yas/ como uma página real e mantém os assets na raiz do projeto.
-    const pastaYas = resolve(pastaDist, 'yas');
-    mkdirSync(pastaYas, { recursive: true });
-    writeFileSync(resolve(pastaYas, 'index.html'), html.replace('<head>', '<head>\n    <base href="../">'));
+    // GitHub Pages serve as personagens como páginas reais e mantém os assets na raiz.
+    for (const rota of ['yas', 'fer']) {
+      const pastaRota = resolve(pastaDist, rota);
+      mkdirSync(pastaRota, { recursive: true });
+      writeFileSync(resolve(pastaRota, 'index.html'), html.replace('<head>', '<head>\n    <base href="../">'));
+    }
 
     // Fallback para links diretos em hospedagens estáticas que não conhecem as rotas do Vite.
     copyFileSync(indexPath, resolve(pastaDist, '404.html'));

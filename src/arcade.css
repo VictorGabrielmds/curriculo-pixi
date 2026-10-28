@@ -347,3 +347,35 @@
 #arcade.tema-yas .of-nave { filter: drop-shadow(0 0 18px rgba(216, 139, 85, .42)); }
 #arcade.tema-yas .of-linha { stroke: #d88b55; }
 #arcade.tema-yas .of-ponto { fill: #e5b85c; stroke: #241b17; }
+
+/* Nave da Fer: abismo azul, cristais, violeta elétrico e bioluminescência. */
+#arcade.tema-fer { background: rgba(5, 8, 23, .93); color: #d6fbff; }
+#arcade.tema-fer .arc-caixa { background: #090d24; border-color: #405ba0; box-shadow: 0 0 0 4px #050817, 8px 8px 0 4px rgba(0, 0, 0, .6); }
+#arcade.tema-fer .arc-topo h2 { color: #55e2e0; }
+#arcade.tema-fer .arc-tela { border-color: #050817; background: #050817; }
+#arcade.tema-fer .arc-painel { background: rgba(14, 20, 55, .96); border-color: #6c5cff; box-shadow: 0 0 0 4px #050817; }
+#arcade.tema-fer .arc-painel h3, #arcade.tema-fer .arc-regras summary { color: #55e2e0; }
+#arcade.tema-fer .arc-painel p, #arcade.tema-fer .arc-painel p.dica, #arcade.tema-fer .arc-regras p { color: #d6e8ff; }
+#arcade.tema-fer .arc-objetivos > div, #arcade.tema-fer .arc-regras[open], #arcade.tema-fer .arc-item { background: #172b59; border-color: #405ba0; }
+#arcade.tema-fer .arc-objetivos b, #arcade.tema-fer .arc-moedas { color: #8f9cff; }
+#arcade.tema-fer .arc-objetivos strong, #arcade.tema-fer .arc-recordes { color: #55e2e0 !important; }
+#arcade.tema-fer .arc-btn { background: #6c5cff; border-color: #050817; }
+#arcade.tema-fer .arc-btn.sec, #arcade.tema-fer .arc-x { background: #28366d; }
+#arcade.tema-fer .arc-pausa { background: #354582; color: #d6fbff; }
+#arcade.tema-fer .arc-armas .arc-arma { background: #172b59; border-color: #354582; color: #d6e8ff; }
+#arcade.tema-fer .arc-armas .arc-arma.ativa { background: #354582; border-color: #55e2e0; color: #d6fbff; }
+#arcade.tema-fer .arc-upgrade { background: radial-gradient(circle at 50% 0%, rgba(53, 69, 130, .98), rgba(5, 8, 23, .99) 66%); border-color: #6c5cff; }
+#arcade.tema-fer .arc-upgrade .arc-carta { background: linear-gradient(180deg, color-mix(in srgb, var(--cor) 14%, #172b59), #090d24 76%); box-shadow: inset 0 0 18px rgba(85, 226, 224, .08), 4px 4px 0 #050817; }
+#arcade.tema-fer .arc-upgrade .arc-desc, #arcade.tema-fer .arc-up-dica { color: #a9b9e8 !important; }
+#arcade.tema-fer .of-raiz { background: radial-gradient(ellipse at 50% 40%, #28366d 0%, #090d24 60%, #050817 100%); border-color: #6c5cff; box-shadow: 0 0 0 4px #050817; }
+#arcade.tema-fer .of-topo { border-image: repeating-linear-gradient(135deg, #55e2e0 0 10px, #6c5cff 10px 20px) 4; }
+#arcade.tema-fer .of-topo h3, #arcade.tema-fer .of-moedas { color: #55e2e0; }
+#arcade.tema-fer .of-parte { background: rgba(14, 20, 55, .94); border-color: #405ba0; box-shadow: 0 0 0 2px #050817, inset 0 0 14px rgba(85, 226, 224, .12); }
+#arcade.tema-fer .of-parte h4 { color: #55e2e0; border-color: #405ba0; }
+#arcade.tema-fer .of-parte .sub, #arcade.tema-fer .of-centro p, #arcade.tema-fer .of-rodape { color: #a9b9e8; }
+#arcade.tema-fer .of-melhoria b { color: #d6fbff; }
+#arcade.tema-fer .of-melhoria small { color: #a9b9e8; }
+#arcade.tema-fer .of-melhoria .arc-btn { background: #28366d; }
+#arcade.tema-fer .of-nave { filter: drop-shadow(0 0 18px rgba(85, 226, 224, .48)); }
+#arcade.tema-fer .of-linha { stroke: #55e2e0; }
+#arcade.tema-fer .of-ponto { fill: #8f9cff; stroke: #050817; }
