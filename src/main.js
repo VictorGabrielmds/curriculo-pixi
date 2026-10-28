@@ -9,6 +9,14 @@ import { criarJasmim, criarMazzy, soltarCoracoes, lerCarinhos, guardarCarinhos }
 import { criarFutebol } from './futebol.js';
 
 // ---------- constantes ----------
+const USA_PERSONAGEM_YAS = /(?:^|\/)yas\/?$/i.test(location.pathname);
+document.documentElement.classList.toggle('tema-yas', USA_PERSONAGEM_YAS);
+const TEMA_YAS = {
+  ceu: 0x241b17, estrelas: 0xffd6a3, nuvens: 0xf6dfc8, atmosfera: 0xd97945,
+  marRaso: 0x8ab8a2, marMedio: 0x4f7f70, marFundo: 0x294c46, espuma: 0xf6ead8,
+  areia: 0xd8b68e, grama0: 0x71835b, grama1: 0x526b4d, grama2: 0x344c3c,
+  tronco: 0x76513d, copa: [0x486044, 0x5c724d], copa2: 0x7d8d5b, pedra: 0x8d7768,
+};
 const R = 5; // raio do planeta
 const K = 6.5 / R; // os raios em rad foram pensados para R=6,5; K corrige para o tamanho atual
 const VEL = 0.7; // rad/s caminhando (3,5 unidades/s)
@@ -89,11 +97,11 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b1026);
+scene.background = new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.ceu : 0x0b1026);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
-scene.add(new THREE.HemisphereLight(0xbcd0ff, 0x241c4d, 1.0));
-const sol = new THREE.DirectionalLight(0xfff0d4, 1.9);
+scene.add(new THREE.HemisphereLight(USA_PERSONAGEM_YAS ? 0xffd5a8 : 0xbcd0ff, USA_PERSONAGEM_YAS ? 0x33261f : 0x241c4d, USA_PERSONAGEM_YAS ? 1.25 : 1.0));
+const sol = new THREE.DirectionalLight(USA_PERSONAGEM_YAS ? 0xffc078 : 0xfff0d4, USA_PERSONAGEM_YAS ? 2.15 : 1.9);
 sol.position.set(7, R + 9, 9);
 sol.target.position.set(0, 2, 0);
 sol.castShadow = true;
@@ -103,12 +111,12 @@ sol.shadow.bias = -0.0004;
 scene.add(sol, sol.target);
 
 // materiais que as skins do mundo recolorem
-const materialEstrelas = new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, sizeAttenuation: true, fog: false });
-const materialNuvens = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: 0.95 });
+const materialEstrelas = new THREE.PointsMaterial({ color: USA_PERSONAGEM_YAS ? TEMA_YAS.estrelas : 0xffffff, size: USA_PERSONAGEM_YAS ? 0.48 : 0.42, sizeAttenuation: true, fog: false });
+const materialNuvens = new THREE.MeshStandardMaterial({ color: USA_PERSONAGEM_YAS ? TEMA_YAS.nuvens : 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: 0.95 });
 const copasArvores = [], copas2Arvores = []; // {m, v}: material e variação da copa
 const uniformsTerreno = {
-  uMarRaso: { value: new THREE.Color(0x56c2ee) }, uMarMedio: { value: new THREE.Color(0x2f7fdc) }, uMarFundo: { value: new THREE.Color(0x1d56b8) }, uEspuma: { value: new THREE.Color(0xd4f1fc) },
-  uAreia: { value: new THREE.Color(0xf3dda3) }, uGrama0: { value: new THREE.Color(0x6fcf6a) }, uGrama1: { value: new THREE.Color(0x4cb760) }, uGrama2: { value: new THREE.Color(0x2f9055) },
+  uMarRaso: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.marRaso : 0x56c2ee) }, uMarMedio: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.marMedio : 0x2f7fdc) }, uMarFundo: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.marFundo : 0x1d56b8) }, uEspuma: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.espuma : 0xd4f1fc) },
+  uAreia: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.areia : 0xf3dda3) }, uGrama0: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.grama0 : 0x6fcf6a) }, uGrama1: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.grama1 : 0x4cb760) }, uGrama2: { value: new THREE.Color(USA_PERSONAGEM_YAS ? TEMA_YAS.grama2 : 0x2f9055) },
 };
 
 // céu: estrelas e lua
@@ -124,7 +132,7 @@ const uniformsTerreno = {
   scene.add(new THREE.Points(g, materialEstrelas));
   const lua = new THREE.Mesh(
     new THREE.SphereGeometry(4, 32, 32),
-    new THREE.MeshBasicMaterial({ color: 0xfff1c9, fog: false }),
+    new THREE.MeshBasicMaterial({ color: USA_PERSONAGEM_YAS ? 0xffbd73 : 0xfff1c9, fog: false }),
   );
   lua.position.set(24, 16, -62);
   scene.add(lua);
@@ -218,7 +226,7 @@ scene.add(planeta);
   // atmosfera (brilho azul por fora)
   const atm = new THREE.Mesh(
     new THREE.SphereGeometry(R * 1.06, 48, 48),
-    new THREE.MeshBasicMaterial({ color: 0x6aa8ff, transparent: true, opacity: 0.1, side: THREE.BackSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: USA_PERSONAGEM_YAS ? TEMA_YAS.atmosfera : 0x6aa8ff, transparent: true, opacity: USA_PERSONAGEM_YAS ? 0.16 : 0.1, side: THREE.BackSide, depthWrite: false }),
   );
   scene.add(atm);
 }
@@ -262,15 +270,20 @@ const obstaculos = [];
     if (!d) continue;
     const t = new THREE.Group();
     const s = 0.5 + rnd() * 0.45;
-    const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 6), mat(0x7a4a2b));
+    const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 6), mat(USA_PERSONAGEM_YAS ? TEMA_YAS.tronco : 0x7a4a2b));
     tronco.position.y = 0.3;
     const variacao = rnd() > 0.5 ? 0 : 1;
-    const copa = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 7), mat(variacao === 0 ? 0x2f9e5c : 0x258a4e));
+    const copa = new THREE.Mesh(
+      USA_PERSONAGEM_YAS ? new THREE.IcosahedronGeometry(0.62, 1) : new THREE.ConeGeometry(0.5, 1.2, 7),
+      mat(USA_PERSONAGEM_YAS ? TEMA_YAS.copa[variacao] : (variacao === 0 ? 0x2f9e5c : 0x258a4e)),
+    );
     copasArvores.push({ m: copa.material, v: variacao });
-    copa.position.y = 1.1;
-    const copa2 = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 7), mat(0x34b068));
+    copa.position.y = USA_PERSONAGEM_YAS ? 1.05 : 1.1;
+    if (USA_PERSONAGEM_YAS) copa.scale.set(1.15, 0.86, 1.05);
+    const copa2 = new THREE.Mesh(USA_PERSONAGEM_YAS ? new THREE.IcosahedronGeometry(0.48, 1) : new THREE.ConeGeometry(0.38, 0.9, 7), mat(USA_PERSONAGEM_YAS ? TEMA_YAS.copa2 : 0x34b068));
     copas2Arvores.push(copa2.material);
-    copa2.position.y = 1.7;
+    copa2.position.set(USA_PERSONAGEM_YAS ? 0.18 : 0, USA_PERSONAGEM_YAS ? 1.48 : 1.7, 0);
+    if (USA_PERSONAGEM_YAS) copa2.scale.set(1.1, 0.8, 1);
     t.add(tronco, copa, copa2);
     t.scale.setScalar(s);
     fincar(sombrear(t), d, rnd() * 6);
@@ -279,12 +292,43 @@ const obstaculos = [];
   for (let i = 0; i < 28; i++) {
     const d = sorteio();
     if (!d) continue;
-    const p = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22 + rnd() * 0.25, 0), mat(0x8d93a8));
+    const p = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22 + rnd() * 0.25, 0), mat(USA_PERSONAGEM_YAS ? TEMA_YAS.pedra : 0x8d93a8));
     p.position.y = 0.1;
     const g = new THREE.Group();
     g.add(p);
     fincar(sombrear(g), d, rnd() * 6);
     obstaculos.push({ d, r: 0.045 * K, baixo: true });
+  }
+
+  // No mundo da Yas, pequenos objetos contam a personalidade dela: plantas, livros, música, câmera e violão.
+  if (USA_PERSONAGEM_YAS) for (let i = 0; i < 24; i++) {
+    const d = sorteio();
+    if (!d) continue;
+    const g = new THREE.Group(), tipo = i % 5;
+    const caixa = (w, h, dep, cor, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, dep), mat(cor)); o.position.set(x, y, z); g.add(o); return o; };
+    const esfera = (r, cor, x, y, z) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), mat(cor)); o.position.set(x, y, z); g.add(o); return o; };
+    if (tipo === 0) { // vaso com folhagens pendentes
+      const vaso = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 0.35, 8), mat(0xa85f3c)); vaso.position.y = 0.18; g.add(vaso);
+      caixa(0.04, 0.55, 0.04, 0x496044, 0, 0.58, 0);
+      for (const [x, y, z, r] of [[-.2,.62,0,.17],[.18,.72,.05,.16],[-.12,.88,-.03,.15],[.2,.98,0,.13]]) { const f = esfera(r, y > .8 ? 0x7d8d5b : 0x526b4d, x, y, z); f.scale.set(1.2, .65, .8); }
+    } else if (tipo === 1) { // pilha de livros
+      [[0x5d3528, 0, .07], [0xd18a57, .05, .18], [0x405848, -.03, .29]].forEach(([cor, x, y], k) => { const livro = caixa(.65 - k * .06, .11, .42, cor, x, y, 0); livro.rotation.y = (k - 1) * .14; caixa(.5 - k * .05, .02, .43, 0xeadbc7, x, y, .01); });
+    } else if (tipo === 2) { // disco de vinil e capa
+      caixa(.62, .62, .06, 0xd4b590, 0, .36, 0);
+      const disco = new THREE.Mesh(new THREE.CylinderGeometry(.25, .25, .035, 18), mat(0x171513)); disco.rotation.x = Math.PI / 2; disco.position.set(.08, .38, .05); g.add(disco);
+      const selo = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, .04, 12), mat(0xc96f45)); selo.rotation.x = Math.PI / 2; selo.position.set(.08, .38, .08); g.add(selo);
+    } else if (tipo === 3) { // violão encostado
+      const corpo = esfera(.26, 0x9a5e37, 0, .3, 0); corpo.scale.set(.85, 1.1, .34);
+      const cintura = esfera(.18, 0xb87344, 0, .55, 0); cintura.scale.set(.8, 1, .32);
+      caixa(.09, .65, .07, 0x65402c, 0, .92, 0); caixa(.24, .12, .08, 0x65402c, 0, 1.25, 0);
+      const boca = esfera(.065, 0x241b17, 0, .38, .09); boca.scale.z = .18;
+    } else { // câmera de viagem
+      caixa(.58, .38, .26, 0x2b2925, 0, .28, 0); caixa(.22, .08, .2, 0x76513d, -.12, .51, 0);
+      const lente = new THREE.Mesh(new THREE.CylinderGeometry(.15, .15, .18, 12), mat(0x171b19)); lente.rotation.x = Math.PI / 2; lente.position.set(.1, .3, .2); g.add(lente);
+      const vidro = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, .19, 12), mat(0x8ab8a2, { emissive: 0x294c46, emissiveIntensity: .45 })); vidro.rotation.x = Math.PI / 2; vidro.position.set(.1, .3, .22); g.add(vidro);
+    }
+    g.scale.setScalar(0.65 + rnd() * 0.25);
+    fincar(sombrear(g), d, rnd() * Math.PI * 2);
   }
 }
 
@@ -423,13 +467,14 @@ function modelo(tipo, cor) {
       break;
     }
     case 'nave': { // nave pousada, com pernas, aletas, cabine de vidro e antena
-      const casco = mat(0x4aa8ff, { emissive: 0x1d56b8, emissiveIntensity: 0.4 });
-      const vidro = mat(0x8bd3ff, { emissive: 0x4aa8ff, emissiveIntensity: 0.6 });
-      const aleta = mat(0xff7a59, { emissive: 0x8a3a20, emissiveIntensity: 0.3 });
+      const casco = mat(USA_PERSONAGEM_YAS ? 0x496044 : 0x4aa8ff, { emissive: USA_PERSONAGEM_YAS ? 0x263c32 : 0x1d56b8, emissiveIntensity: 0.4 });
+      const vidro = mat(USA_PERSONAGEM_YAS ? 0xf2d7ae : 0x8bd3ff, { emissive: USA_PERSONAGEM_YAS ? 0xb7683f : 0x4aa8ff, emissiveIntensity: 0.6 });
+      const aleta = mat(USA_PERSONAGEM_YAS ? 0xb7683f : 0xff7a59, { emissive: USA_PERSONAGEM_YAS ? 0x6f3426 : 0x8a3a20, emissiveIntensity: 0.3 });
+      const metalNave = USA_PERSONAGEM_YAS ? mat(0xb9a58b) : metal;
       add(new THREE.SphereGeometry(0.95, 16, 12), casco, 0, 1.85, 0).scale.set(1, 0.85, 1); // casco redondo, como no sprite
-      add(new THREE.TorusGeometry(0.92, 0.05, 8, 28), metal, 0, 1.85, 0).rotation.x = Math.PI / 2; // anel do casco
+      add(new THREE.TorusGeometry(0.92, 0.05, 8, 28), metalNave, 0, 1.85, 0).rotation.x = Math.PI / 2; // anel do casco
       add(new THREE.SphereGeometry(0.58, 14, 10), vidro, 0, 2.15, 0.35); // cabine
-      add(new THREE.SphereGeometry(0.2, 8, 8), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.9 }), 0.1, 2.35, 0.8); // brilho no vidro
+      add(new THREE.SphereGeometry(0.2, 8, 8), mat(USA_PERSONAGEM_YAS ? 0xfff1d7 : 0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.9 }), 0.1, 2.35, 0.8); // brilho no vidro
       for (let k = 0; k < 4; k++) { // quatro aletas laranjas
         const ang = (k * Math.PI) / 2;
         const f = add(new THREE.BoxGeometry(0.55, 0.14, 0.95), aleta, Math.cos(ang) * 1.05, 1.7, Math.sin(ang) * 1.05);
@@ -437,13 +482,19 @@ function modelo(tipo, cor) {
       }
       for (let k = 0; k < 3; k++) { // pernas de pouso
         const ang = (k * Math.PI * 2) / 3 + 0.4;
-        const p = add(new THREE.CylinderGeometry(0.05, 0.07, 1, 8), metal, Math.cos(ang) * 0.62, 0.62, Math.sin(ang) * 0.62);
+        const p = add(new THREE.CylinderGeometry(0.05, 0.07, 1, 8), metalNave, Math.cos(ang) * 0.62, 0.62, Math.sin(ang) * 0.62);
         p.rotation.z = Math.cos(ang) * 0.3; p.rotation.x = -Math.sin(ang) * 0.3;
-        add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), metal, Math.cos(ang) * 0.78, 0.12, Math.sin(ang) * 0.78);
+        add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), metalNave, Math.cos(ang) * 0.78, 0.12, Math.sin(ang) * 0.78);
       }
       add(new THREE.ConeGeometry(0.3, 0.55, 10), mat(0xffd23f, { emissive: 0xff7a3a, emissiveIntensity: 1 }), 0, 1.05, 0).rotation.x = Math.PI; // chama do motor
-      cil(0.03, 0.03, 0.6, metal, 0, 2.95, 0, 6); // antena
-      esfera(0.1, mat(0xff3b4a, { emissive: 0xff3b4a, emissiveIntensity: 0.8 }), 0, 3.28, 0);
+      cil(0.03, 0.03, 0.6, metalNave, 0, 2.95, 0, 6); // antena
+      esfera(0.1, mat(USA_PERSONAGEM_YAS ? 0xd88b55 : 0xff3b4a, { emissive: USA_PERSONAGEM_YAS ? 0xb7683f : 0xff3b4a, emissiveIntensity: 0.8 }), 0, 3.28, 0);
+      if (USA_PERSONAGEM_YAS) { // emblema botânico e adesivos de viagem no casco
+        const folhaM = mat(0x91a56b, { emissive: 0x344c3c, emissiveIntensity: .2 });
+        for (const [x, y, r] of [[-.2, 1.92, -.55], [.2, 1.92, .55]]) { const f = esfera(.12, folhaM, x, y, .86); f.scale.set(.45, 1, .35); f.rotation.z = r; }
+        esfera(.055, mat(0xe5b85c), 0, 1.92, .94);
+        caixa(.3, .08, .04, mat(0xe8d5b8), -.47, 1.56, .82); caixa(.18, .07, .045, mat(0xc96f45), .52, 1.68, .83);
+      }
       break;
     }
     case 'carta': { // caixa de correio grande de rua: poste, corpo com tampa arredondada, bandeirinha, envelope e poste de luz
@@ -502,8 +553,7 @@ fincar(mazzy.raiz, dirsSitios.mazzy, 0);
 obstaculos.push({ d: dirsSitios.jasmim, r: 0.035 * K }, { d: dirsSitios.mazzy, r: 0.055 * K });
 
 // ---------- personagem (sprite 2D, 4 direções) ----------
-// /yas troca somente o visual do personagem; a rota principal continua usando o avatar original.
-const USA_PERSONAGEM_YAS = /(?:^|\/)yas\/?$/i.test(location.pathname);
+// /yas troca o personagem e ativa o mundo aconchegante inspirado na personalidade dela.
 const PERFIL_PERSONAGEM = USA_PERSONAGEM_YAS
   ? { pasta: 'avatar-yas', frames: { parado: 5, andar: 6, correr: 5, pular: 5 }, largura: 168, altura: 332, pesY: 292, escala: 0.55 }
   : { pasta: 'avatar', frames: { parado: 4, andar: 5, correr: 5, pular: 5 }, largura: 84, altura: 182, pesY: 168, escala: 1 };
@@ -845,6 +895,15 @@ function atualizarSitios(dt, pausado) {
 // skins do cassino: trocam as cores do planeta, das árvores e do céu
 const CORES_TERRENO = { marRaso: 'uMarRaso', marMedio: 'uMarMedio', marFundo: 'uMarFundo', espuma: 'uEspuma', areia: 'uAreia', grama0: 'uGrama0', grama1: 'uGrama1', grama2: 'uGrama2' };
 function aplicarSkins(equipadas) {
+  if (USA_PERSONAGEM_YAS) {
+    for (const [chave, uniforme] of Object.entries(CORES_TERRENO)) uniformsTerreno[uniforme].value.set(TEMA_YAS[chave]);
+    for (const { m, v } of copasArvores) m.color.set(TEMA_YAS.copa[v % TEMA_YAS.copa.length]);
+    for (const m of copas2Arvores) m.color.set(TEMA_YAS.copa2);
+    scene.background.set(TEMA_YAS.ceu);
+    materialEstrelas.color.set(TEMA_YAS.estrelas);
+    materialNuvens.color.set(TEMA_YAS.nuvens);
+    return;
+  }
   const pl = skinPorId(equipadas.planeta)?.cores;
   if (pl) for (const [chave, uniforme] of Object.entries(CORES_TERRENO)) uniformsTerreno[uniforme].value.set(pl[chave]);
   const ar = skinPorId(equipadas.arvores)?.cores;
@@ -860,7 +919,7 @@ function aplicarSkins(equipadas) {
   }
 }
 const cassino = iniciarCassino({ aoMudarSkins: aplicarSkins, aoMudarFichas: (n) => { fichasHudEl.textContent = String(n); } });
-const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a), somAtivo: () => cassino.somAtivo() });
+const arcade = iniciarArcade({ bip: (...a) => cassino.bip(...a), somAtivo: () => cassino.somAtivo(), temaYas: USA_PERSONAGEM_YAS });
 const futebol = criarFutebol({ planeta, fincar, R, q, altura, NIVEL_MAR, dirsZonas, raioBloqueio, obstaculos, dirsSitios, camera, rotulosEl, camDir, bip: (...a) => cassino.bip(...a) });
 if (import.meta.env.DEV) window.__futebol = { ...futebol, aFrente: (rad, graus) => dirPolar(rad, graus).applyQuaternion(q.clone().invert()), mundo: (d) => d.clone().applyQuaternion(q) }; // só no servidor de desenvolvimento
 const musica = iniciarMusicaAmbiente({ somAtivo: () => cassino.somAtivo() });

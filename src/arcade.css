@@ -315,3 +315,35 @@
   .arc-upgrade .arc-carta { padding: 7px; }
   .arc-upgrade .arc-desc { font-size: 9px; }
 }
+
+/* Nave da Yas: oficina e fliperama com madeira, verde-musgo, terracota e papel creme. */
+#arcade.tema-yas { background: rgba(30, 24, 20, .9); color: #fff1d7; }
+#arcade.tema-yas .arc-caixa { background: #332b24; border-color: #b7683f; box-shadow: 0 0 0 4px #241b17, 8px 8px 0 4px rgba(0, 0, 0, .5); }
+#arcade.tema-yas .arc-topo h2 { color: #e5b85c; }
+#arcade.tema-yas .arc-tela { border-color: #241b17; background: #1e2420; }
+#arcade.tema-yas .arc-painel { background: rgba(49, 42, 34, .96); border-color: #b7683f; box-shadow: 0 0 0 4px #241b17; }
+#arcade.tema-yas .arc-painel h3, #arcade.tema-yas .arc-regras summary { color: #e5b85c; }
+#arcade.tema-yas .arc-painel p, #arcade.tema-yas .arc-painel p.dica, #arcade.tema-yas .arc-regras p { color: #e8d5b8; }
+#arcade.tema-yas .arc-objetivos > div, #arcade.tema-yas .arc-regras[open], #arcade.tema-yas .arc-item { background: #3b4535; border-color: #71835b; }
+#arcade.tema-yas .arc-objetivos b, #arcade.tema-yas .arc-moedas { color: #d88b55; }
+#arcade.tema-yas .arc-objetivos strong, #arcade.tema-yas .arc-recordes { color: #e5b85c !important; }
+#arcade.tema-yas .arc-btn { background: #b7683f; border-color: #241b17; }
+#arcade.tema-yas .arc-btn.sec, #arcade.tema-yas .arc-x { background: #496044; }
+#arcade.tema-yas .arc-pausa { background: #76513d; color: #fff1d7; }
+#arcade.tema-yas .arc-armas .arc-arma { background: #3b4535; border-color: #526b4d; color: #e8d5b8; }
+#arcade.tema-yas .arc-armas .arc-arma.ativa { background: #526b4d; border-color: #e5b85c; color: #fff1d7; }
+#arcade.tema-yas .arc-upgrade { background: radial-gradient(circle at 50% 0%, rgba(82, 107, 77, .98), rgba(36, 27, 23, .99) 64%); border-color: #d88b55; }
+#arcade.tema-yas .arc-upgrade .arc-carta { background: linear-gradient(180deg, color-mix(in srgb, var(--cor) 15%, #3b4535), #2b2520 75%); box-shadow: inset 0 0 18px rgba(0, 0, 0, .28), 4px 4px 0 #241b17; }
+#arcade.tema-yas .arc-upgrade .arc-desc, #arcade.tema-yas .arc-up-dica { color: #d8c3a6 !important; }
+#arcade.tema-yas .of-raiz { background: radial-gradient(ellipse at 50% 40%, #526b4d 0%, #332b24 58%, #241b17 100%); border-color: #b7683f; box-shadow: 0 0 0 4px #241b17; }
+#arcade.tema-yas .of-topo { border-image: repeating-linear-gradient(135deg, #d8b68e 0 10px, #496044 10px 20px) 4; }
+#arcade.tema-yas .of-topo h3, #arcade.tema-yas .of-moedas { color: #e5b85c; }
+#arcade.tema-yas .of-parte { background: rgba(49, 42, 34, .94); border-color: #71835b; box-shadow: 0 0 0 2px #241b17, inset 0 0 14px rgba(113, 131, 91, .2); }
+#arcade.tema-yas .of-parte h4 { color: #e5b85c; border-color: #71835b; }
+#arcade.tema-yas .of-parte .sub, #arcade.tema-yas .of-centro p, #arcade.tema-yas .of-rodape { color: #d8c3a6; }
+#arcade.tema-yas .of-melhoria b { color: #f2d7ae; }
+#arcade.tema-yas .of-melhoria small { color: #d8c3a6; }
+#arcade.tema-yas .of-melhoria .arc-btn { background: #496044; }
+#arcade.tema-yas .of-nave { filter: drop-shadow(0 0 18px rgba(216, 139, 85, .42)); }
+#arcade.tema-yas .of-linha { stroke: #d88b55; }
+#arcade.tema-yas .of-ponto { fill: #e5b85c; stroke: #241b17; }

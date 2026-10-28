@@ -151,22 +151,29 @@ function criarSprites() {
 }
 
 // nave do jogo (20x20): o desenho muda conforme o nível de cada parte
-function gerarNave(t) {
+function gerarNave(t, temaYas = false) {
   const s = novoSprite(20, 20), o = 2;
   const R = (x, y, w, h, c) => s.retangulo(x + o, y + o, w, h, c);
-  R(1, 7, 3, 2, '#ff7a59'); R(12, 7, 3, 2, '#ff7a59'); R(7, 1, 2, 3, '#ff7a59'); R(7, 12, 2, 3, '#ff7a59');
-  if (t.motor >= 2) { R(2, 11, 2, 3, '#8b93a8'); R(12, 11, 2, 3, '#8b93a8'); s.pixel(3 + o, 14 + o, '#ffa23a'); s.pixel(12 + o, 14 + o, '#ffa23a'); }
-  if (t.motor >= 4) { R(1, 4, 2, 3, '#8b93a8'); R(13, 4, 2, 3, '#8b93a8'); }
-  s.disco(8 + o, 8 + o, 5, '#4aa8ff');
-  s.disco(8 + o, 8 + o, 3, t.nucleo >= 4 ? '#ffc14a' : t.nucleo >= 2 ? '#7dff9a' : '#8bd3ff');
-  s.disco(8 + o, 8 + o, 1, '#ffffff');
-  if (t.casco >= 1) for (const [x, y] of [[2, 2], [12, 2], [2, 12], [12, 12]]) { R(x, y, 2, 2, '#aab3c8'); if (t.casco >= 3) s.pixel(x + o, y + o, '#e6e8ff'); }
-  if (t.ima >= 1) { s.pixel(8 + o, o - 1, '#ff3b4a'); if (t.ima >= 3) R(10, 0, 2, 1, '#c9cdd8'); }
-  s.contorno(t.casco >= 5 ? '#ffd23f' : t.casco >= 3 ? '#8bd3ff' : '#0b1026');
+  const P = temaYas
+    ? { aleta: '#b7683f', metal: '#b9a58b', casco: '#496044', nucleo: '#f2d7ae', nucleo2: '#e5b85c', brilho: '#fff1d7', alerta: '#d88b55', contorno: '#241b17' }
+    : { aleta: '#ff7a59', metal: '#8b93a8', casco: '#4aa8ff', nucleo: '#8bd3ff', nucleo2: '#7dff9a', brilho: '#ffffff', alerta: '#ff3b4a', contorno: '#0b1026' };
+  R(1, 7, 3, 2, P.aleta); R(12, 7, 3, 2, P.aleta); R(7, 1, 2, 3, P.aleta); R(7, 12, 2, 3, P.aleta);
+  if (t.motor >= 2) { R(2, 11, 2, 3, P.metal); R(12, 11, 2, 3, P.metal); s.pixel(3 + o, 14 + o, '#ffa23a'); s.pixel(12 + o, 14 + o, '#ffa23a'); }
+  if (t.motor >= 4) { R(1, 4, 2, 3, P.metal); R(13, 4, 2, 3, P.metal); }
+  s.disco(8 + o, 8 + o, 5, P.casco);
+  s.disco(8 + o, 8 + o, 3, t.nucleo >= 4 ? '#ffc14a' : t.nucleo >= 2 ? P.nucleo2 : P.nucleo);
+  s.disco(8 + o, 8 + o, 1, P.brilho);
+  if (temaYas) { // pequena flor/folha no casco
+    for (const [x, y] of [[7, 6], [9, 6], [7, 8], [9, 8]]) s.pixel(x + o, y + o, '#91a56b');
+    s.pixel(8 + o, 7 + o, '#e5b85c');
+  }
+  if (t.casco >= 1) for (const [x, y] of [[2, 2], [12, 2], [2, 12], [12, 12]]) { R(x, y, 2, 2, P.metal); if (t.casco >= 3) s.pixel(x + o, y + o, P.brilho); }
+  if (t.ima >= 1) { s.pixel(8 + o, o - 1, P.alerta); if (t.ima >= 3) R(10, 0, 2, 1, temaYas ? '#e8d5b8' : '#c9cdd8'); }
+  s.contorno(t.casco >= 5 ? '#ffd23f' : t.casco >= 3 ? (temaYas ? '#d8b68e' : '#8bd3ff') : P.contorno);
   return { c: s.c, branca: silhuetaBranca(s.c) };
 }
 
-export function iniciarArcade({ bip, somAtivo }) {
+export function iniciarArcade({ bip, somAtivo, temaYas = false }) {
   // Durante o desenvolvimento o Vite pode recarregar este módulo sem destruir a instância anterior.
   // Uma geração global faz o loop velho se encerrar no frame seguinte e evita dois jogos disputando a mesma aba.
   const geracao = Symbol('arcade');
@@ -217,7 +224,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     for (const el of [musicaChefe, musicaFim]) { el.muted = true; el.play().then(() => { el.pause(); el.currentTime = 0; el.muted = false; }).catch(() => { el.muted = false; faixasDestravadas = false; }); }
   }
   const fundo = criarFundo(L, A);
-  let naveSpr = gerarNave({ casco: 0, motor: 0, nucleo: 0, armas: 0, ima: 0 });
+  let naveSpr = gerarNave({ casco: 0, motor: 0, nucleo: 0, armas: 0, ima: 0 }, temaYas);
   let dados = carregarDados();
   const ultimoSom = {};
   const som = (cat, folga, fn) => { const t = performance.now(); if (t - (ultimoSom[cat] || 0) < folga) return; ultimoSom[cat] = t; fn(); };
@@ -238,12 +245,12 @@ export function iniciarArcade({ bip, somAtivo }) {
   const salvarDados = () => { try { localStorage.setItem(CHAVE, JSON.stringify(dados)); } catch { /* ignora */ } };
 
   // ---------- interface ----------
-  const raiz = el('div'); raiz.id = 'arcade';
+  const raiz = el('div'); raiz.id = 'arcade'; raiz.classList.toggle('tema-yas', temaYas);
   const caixa = el('div', 'arc-caixa');
   const topo = el('div', 'arc-topo');
   const icone = document.createElement('canvas'); icone.width = icone.height = 20; icone.className = 'arc-icone';
   icone.getContext('2d').drawImage(naveSpr.c, 0, 0);
-  const titulo = el('h2', null, 'NAVE ARCADE');
+  const titulo = el('h2', null, temaYas ? 'NAVE VIAJANTE' : 'NAVE ARCADE');
   const hud = el('div', 'arc-hud');
   const vidasEl = el('span', 'arc-vidas');
   vidasEl.setAttribute('role', 'status');
@@ -334,7 +341,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   }
   function atualizarNaveSpr() {
     const t = tiersNave();
-    naveSpr = gerarNave(t);
+    naveSpr = gerarNave(t, temaYas);
     if (S) S.tiers = t;
     const ic = icone.getContext('2d'); ic.clearRect(0, 0, 20, 20); ic.drawImage(naveSpr.c, 0, 0);
   }
@@ -1456,23 +1463,28 @@ export function iniciarArcade({ bip, somAtivo }) {
 
   function montarNave(nv) { // desenha a nave aberta (parte parada); as luzes e chamas são animadas por cima
     const s = novoSprite(128, 128);
-    const AZ = '#2e7de0', CIN = '#8b93a8', CIN2 = '#5a6176', CIN3 = '#c9cdd8', ESC = '#171b2c', LAR = '#ff7a3a', VERM = '#e2533a';
+    const AZ = temaYas ? '#496044' : '#2e7de0', CIN = temaYas ? '#b9a58b' : '#8b93a8', CIN2 = temaYas ? '#76513d' : '#5a6176', CIN3 = temaYas ? '#e8d5b8' : '#c9cdd8', ESC = temaYas ? '#28241f' : '#171b2c', LAR = temaYas ? '#d88b55' : '#ff7a3a', VERM = temaYas ? '#b7683f' : '#e2533a';
     for (const [x0, x1] of [[44, 34], [82, 92]]) { // trem de pouso
       for (let k = 0; k < 3; k++) s.linha(x0 + k, 92, x1 + k, 118, k === 1 ? CIN : CIN2);
       s.retangulo(x1 - 5, 118, 13, 3, CIN3);
     }
-    s.retangulo(0, 122, 128, 6, '#12172b'); // plataforma com faixas de alerta
-    for (let i = 0; i < 128; i += 8) s.retangulo(i, 123, 4, 4, '#ffd23f');
+    s.retangulo(0, 122, 128, 6, temaYas ? '#332b24' : '#12172b'); // plataforma com faixas de alerta
+    for (let i = 0; i < 128; i += 8) s.retangulo(i, 123, 4, 4, temaYas ? '#d8b68e' : '#ffd23f');
     s.disco(62, 60, 38, AZ); // casco
     s.disco(65, 62, 33, ESC); // interior aberto
-    s.elipse(46, 30, 7, 3, '#cfe9ff'); s.elipse(40, 36, 3, 2, '#9cc9ff');
+    s.elipse(46, 30, 7, 3, temaYas ? '#fff1d7' : '#cfe9ff'); s.elipse(40, 36, 3, 2, temaYas ? '#d8b68e' : '#9cc9ff');
     for (const [x, y, w, h] of [[40, 44, 14, 9], [42, 70, 12, 10], [78, 44, 12, 8], [80, 72, 14, 9], [56, 84, 16, 7], [56, 36, 14, 7]]) { s.retangulo(x, y, w, h, CIN2); s.retangulo(x, y, w, 1, CIN); s.retangulo(x + 2, y + 3, w - 4, 2, '#2d3348'); }
     for (const [x0, y0, x1, y1] of [[40, 60, 52, 60], [78, 60, 92, 60], [65, 40, 65, 50], [65, 74, 65, 84], [47, 53, 47, 66], [86, 52, 86, 70]]) { s.linha(x0, y0, x1, y1, LAR); s.linha(x0 + 1, y0 + 1, x1 + 1, y1 + 1, '#b34a1e'); }
     for (const [x, y, c] of [[86, 49, '#ffd23f'], [45, 47, '#ff3b4a'], [82, 76, '#7dff9a'], [60, 87, '#ffd23f']]) s.pixel(x, y, c);
     s.disco(65, 62, 14, CIN); s.disco(65, 62, 12, '#10131f'); // caixa do núcleo
     for (const [x, y] of [[50, 47], [79, 47], [50, 76], [79, 76]]) s.retangulo(x, y, 3, 3, CIN3);
     for (let k = 0; k < nv.bateria; k++) { s.retangulo(51 + k * 5, 85, 4, 6, '#10131f'); s.retangulo(52 + k * 5, 86, 2, 4, '#7dff9a'); }
-    s.disco(80, 34, 5, CIN3); s.disco(80, 34, 4, '#8bd3ff'); s.retangulo(77, 33, 6, 1, '#ffffff'); // cabine
+    s.disco(80, 34, 5, CIN3); s.disco(80, 34, 4, temaYas ? '#f2d7ae' : '#8bd3ff'); s.retangulo(77, 33, 6, 1, temaYas ? '#fff1d7' : '#ffffff'); // cabine
+    if (temaYas) { // pintura botânica e adesivos da nave da Yas
+      for (const [x, y] of [[30, 28], [34, 25], [38, 28], [34, 31]]) s.disco(x, y, 2, '#91a56b');
+      s.disco(34, 28, 2, '#e5b85c');
+      s.retangulo(22, 82, 10, 4, '#e8d5b8'); s.retangulo(24, 83, 6, 2, '#c96f45');
+    }
     for (let k = 0; k < nv.casco; k++) { // placas extras do casco
       const an = 2.6 + k * 0.5, px = Math.round(62 + Math.cos(an) * 35), py = Math.round(60 + Math.sin(an) * 35);
       s.retangulo(px - 2, py - 2, 5, 5, CIN2); s.retangulo(px - 1, py - 1, 3, 3, CIN3);
@@ -1488,10 +1500,10 @@ export function iniciarArcade({ bip, somAtivo }) {
     s.poligono([[16, 50], [8, 44], [8, 78], [16, 72]], CIN2); s.poligono([[14, 54], [10, 50], [10, 72], [14, 68]], '#10131f');
     if (nv.motor >= 3) { s.retangulo(18, 76, 14, 6, CIN); s.retangulo(14, 76, 4, 6, CIN2); }
     if (nv.motor >= 2) { s.poligono([[28, 50], [32, 41], [36, 50]], LAR); s.poligono([[28, 72], [32, 81], [36, 72]], LAR); }
-    s.retangulo(63, 10, 3, 14, CIN); s.disco(64, 8, 4, '#e2243a'); s.pixel(63, 6, '#ffb3ba'); // antena
+    s.retangulo(63, 10, 3, 14, CIN); s.disco(64, 8, 4, temaYas ? '#d88b55' : '#e2243a'); s.pixel(63, 6, temaYas ? '#fff1d7' : '#ffb3ba'); // antena
     for (let k = 0; k < Math.min(4, nv.ima); k++) s.elipse(72 + k * 5, 17 - k * 2, 4, 2, k % 2 ? CIN : CIN3);
     if (nv.xp > 0) { s.retangulo(55, 14, 2, 8, CIN); s.disco(56, 13, 2, '#7dff9a'); }
-    s.contorno('#070a1a');
+    s.contorno(temaYas ? '#241b17' : '#070a1a');
     return s.c;
   }
   const discoNave = (cx, cy, r, cor) => { gNave.fillStyle = cor; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (i * i + j * j <= r * r + 0.5) gNave.fillRect(cx + i, cy + j, 1, 1); };
@@ -1500,7 +1512,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     const fx = fxOficina && t - fxOficina.t0 < 1.2 ? { i: fxOficina.i, u: (t - fxOficina.t0) / 1.2 } : null;
     gNave.clearRect(0, 0, 128, 128);
     if (naveBase) gNave.drawImage(naveBase, 0, 0);
-    const cor = nv.nucleo >= 4 ? ['#ff7a2a', '#ffc14a'] : nv.nucleo >= 2 ? ['#22b85a', '#7dff9a'] : ['#2f8cff', '#8bd3ff'];
+    const cor = nv.nucleo >= 4 ? ['#ff7a2a', '#ffc14a'] : nv.nucleo >= 2 ? ['#22b85a', '#7dff9a'] : (temaYas ? ['#b7683f', '#f2d7ae'] : ['#2f8cff', '#8bd3ff']);
     const pulso = Math.sin(t * 4) > 0 ? 1 : 0;
     discoNave(65, 62, 9 + pulso, cor[0]); discoNave(65, 62, 6, cor[1]); discoNave(65, 62, 3, '#ffffff');
     gNave.fillStyle = cor[1]; for (let k = 0; k < 6; k++) { const an = t * 2 + (k * Math.PI) / 3; gNave.fillRect(Math.round(65 + Math.cos(an) * 12), Math.round(62 + Math.sin(an) * 12), 1, 1); }
