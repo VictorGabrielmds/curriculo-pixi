@@ -347,15 +347,13 @@ export function iniciarArcade({ bip, somAtivo }) {
   };
   const embaralhar = (lista) => { const a = [...lista]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   function sortearElenco() {
-    const escolhidos = new Set([
-      ...embaralhar(['slime', 'inseto']).slice(0, 1),
-      ...embaralhar(['morcego', 'fantasma']).slice(0, 1),
-      ...embaralhar(['ogro', 'slime']).slice(0, 1),
-      ...embaralhar(['atirador', 'sentinela', 'bombardeiro', 'fulminante']).slice(0, 2),
-      ...embaralhar(['curandeiro', 'amplificador']).slice(0, 1),
-    ]);
-    for (const tipo of embaralhar(Object.keys(TIPOS).filter((t) => !['chefe', 'alien'].includes(t)))) { if (escolhidos.size >= 6) break; escolhidos.add(tipo); }
-    return [...escolhidos];
+    // Cada run continua diferente, mas a leitura da dificuldade é sempre clara:
+    // corpo a corpo primeiro, um atirador depois, ameaça avançada e suporte por último.
+    const corpo = embaralhar(['slime', 'inseto', 'morcego', 'fantasma', 'ogro']).slice(0, 3);
+    const distancia = embaralhar(['atirador', 'sentinela']).slice(0, 1);
+    const avancado = embaralhar(['bombardeiro', 'fulminante']).slice(0, 1);
+    const suporte = embaralhar(['curandeiro', 'amplificador']).slice(0, 1);
+    return [...corpo, ...distancia, ...avancado, ...suporte];
   }
 
   function novoJogo() {
@@ -363,10 +361,10 @@ export function iniciarArcade({ bip, somAtivo }) {
     const elencoRun = sortearElenco();
     const temas = embaralhar(Array.from({ length: TEMAS.length }, (_, i) => i));
     const skinsRun = Object.fromEntries(elencoRun.map((tipo, i) => [tipo, temas[i % temas.length]]));
-    const entradaRun = Object.fromEntries(elencoRun.map((tipo, i) => [tipo, i === 0 || i === 1 || i === 3 ? 1 : i === 5 ? 3 : 2]));
+    const entradaRun = Object.fromEntries(elencoRun.map((tipo, i) => [tipo, i < 2 ? 1 : i < 4 ? 2 : i === 4 ? 4 : 5]));
     S = {
       t: 0, ta: 0, nx: CX, ny: CY, cx: CX, cy: CY, velNave: 75 * (1 + 0.08 * of.motor), cristais: [], raioIma: 26 * (1 + 0.25 * of.ima), raioPegar: 8, bonusXp: 1 + 0.1 * of.xp,
-      onda: 0, ondaEstado: 'calma', calmaT: 20, proxOnda: 20, ondaT: 0, ondaDur: 0, combo: 0, comboT: 0, melhorCombo: 0, aviso: 0, avisoTxt: '', fase: 1,
+      onda: 0, ondaEstado: 'calma', calmaT: 20, proxOnda: 20, ondaT: 0, ondaDur: 0, ondaFila: 0, ondaSpawnT: 0, combo: 0, comboT: 0, melhorCombo: 0, aviso: 0, avisoTxt: '', fase: 1,
       hp: 6 + of.casco, maxHp: 6 + of.casco, nivel: 1, xp: 0, xpProx: 5, kills: 0,
       dano: 1 + 0.25 * of.dano, danoGlobal: 1, recargaGlobal: 1, cadencia: 2.6 * (1 + 0.1 * of.cadencia), projeteis: 1 + of.projetil, perfura: 0, velTiro: 160, critico: 0,
       inimigos: [], tiros: [], tirosInimigos: [], campos: [], raios: [], rochas: [], itens: [], parts: [], ondas: [], textos: [],
@@ -390,7 +388,7 @@ export function iniciarArcade({ bip, somAtivo }) {
   }
 
   // ---------- criação de entidades ----------
-  const tier = () => Math.max(S.onda, 1 + Math.floor(S.t / 45)); // o quanto a partida já avançou (por onda ou por tempo)
+  const tier = () => Math.max(1, S.onda); // novos tipos entram por onda: a progressão fica visível e previsível
   function sortearTipo() {
     const o = tier();
     const base = { slime: 10, inseto: 6, morcego: 6, atirador: 5.5, sentinela: 4.5, bombardeiro: 2.7, fulminante: 3.2, curandeiro: 2.4, ogro: 3.2, fantasma: 3.5, amplificador: 2.1 };
@@ -406,13 +404,12 @@ export function iniciarArcade({ bip, somAtivo }) {
     S.inimigos.push(m);
     return m;
   }
-  // Monstros surgem de TODOS os lados, sempre fora da tela, num anel em volta da nave: alguns logo depois da borda e outros bem longe
-  // (parecem já estar por ali e vêm atrás de você). Com o tempo cada surgimento traz mais monstros de uma vez.
+  // Monstros surgem de TODOS os lados, sempre fora da tela, num anel em volta da nave.
   // angPref (opcional): direção para onde a nave está andando; os monstros "que já estavam lá" ficam mais à frente dela.
   function spawn(max = 99, angPref = null) {
     const tipo = sortearTipo();
-    const grupo = 1 + Math.min(6, Math.floor(S.t / 80));
-    const n = Math.max(1, Math.min(max, tipo === 'inseto' ? 4 + Math.floor(Math.random() * 3) : Math.round(grupo * (0.7 + Math.random() * 0.6))));
+    const grupo = 1 + Math.min(3, Math.floor(Math.max(0, S.onda - 1) / 3));
+    const n = Math.max(1, Math.min(max, tipo === 'inseto' ? 1 + Math.floor(Math.random() * (grupo + 1)) : Math.round(grupo * (0.75 + Math.random() * 0.35))));
     const ang = angPref == null ? Math.random() * Math.PI * 2 : angPref + (Math.random() - 0.5) * 1.8;
     const r = 215 + (Math.random() < 0.35 ? Math.random() * 230 : Math.random() * 60);
     const px = S.nx + Math.cos(ang) * r, py = S.ny + Math.sin(ang) * r;
@@ -422,16 +419,14 @@ export function iniciarArcade({ bip, somAtivo }) {
   function semearMundo(quantos) { // o mundo já começa povoado: monstros espalhados em volta, que vão chegando
     for (let i = 0; i < quantos; i++) spawn(1);
   }
-  function spawnCantos(quantidade) {
-    const disponiveis = S.elencoRun.filter((tipo) => tier() >= S.entradaRun[tipo]);
-    const ordem = embaralhar(disponiveis.length ? disponiveis : [S.elencoRun[0]]);
+  function spawnPelotaoCanto(quantidade) {
     const cantos = [
-      [S.cx - L / 2 - 12, S.cy - A / 2 - 12], [S.cx + L / 2 + 12, S.cy - A / 2 - 12],
-      [S.cx - L / 2 - 12, S.cy + A / 2 + 12], [S.cx + L / 2 + 12, S.cy + A / 2 + 12],
+      [S.cx - L / 2 - 16, S.cy - A / 2 - 16], [S.cx + L / 2 + 16, S.cy - A / 2 - 16],
+      [S.cx - L / 2 - 16, S.cy + A / 2 + 16], [S.cx + L / 2 + 16, S.cy + A / 2 + 16],
     ];
+    const [x, y] = cantos[Math.floor(Math.random() * cantos.length)];
     for (let i = 0; i < quantidade; i++) {
-      const [x, y] = cantos[i % 4], tipo = ordem[i % ordem.length];
-      criarInimigo(tipo, x + (Math.random() - 0.5) * 24, y + (Math.random() - 0.5) * 24);
+      criarInimigo(sortearTipo(), x + (Math.random() - 0.5) * 22, y + (Math.random() - 0.5) * 22);
     }
   }
   function particulas(x, y, n, cores, vel = 50) {
@@ -443,18 +438,17 @@ export function iniciarArcade({ bip, somAtivo }) {
   }
   const texto = (x, y, txt, cor = '#ffffff') => S.textos.push({ x, y, txt, cor, vida: 1.1 });
 
-  // As ondas são só um acontecimento: de tempos em tempos vem um extra de monstros (e a cada 3 ondas um chefão),
-  // sem placar, recompensa ou pausa. Os monstros normais nunca param de aparecer.
+  // A onda alimenta uma fila: pequenos pelotões entram pelos cantos, em vez de todos surgirem no mesmo frame.
   function iniciarOnda() {
     S.onda += 1;
     const novaFase = 1 + Math.floor((S.onda - 1) / 3); // a cada 3 ondas começa uma nova fase, com os monstros em outro tema
-    const doChefe = S.onda % 3 === 0;
-    S.ondaDur = S.ondaT = 10; // pico de pressão; a próxima onda tem relógio próprio e pode chegar com sobreviventes na tela
-    S.proxOnda = Math.max(14, 25 - Math.min(8, S.onda * 0.45)) + Math.random() * 4;
+    const doChefe = S.onda % 5 === 0; // chefes são marcos, não uma interrupção a cada poucos segundos
+    S.ondaDur = S.ondaT = 13 + Math.min(9, S.onda * 1.1);
+    S.ondaFila = doChefe ? 5 + S.onda : Math.min(34, 6 + S.onda * 3); // 9, 12, 15... monstros, liberados aos poucos
+    S.ondaSpawnT = 0.35;
+    S.proxOnda = Math.max(25, 34 - Math.min(9, S.onda * 0.5)) + Math.random() * 4;
     S.ondaEstado = doChefe || S.chefe ? 'chefe' : 'ativa';
-    S.spawnAcc = 3;
     S.tremor = 0.25;
-    spawnCantos(doChefe ? Math.min(24, 10 + S.onda * 2) : Math.min(36, 16 + S.onda * 4));
     if (novaFase > S.fase) S.fase = novaFase;
     if (!doChefe) { mostrarAviso('!! ONDA DE MONSTROS !!', 2); bip(300, 0.1, 'square', 0.05); bip(450, 0.14, 'square', 0.05, 0.1); }
     if (doChefe && !S.chefe) criarChefeInimigo();
@@ -911,18 +905,25 @@ export function iniciarArcade({ bip, somAtivo }) {
   // ---------- atualização ----------
   function atualizarMundo(dt) {
     S.proxOnda -= dt;
-    if (S.proxOnda <= 0) iniciarOnda();
+    if (S.proxOnda <= 0 && S.ondaFila <= 0) iniciarOnda();
     S.ondaT = Math.max(0, S.ondaT - dt);
-    S.ondaEstado = S.chefe ? 'chefe' : S.ondaT > 0 ? 'ativa' : 'calma';
-    // monstros nunca param de aparecer: cada onda é um novo pico, mesmo que a anterior ainda esteja viva
-    const rampa = S.ondaT > 0 ? 0.75 + 0.55 * (1 - S.ondaT / S.ondaDur) : 0;
-    const extra = S.ondaT > 0 ? (0.9 + 0.2 * S.onda) * rampa : 0;
-    const basico = 0.6 + Math.min(1.4, S.t * 0.005) + 0.03 * S.nivel; // surgimentos por segundo (cada um traz um grupo que cresce com o tempo)
-    S.spawnAcc += dt * (basico + extra) * (S.ondaEstado === 'chefe' ? 0.6 : 1);
+    S.ondaEstado = S.chefe ? 'chefe' : S.ondaT > 0 || S.ondaFila > 0 ? 'ativa' : 'calma';
+    const cap = Math.min(54, 12 + 3 * tier());
+    // Durante a onda, pelotões pequenos entram em cadência pelos cantos da tela.
+    if (S.ondaFila > 0) {
+      S.ondaSpawnT -= dt;
+      if (S.ondaSpawnT <= 0) {
+        const pacote = Math.min(S.ondaFila, Math.min(4, 1 + Math.floor((S.onda - 1) / 2)), Math.max(0, cap - S.inimigos.length));
+        if (pacote > 0) { spawnPelotaoCanto(pacote); S.ondaFila -= pacote; }
+        S.ondaSpawnT = pacote > 0 ? Math.max(0.72, 1.45 - S.onda * 0.045) + Math.random() * 0.38 : 0.5;
+      }
+    }
+    // Entre as ondas ainda existem encontros, mas em ritmo leve para a evolução respirar.
+    const basico = 0.24 + Math.min(0.72, S.t * 0.0014) + 0.015 * S.nivel;
+    S.spawnAcc += dt * basico * (S.ondaEstado === 'chefe' ? 0.45 : 1);
     if (!Number.isFinite(S.spawnAcc) || S.spawnAcc < 0) S.spawnAcc = 0;
-    const cap = Math.min(60, 14 + 3 * tier());
     let lotes = 0;
-    while (S.spawnAcc >= 1 && lotes < 8) { S.spawnAcc -= 1; lotes += 1; if (S.inimigos.length < cap) spawn(); }
+    while (S.spawnAcc >= 1 && lotes < 3) { S.spawnAcc -= 1; lotes += 1; if (S.inimigos.length < cap) spawn(2); }
     // conforme a nave anda, aparecem monstros à frente dela (o mundo já estava povoado) e eles vão atrás de você
     if (S.ultX == null) { S.ultX = S.nx; S.ultY = S.ny; S.andou = 0; S.angAndar = 0; }
     const mvx = S.nx - S.ultX, mvy = S.ny - S.ultY, passo = Math.hypot(mvx, mvy);
@@ -957,36 +958,36 @@ export function iniciarArcade({ bip, somAtivo }) {
       if (m.tipo === 'morcego') { const o = Math.sin(S.ta * 5 + m.fase) * 28; vx += (-dy / d) * o; vy += (dx / d) * o; }
       else if (m.tipo === 'inseto') { const o = Math.sin(S.ta * 9 + m.fase) * 22; vx += (-dy / d) * o; vy += (dx / d) * o; }
       else if (m.tipo === 'atirador') {
-        const k = d > 110 ? 1 : d < 80 ? -0.8 : 0, ox = Math.sin(S.ta * 1.2 + m.fase) * 0.5;
+        const k = d > 92 ? 1 : 0.22, ox = Math.sin(S.ta * 1.2 + m.fase) * 0.35;
         vx = ((dx / d) * k + (-dy / d) * ox) * m.vel * buff; vy = ((dy / d) * k + (dx / d) * ox) * m.vel * buff;
         m.cd -= dt * buff;
         if (m.cd <= 0 && naTela(m)) { atirarInimigo(m.x, m.y, Math.atan2(dy, dx), 74, danoTempo() * (m.buffT > 0 ? 1.5 : 1)); m.cd = 1.8 + Math.random() * 0.9; }
       } else if (m.tipo === 'sentinela') {
-        const k = d > 125 ? 1 : d < 92 ? -0.9 : 0, ang = Math.atan2(dy, dx);
-        vx = ((dx / d) * k + (-dy / d) * Math.sin(S.ta + m.fase) * 0.35) * m.vel * buff; vy = ((dy / d) * k + (dx / d) * Math.sin(S.ta + m.fase) * 0.35) * m.vel * buff;
+        const k = d > 105 ? 1 : 0.2, ang = Math.atan2(dy, dx);
+        vx = ((dx / d) * k + (-dy / d) * Math.sin(S.ta + m.fase) * 0.28) * m.vel * buff; vy = ((dy / d) * k + (dx / d) * Math.sin(S.ta + m.fase) * 0.28) * m.vel * buff;
         m.cd -= dt * buff;
         if (m.cd <= 0 && naTela(m)) { for (const a of [-0.18, 0, 0.18]) atirarInimigo(m.x, m.y, ang + a, 82, danoTempo() * (m.buffT > 0 ? 1.5 : 1)); m.cd = 2.5 + Math.random() * 0.8; }
       } else if (m.tipo === 'bombardeiro') {
-        const k = d > 145 ? 1 : d < 110 ? -0.8 : 0;
+        const k = d > 120 ? 0.9 : 0.18;
         vx = (dx / d) * k * m.vel * buff; vy = (dy / d) * k * m.vel * buff;
         m.cd -= dt * buff;
         if (m.cd <= 0 && naTela(m)) { lancarBombas(m.x, m.y, m.buffT > 0 ? 2 : 1, 1.15); m.cd = 4 + Math.random() * 1.2; }
       } else if (m.tipo === 'fulminante') {
-        const k = d > 145 ? 0.9 : d < 105 ? -0.9 : 0, ang = Math.atan2(dy, dx);
+        const k = d > 125 ? 0.9 : 0.18, ang = Math.atan2(dy, dx);
         vx = ((dx / d) * k + (-dy / d) * Math.sin(S.ta * 1.7 + m.fase) * 0.28) * m.vel * buff; vy = ((dy / d) * k + (dx / d) * Math.sin(S.ta * 1.7 + m.fase) * 0.28) * m.vel * buff;
         m.cd -= dt * buff;
         if (m.cd <= 0 && naTela(m)) { S.raios.push({ x: m.x, y: m.y, ang, aviso: 0.8, vida: 0.28, tick: 0, ligou: false, cor: '#38c8ff', dano: danoTempo(), dono: m }); m.cd = 3.8 + Math.random() * 1.2; bip(260, 0.12, 'triangle', 0.025); }
       } else if (m.tipo === 'curandeiro') {
         const ferido = S.inimigos.filter((o) => o !== m && !o.morto && o.hp < o.hpMax && o.tipo !== 'chefe').sort((a, b) => Math.hypot(a.x - m.x, a.y - m.y) - Math.hypot(b.x - m.x, b.y - m.y))[0];
-        if (ferido) { const ax = ferido.x - m.x, ay = ferido.y - m.y, ad = Math.hypot(ax, ay) || 1; if (ad > 42) { vx = (ax / ad) * m.vel; vy = (ay / ad) * m.vel; } else { vx = vy = 0; } }
-        else { const k = d < 95 ? -0.8 : d > 140 ? 0.45 : 0; vx = (dx / d) * k * m.vel; vy = (dy / d) * k * m.vel; }
+        vx = (dx / d) * m.vel * 0.68; vy = (dy / d) * m.vel * 0.68;
+        if (ferido) { const ax = ferido.x - m.x, ay = ferido.y - m.y, ad = Math.hypot(ax, ay) || 1; vx += (ax / ad) * m.vel * 0.32; vy += (ay / ad) * m.vel * 0.32; }
         m.cd -= dt;
         if (m.cd <= 0 && ferido && Math.hypot(ferido.x - m.x, ferido.y - m.y) < RAIO_SUPORTE) { const cura = Math.max(1, Math.ceil(ferido.hpMax * 0.22)); ferido.hp = Math.min(ferido.hpMax, ferido.hp + cura); ferido.suporteFx = 0.8; m.suporteFx = 0.8; texto(ferido.x, ferido.y - 8, `+${cura}`, '#7dff9a'); particulas(ferido.x, ferido.y, 5, ['#7dff9a', '#ffffff'], 35); m.cd = 2.7 + Math.random() * 0.8; }
       } else if (m.tipo === 'amplificador') {
         const aliados = S.inimigos.filter((o) => o !== m && !o.morto && o.tipo !== 'chefe' && Math.hypot(o.x - m.x, o.y - m.y) < RAIO_SUPORTE); // só os inimigos perto dele recebem o buff
         for (const aliado of aliados) aliado.buffT = Math.max(aliado.buffT || 0, 0.4);
         if (aliados.length) m.suporteFx = 0.25;
-        const k = d < 100 ? -0.7 : d > 150 ? 0.4 : 0; vx = (dx / d) * k * m.vel; vy = (dy / d) * k * m.vel;
+        const k = d > 85 ? 0.72 : 0.2; vx = (dx / d) * k * m.vel; vy = (dy / d) * k * m.vel;
       }
       const lento = obstaculos.fatorLento(m.x, m.y); // campos de detritos deixam os monstros lentos e corpos sólidos barram o caminho
       m.x += vx * dt * lento; m.y += vy * dt * lento;
@@ -1772,7 +1773,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     xpBarra.style.width = `${Math.min(100, (S.xp / S.xpProx) * 100)}%`;
     xpBox.setAttribute('aria-valuenow', String(Math.floor(S.xp))); xpBox.setAttribute('aria-valuemax', String(S.xpProx));
     killsEl.textContent = `☠ ${S.kills}`;
-    ondaEl.textContent = S.alien ? 'BURACO NEGRO' : S.onda > 0 ? `F${S.fase} · ONDA ${S.onda}` : '';
+    ondaEl.textContent = S.alien ? 'BURACO NEGRO' : S.onda > 0 ? `F${S.fase} · ONDA ${S.onda}${S.ondaFila > 0 ? ` · ${S.ondaFila} A CAMINHO` : ''}` : '';
     ondaEl.classList.toggle('alerta', !!S.alien || S.ondaEstado === 'chefe');
     efeitosEl.textContent = efeitos;
     moedaEl.textContent = `◆ ${dados.moedas}`;
@@ -1843,7 +1844,7 @@ export function iniciarArcade({ bip, somAtivo }) {
     faixa = 'normal'; musicaChefe.pause(); musicaFim.pause();
     musica.currentTime = 0; tocarMusica(); // a música recomeça do início a cada partida
     novoJogo();
-    semearMundo(12);
+    semearMundo(4); // começo legível: poucos corpo a corpo chegam antes da primeira onda
     hudCache = '';
     painelInicio.hidden = true; painelFim.hidden = true; painelEscolha.hidden = true; painelPausa.hidden = true; painelOficina.hidden = true;
     modo = 'jogando';
